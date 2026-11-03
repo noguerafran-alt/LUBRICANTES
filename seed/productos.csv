@@ -1,0 +1,200 @@
+producto_id,marca,linea,nombre,segmento,sae,base,api,acea,ilsac,jaso,oem,fuente_specs,verificado
+ypf-elaion-auro-d1-020-0w20,YPF,Elaion Auro Hybrid,D1 020,pcmo,0W-20,sintetico,SQ-RC,,GF-7A,,GM dexos1 Gen3;Ford WSS-M2C962-A1,https://elaion.com.ar/fichas/elaion-auro-d1.pdf,inferido
+ypf-elaion-auro-d1-530-5w30,YPF,Elaion Auro Hybrid,D1 530,pcmo,5W-30,sintetico,SQ-RC,,GF-7A,,GM dexos1 Gen3;Ford WSS-M2C961-A1,https://elaion.com.ar/fichas/elaion-auro-d1.pdf,inferido
+ypf-elaion-auro-d2-530-5w30,YPF,Elaion Auro,D2 530,pcmo,5W-30,sintetico,SN,C3,,,GM dexos2,https://elaion.com.ar/fichas/elaion-auro-d2.pdf,confirmado
+ypf-elaion-auro-fe-530-5w30,YPF,Elaion Auro,FE 530,pcmo,5W-30,sintetico,SN,A5/B5,,,Ford WSS-M2C913-D,https://elaion.com.ar/fichas/elaion-auro-fe-530.pdf,confirmado
+ypf-elaion-auro-dpf-530-5w30,YPF,Elaion Auro Hybrid,DPF 530,pcmo,5W-30,sintetico,SP-RC,C3,,,VW 504.00;VW 507.00;Porsche C30;MB 229.51;MB 229.52,https://elaion.com.ar/assets/BrochureELAION.pdf,inferido
+ypf-elaion-auro-plus-540-5w40,YPF,Elaion Auro,Plus 540,pcmo,5W-40,sintetico,SN,A3/B4,,,VW 508.88;VW 509.99,https://elaion.com.ar/fichas/elaion-auro-plus-540.pdf,confirmado
+ypf-elaion-auro-fr-530-5w30,YPF,Elaion Auro,FR 530,pcmo,5W-30,sintetico,,C2,,,PSA B71 2290,https://elaion.com.ar/fichas/elaion-auro-fr.pdf,confirmado
+ypf-elaion-auro-fr-540-5w40,YPF,Elaion Auro,FR 540,pcmo,5W-40,sintetico,SP,A3/B4,,,PSA B71 2296;Porsche A40;VW 502.00;VW 505.00,https://elaion.com.ar/fichas/elaion-auro-fr.pdf,confirmado
+ypf-elaion-competicion-5w50,YPF,Elaion,Competición,pcmo,5W-50,sintetico,SN,A3/B4,,,,https://elaion.com.ar/sitemap.xml,inferido
+ypf-elaion-fs530-5w30,YPF,Elaion,FS 530,pcmo,5W-30,sintetico,SN,C3,,,,https://elaion.com.ar/fichas/elaion.pdf,inferido
+ypf-elaion-fs540-5w40,YPF,Elaion,FS 540,pcmo,5W-40,sintetico,SN,C3,,,,https://elaion.com.ar/fichas/elaion.pdf,inferido
+ypf-elaion-ts1040-10w40,YPF,Elaion,TS 1040,pcmo,10W-40,semisintetico,SN/CF,A3/B4,,,,https://elaion.com.ar/fichas/elaion.pdf,confirmado
+ypf-elaion-mi1540-15w40,YPF,Elaion,MI 1540,pcmo,15W-40,mineral,SN/CF,A3/B4,,,,https://elaion.com.ar/fichas/elaion.pdf,confirmado
+ypf-elaion-mi2050-20w50,YPF,Elaion,MI 2050,pcmo,20W-50,mineral,SN/CF,A3/B4,,,,https://elaion.com.ar/fichas/elaion.pdf,confirmado
+ypf-extravida-xvt300-15w40,YPF,Extravida,XVT 300,hddo,15W-40,mineral,CK-4/SN,E7/E11,,DH-2,Volvo VDS-4.5;Cummins CES 20086;Allison TES 439,https://lubricantes.ypf.com/docs/extravida/extravida_xvt_ft.pdf,inferido
+ypf-extravida-xvt450-10w40,YPF,Extravida,XVT 450,hddo,10W-40,semisintetico,CI-4,E4/E7,,,Volvo VDS-3,https://lubricantes.ypf.com/docs/extravida/extravida_xvt_ft.pdf,inferido
+ypf-extravida-xvt550-5w30,YPF,Extravida,XVT 550,hddo,5W-30,,,,,,Ford WSS-M2C212-A1,https://lubricantes.ypf.com/docs/extravida/extravida_xvt_ft.pdf,inferido
+ypf-extravida-xvt550-10w40,YPF,Extravida,XVT 550,hddo,10W-40,,CF,,,,Scania LDF-3;MAN M3277,https://lubricantes.ypf.com/docs/extravida/extravida_xvt_ft.pdf,inferido
+ypf-extravida-xvt600-10w40,YPF,Extravida,XVT 600,hddo,10W-40,,CK-4,E6/E7/E11,,,Volvo VDS-4;MAN M3477;Cummins CES 20081,https://lubricantes.ypf.com/docs/extravida/extravida_xvt_ft.pdf,inferido
+ypf-extravida-xvt650-5w30,YPF,Extravida,XVT 650,hddo,5W-30,,CK-4/SN Plus,E6/E7/E11,,,Volvo VDS-4.5;MAN M3775;Scania LDF-4,https://lubricantes.ypf.com/docs/extravida/extravida_xvt_ft.pdf,inferido
+ypf-extravida-xv100-15w40,YPF,Extravida,XV 100,hddo,15W-40,,CI-4/SL,E7,,,Volvo VDS-2;Cummins CES 20071;MAN M3275;CAT ECF-1a,https://lubricantes.ypf.com/docs/extravida/extravida_xv_100_ft.pdf,inferido
+ypf-extravida-xv300-15w40,YPF,Extravida,XV 300,hddo,15W-40,mineral,CI-4 Plus/SL,E7,,,Detroit DTFR 15B110;Volvo VDS-3;Cummins CES 20078;CAT ECF-2;Global DHD-1,https://lubricantes.ypf.com/docs/extravida/extravida_xv_300_ft.pdf,inferido
+ypf-extravida-xva300-15w40,YPF,Extravida,XVA 300,hddo,15W-40,mineral,CK-4/SN,E7/E11,,DH-2,Detroit DTFR 15C100;Volvo VDS-4.5;Cummins CES 20086;CAT ECF-3;MAN M3775;MAN M3575;Allison TES 439,https://lubricantes.ypf.com/docs/extravida/extravida_xva_300_ft.pdf,inferido
+ypf-extravida-xvi200-15w40,YPF,Extravida,XVI 200,hddo,15W-40,,CI-4/SL,,,,MTU Tipo 2,https://lubricantes.ypf.com/docs/extravida/extravida_xvi_200_ft.pdf,inferido
+ypf-extravida-xvi500-5w40,YPF,Extravida,XVI 500,hddo,5W-40,sintetico,CK-4/CJ-4/CI-4 Plus,E7/E11,,,Cummins CES 20086;Cummins CES 20081;CAT ECF-3;CAT ECF-2;Volvo VDS-4.5;Detroit DTFR 15C100;Allison TES 439,https://lubricantes.ypf.com/docs/extravida/extravida_xvi_500_ft.pdf,inferido
+ypf-rod-4t-20w50,YPF,Röd,4T 20W-50,moto4t,20W-50,mineral,SL,,,MA2,,https://lubricantes.ypf.com/docs/rod/fROD_4T.pdf,confirmado
+ypf-rod-4t-10w30,YPF,Röd,4T 10W-30,moto4t,10W-30,semisintetico,SL,,,MA2,,https://lubricantes.ypf.com/docs/rod/fROD_4T.pdf,confirmado
+ypf-rod-4t-10w40,YPF,Röd,4T 10W-40,moto4t,10W-40,semisintetico,SL,,,MA2,,https://lubricantes.ypf.com/docs/rod/fROD_4T.pdf,confirmado
+ypf-rod-4t-10w50,YPF,Röd,4T 10W-50,moto4t,10W-50,sintetico,SN,,,MA2,,https://lubricantes.ypf.com/docs/rod/fROD_4T.pdf,confirmado
+ypf-rod-2t,YPF,Röd,2T,moto2t,,semisintetico,TC,,,FC,,https://lubricantes.ypf.com/docs/rod/fROD_2T.pdf,confirmado
+ypf-rod-cadenas,YPF,Röd,Cadenas,otro,,,,,,,,https://lubricantes.ypf.com/docs/rod/fROD_CADENAS.pdf,inferido
+ypf-super-20w50,YPF,Motores con alto kilometraje,Super 20W-50,pcmo,20W-50,,SF/CF,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/super_20W-50_ft.pdf,inferido
+ypf-normal,YPF,Motores con alto kilometraje,Normal,pcmo,,,SB,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/normal_ft.pdf,inferido
+ypf-hd-suplemento,YPF,Motores con alto kilometraje,HD Suplemento,hddo,,mineral,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/hd_suplemento1_ft.pdf,inferido
+ypf-multiturbo,YPF,Motores con alto kilometraje,Multiturbo,hddo,,mineral,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/multiturbo_ft.pdf,inferido
+ypf-multiturbo-25w60,YPF,Motores con alto kilometraje,Multiturbo 25W-60,hddo,25W-60,mineral,CF-4,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/multiturbo_25W-60_ft.pdf,inferido
+ypf-multiturbo-20w50,YPF,Motores con alto kilometraje,Multiturbo 20W-50,hddo,20W-50,mineral,CG-4,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/multiturbo_20W-50_ft.pdf,inferido
+ypf-hd-diesel,YPF,Motores con alto kilometraje,HD Diesel,hddo,,,CD,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/hd_diesel_ft.pdf,inferido
+ypf-diesel-bc,YPF,Motores con alto kilometraje,Diesel BC,hddo,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/diesel_bc_ft.pdf,inferido
+ypf-at-turbo-sae30,YPF,Motores con alto kilometraje,AT Turbo,hddo,SAE 30,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/at_turbo_ft.pdf,inferido
+ypf-gnc-super-20w50,YPF,GNC,GNC Super 20W-50,pcmo,20W-50,,,,,,,https://www.easy.com.ar/ypf,inferido
+ypf-hidro-atf,YPF,Transmisión,Hidro ATF,transmision,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/hidro_atf_ft.pdf,inferido
+ypf-atf-sintetico-all,YPF,Transmisión,ATF Sintético All,transmision,,sintetico,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/atf_sintetico_all_ft.pdf,inferido
+ypf-atf-d-vi,YPF,Transmisión,ATF D-VI,transmision,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/atf_D-VI_ft.pdf,inferido
+ypf-atf-d-iii,YPF,Transmisión,ATF D-III,transmision,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/atf_D-lll_ft.pdf,inferido
+ypf-hidro-19-10w30,YPF,Transmisión,Hidro 19,transmision,10W-30,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/hidro_19_ft.pdf,inferido
+ypf-helicoidal-stl-75w90,YPF,Transmisión,Helicoidal STL 75W-90,transmision,75W-90,sintetico,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/helicoidal_stl_75w-90_ft.pdf,inferido
+ypf-helicoidal-m-80w,YPF,Transmisión,Helicoidal M 80W,transmision,80W,,GL-4,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/helicoidal_m_80w_ft.pdf,inferido
+ypf-helicoidal-75w90,YPF,Transmisión,Helicoidal 75W-90,transmision,75W-90,semisintetico,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/helicoidal_75w-90_ft.pdf,inferido
+ypf-transmision,YPF,Transmisión,Transmisión,transmision,,,GL-1,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/transmision_ft.pdf,inferido
+ypf-hipoidal-super-s-75w90,YPF,Transmisión,Hipoidal Super S75W-90,transmision,75W-90,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/hipoidal_super_S75W-90_ft.pdf,inferido
+ypf-hipoidal-super-85w140,YPF,Transmisión,Hipoidal Super,transmision,85W-140,semisintetico,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/hipoidal_super_ft.pdf,inferido
+ypf-hipoidal,YPF,Transmisión,Hipoidal,transmision,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/hipoidal_ft.pdf,inferido
+ypf-ft-super,YPF,Transmisión,FT Super,transmision,,mineral,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/ft_super_ft.pdf,inferido
+ypf-ft-super-d-50,YPF,Transmisión,FT Super D 50,transmision,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/ft_super_d_50_ft.pdf,inferido
+ypf-grasa-limit,YPF,Grasas,Grasa Limit,grasa,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/grasas_limit_ft.pdf,inferido
+ypf-grasa-60-62-63-ep,YPF,Grasas,"Grasa 60, 62 y 63 EP",grasa,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/grasas_60_62_y_63_EP_ft.pdf,inferido
+ypf-grasa-grasalgon,YPF,Grasas,Grasa Grasalgon,grasa,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/grasalgon_ft.pdf,inferido
+ypf-grasa-nerea-cls-15,YPF,Grasas,Grasa Nerea CLS 15,grasa,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/grasa_nerea_CLS_15_ft.pdf,inferido
+ypf-grasa-nerea-cl-ep2,YPF,Grasas,Grasa Nerea CL EP2,grasa,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/grasa_nerea_CL_EP2_ft.pdf,inferido
+ypf-grasa-nerea-cl-aw2,YPF,Grasas,Grasa Nerea CL AW2,grasa,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/grasa_nerea_CL_AW2_ft.pdf,inferido
+ypf-grasa-limit-wso,YPF,Grasas,Grasa Limit WSO,grasa,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/grasa_limit_WSO_ft.pdf,inferido
+ypf-grasa-63-fc,YPF,Grasas,Grasa 63 FC,grasa,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/grasa_63_FC_ft.pdf,inferido
+ypf-grasa-3-8-30-c-102,YPF,Grasas,"Grasa 3, 8, 30 C y 102",grasa,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/grasas_3_8_30_C_y_102_ft.pdf,inferido
+ypf-grasa-nerea-cs-mo1,YPF,Grasas,Grasa Nerea CS MO1,grasa,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/grasa_nerea_CS_MO1_ft.pdf,inferido
+ypf-grasa-crassus-tc-premium,YPF,Grasas,Grasa Crassus TC Premium,grasa,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/grasas_crassus_TC_Premium_ft.pdf,inferido
+ypf-grasa-crassus-tc-api,YPF,Grasas,Grasa Crassus TC API,grasa,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/grasas_crassus_TC_API_ft.pdf,inferido
+ypf-grasa-crassus-perfo,YPF,Grasas,Grasa Crassus Perfo,grasa,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/grasas_crassus_perfo_ft.pdf,inferido
+ypf-grasa-pex-g-10716,YPF,Grasas,Grasa PEX G 10716,grasa,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/grasa_PEX-G-10716_ft.pdf,inferido
+ypf-grasa-asfaltica-fluida-650,YPF,Grasas,Grasa Asfáltica fluida 650,grasa,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/grasa_asfaltica _luida_650_ft.pdf,inferido
+ypf-grasa-107-ep,YPF,Grasas,Grasa 107 EP,grasa,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/grasa_107_EP_ft.pdf,inferido
+ypf-hidraulico-hsvi,YPF,Industriales,Hidráulico HSVI,industrial,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/hidraulico_HSVI_ft.pdf,inferido
+ypf-hidraulico-d,YPF,Industriales,Hidráulico D,industrial,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/hidraulico_D_ft.pdf,inferido
+ypf-hidraulico-bp,YPF,Industriales,Hidráulico BP,industrial,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/hidraulico_bp_ft.pdf,inferido
+ypf-polar,YPF,Industriales,Polar,industrial,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/polar_ft.pdf,inferido
+ypf-frigorifico,YPF,Industriales,Frigorífico,industrial,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/frigorifico_ft.pdf,inferido
+ypf-transmision-ep,YPF,Industriales,Transmisión EP,industrial,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/transmision_ep_ft.pdf,inferido
+ypf-molino-tp,YPF,Industriales,Molino TP,industrial,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/molino_tp_ft.pdf,inferido
+ypf-gluma,YPF,Industriales,Gluma,industrial,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/gluma_ft.pdf,inferido
+ypf-turbina-ep,YPF,Industriales,Turbina EP,industrial,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/turbina-ep.pdf,inferido
+ypf-turbina-r,YPF,Industriales,Turbina R,industrial,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/turbina-r.pdf,inferido
+ypf-merak,YPF,Industriales,Merak,industrial,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/merak.pdf,inferido
+ypf-merak-s,YPF,Industriales,Merak S,industrial,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/merak-rs.pdf,inferido
+ypf-lissos,YPF,Industriales,Lissos,industrial,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/lissos.pdf,inferido
+ypf-lissos-n,YPF,Industriales,Lissos N,industrial,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/lissos-n.pdf,inferido
+ypf-cilindro,YPF,Industriales,Cilindro,industrial,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/cilindro.pdf,inferido
+ypf-forestal-3040,YPF,Industriales,Forestal 3040,industrial,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/forestal-3040.pdf,inferido
+ypf-librador-hta,YPF,Industriales,Librador HTA,industrial,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/librador-hta.pdf,inferido
+ypf-sirus,YPF,Industriales,Sirus,industrial,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/sirus.pdf,inferido
+ypf-glico-prf,YPF,Industriales,Glico PRF,industrial,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/glico-prf-ft.pdf,inferido
+ypf-transformador,YPF,Industriales,Transformador,industrial,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/transformador.pdf,inferido
+ypf-transformador-hfp,YPF,Industriales,Transformador HFP,industrial,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/transformador-hfp.pdf,inferido
+ypf-butia-dw-50,YPF,Aceites de procesos,Butia DW 50,industrial,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/butia_dw_50_ft.pdf,inferido
+ypf-solubles-maquinado,YPF,Aceites de procesos,Solubles para maquinado,industrial,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/solubles_para_maquinado_ft.pdf,inferido
+ypf-corte-neto,YPF,Aceites de procesos,Aceites de corte netos,industrial,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/aceites_de_corte_netos_ft.pdf,inferido
+ypf-tratamientos-termicos,YPF,Aceites de procesos,Tratamientos térmicos,industrial,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/tratamientos_termicos_ft.pdf,inferido
+ypf-transferencia-termica,YPF,Aceites de procesos,Transferencia térmica,industrial,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/transferencia_termica_ft.pdf,inferido
+ypf-atlanta-marine-d-3005,YPF,Motores marinos,Atlanta Marine D 3005,marino,,mineral,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/atlanta_marine_d_3005_ft.pdf,inferido
+ypf-aurelia-ti,YPF,Motores marinos,Aurelia TI,marino,,,CF,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/aurelia_ti_ft.pdf,inferido
+ypf-disola-m,YPF,Motores marinos,Disola M,marino,,mineral,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/disola_m_ft.pdf,inferido
+ypf-talusia-universal,YPF,Motores marinos,Talusia Universal,marino,,mineral,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/talusia_universal_ft.pdf,inferido
+ypf-talusia-universal-100,YPF,Motores marinos,Talusia Universal 100,marino,,mineral,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/talusia_universal_100_ft.pdf,inferido
+ypf-talusia-ls,YPF,Motores marinos,Talusia LS,marino,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/talusia_ls_ft.pdf,inferido
+ypf-talusia-hr-70,YPF,Motores marinos,Talusia HR 70,marino,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/talusia_hr_70_ft.pdf,inferido
+ypf-elaion-nautico-4t-10w30,YPF,Náutica,Elaion Náutico 4T,marino,10W-30,semisintetico,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/elaion_nautico_4t_ft.pdf,inferido
+ypf-elaion-nautico-2t,YPF,Náutica,Elaion Náutico 2T,marino,,mineral,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/elaion_nautico_2t_ft.pdf,inferido
+ypf-elaion-nautico-2t-semisintetico,YPF,Náutica,Elaion Náutico 2T Semisintético,marino,,semisintetico,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/elaion_nautico_2t_semisintetico_ft.pdf,inferido
+ypf-vectis-g2540-15w40,YPF,Motores a gas,Vectis G2540,gas,15W-40,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/vectis_g2540_ft.pdf,inferido
+ypf-vectis-g2940,YPF,Motores a gas,Vectis G2940,gas,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/vectis_g2940_ft.pdf,inferido
+ypf-vectis-g540,YPF,Motores a gas,Vectis G540,gas,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/vectis_G540_ft.pdf,inferido
+ypf-vectis-g640,YPF,Motores a gas,Vectis G640,gas,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/vectis_G640_ft.pdf,inferido
+ypf-vectis-g740,YPF,Motores a gas,Vectis G740,gas,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/vectis_G740_ft.pdf,inferido
+ypf-vectis-g130,YPF,Motores a gas,Vectis G130,gas,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/vectis_G130_ft.pdf,inferido
+ypf-vectis-g140,YPF,Motores a gas,Vectis G140,gas,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/vectis_G140_ft.pdf,inferido
+ypf-ferrodiesel-397,YPF,Motores ferroviarios,Ferrodiesel 397,hddo,,,,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/ferrodiesel_397_ft.pdf,inferido
+ypf-ferrodiesel-597-ii-sae40,YPF,Motores ferroviarios,Ferrodiesel 597 II,hddo,SAE 40,,CF-2,,,,,https://lubricantes.ypf.com/docs/otroslubricantes/ferrodiesel_597_ll_ft.pdf,inferido
+castrol-edge-5w40,Castrol,EDGE,EDGE 5W-40,pcmo,5W-40,,,A3/B4,,,VW 502.00;VW 505.00;Porsche A40,https://www.castrol.com/es_ar/argentina/home/products/our-brands/automotive/castrol-edge-oils/castrol-edge.html,confirmado
+castrol-edge-5w30,Castrol,EDGE,EDGE 5W-30,pcmo,5W-30,,,,,,GM dexos1 Gen2;Ford WSS-M2C946,https://www.castrol.com/es_ar/argentina/home/products/our-brands/automotive/castrol-edge-oils/castrol-edge.html,confirmado
+castrol-edge-c5-0w20,Castrol,EDGE,EDGE 0W-20 C5,pcmo,0W-20,,SP,C5,GF-6,,GM dexos1 Gen3;Ford WSS-M2C962-A1,https://www.castrol.com/es_ar/argentina/home/products/our-brands/automotive/castrol-edge-oils/castrol-edge.html,confirmado
+castrol-edge-ll-5w30,Castrol,EDGE,EDGE 5W-30 LL,pcmo,5W-30,,,C3,,,VW 504.00;VW 507.00;Porsche C30;MB 229.51,https://www.castrol.com/es_ar/argentina/home/products/our-brands/automotive/castrol-edge-oils/castrol-edge.html,confirmado
+castrol-edge-turbo-diesel-5w40,Castrol,EDGE,EDGE 5W-40 Turbo Diesel,pcmo,5W-40,,,C3,,,VW 505.01;MB 229.51;GM dexos2,https://www.castrol.com/es_ar/argentina/home/products/our-brands/automotive/castrol-edge-oils/castrol-edge.html,confirmado
+castrol-magnatec-508-88-5w40,Castrol,MAGNATEC,MAGNATEC 5W-40 508 88,pcmo,5W-40,,,,,,VW 508.88,https://www.castrol.com/es_ar/argentina/home/products/our-brands/automotive/castrol-magnatec-oils/castrol-magnatec.html,inferido
+castrol-magnatec-a3-10w40,Castrol,MAGNATEC,MAGNATEC 10W-40 A3,pcmo,10W-40,,SN/CF,,,,,https://www.castrol.com/es_ar/argentina/home/products/our-brands/automotive/castrol-magnatec-oils/castrol-magnatec.html,confirmado
+castrol-gtx-20w50,Castrol,GTX,GTX 20W-50,pcmo,20W-50,,,,,,,,inferido
+castrol-vecton-ck4-15w40,Castrol,Vecton,Vecton 15W-40 CK-4,hddo,15W-40,,CK-4,,,,CAT ECF-3;Volvo VDS-4.5,https://shop.sclubricants.com/pub/media/pds/castrol/pds-vecton-15w-40-ck-4.pdf,confirmado
+mobil-super-3000-x1-5w40,Mobil,Mobil Super,Super 3000 X1 5W-40,pcmo,5W-40,,,A3/B4,,,VW 502.00;VW 505.00;Porsche A40;PSA B71 2296,https://ar.moovelub.com/storage/uploads/00000000897.pdf,confirmado
+mobil-1-esp-5w30,Mobil,Mobil 1,Mobil 1 ESP 5W-30,pcmo,5W-30,sintetico,SP,C3,,,,https://www.mobil.com/es-ar/passenger-vehicle-lube/pds/as-xx-mobil-1-esp-5w-30,inferido
+motul-8100-x-cess-gen2-5w40,Motul,8100,8100 X-cess gen2 5W-40,pcmo,5W-40,,,,,,,https://www.motul.com/es-AR/products,inferido
+motul-8100-eco-nergy-5w30,Motul,8100,8100 Eco-nergy 5W-30,pcmo,5W-30,,,,,,,https://www.motul.com/es-AR/products,inferido
+shell-helix-hx8-professional-av-5w40,Shell,Helix,HX8 Professional AV 5W-40,pcmo,5W-40,,,,,,,,inferido
+shell-helix-ultra-professional-am-l-5w30,Shell,Helix,Helix Ultra Professional AM-L 5W-30,pcmo,5W-30,,,,,,,,inferido
+shell-helix-ultra-professional-ag-5w30,Shell,Helix,Helix Ultra Professional AG 5W-30,pcmo,5W-30,,,,,,,,inferido
+shell-helix-ultra-professional-af-5w30,Shell,Helix,Helix Ultra Professional AF 5W-30,pcmo,5W-30,,,A5/B5,,,Ford WSS-M2C913-D,https://www.shell.com.au/motorists/oils-lubricants/helix-for-cars/helix-fully-synthetic/shell-helix-ultra-professional-af-5w-30.html,confirmado
+shell-helix-hx7-10w40,Shell,Helix,Helix HX7 10W-40,pcmo,10W-40,,SN/CF,A3/B4,,,,https://www.jumbo.com.ar/lubricante-helix-hx7-x1l-sn-cf-a3-b4-mf-s-e-un-1/p,inferido
+shell-helix-hx5-15w40,Shell,Helix,Helix HX5 15W-40,pcmo,15W-40,,SL/CF,A2/B2,,,,https://www.jumbo.com.ar/lubricante-helix-hx5-15w-40-sl-cf-a2-b2-mf-s-e-un-1-2/p,inferido
+shell-helix-hx3-20w50,Shell,Helix,Helix HX3 20W-50,pcmo,20W-50,,SG/CD,,,,,https://www.jumbo.com.ar/lubricante-helix-hx3-20w-50-sg-cd-mf-s-e-un-1/p,inferido
+shell-rimula-r4-l-15w40,Shell,Rimula,Rimula R4 L 15W-40,hddo,15W-40,,CK-4,E7/E9/E11,,,,https://elsalvador.pochteca.net/wp-content/uploads/2023/05/ft-rimula-r4l-15w-40-ck-4.pdf,confirmado
+shell-rimula-r4-x-15w40,Shell,Rimula,Rimula R4 X 15W-40,hddo,15W-40,mineral,CI-4,E7,,,CAT ECF-2,https://elsalvador.pochteca.net/wp-content/uploads/2023/05/ft-rimula-r4x-15w-40.pdf,confirmado
+totalenergies-quartz-9000-5w40,TotalEnergies,Quartz,Quartz 9000 5W-40,pcmo,5W-40,sintetico,SN/CF,A3/B4,,,,https://www.easy.com.ar/lubricante-total-quartz-9000-5w40-x1lts-1359050/p,inferido
+totalenergies-quartz-7000-10w40,TotalEnergies,Quartz,Quartz 7000 10W-40,pcmo,10W-40,semisintetico,SN/CF,A3/B4,,,,https://www.jumbo.com.ar/lubricante-quartz-7000-10w40-6b-4-l/p,inferido
+totalenergies-quartz-ineo-ecs-5w30,TotalEnergies,Quartz,Quartz Ineo ECS 5W-30,pcmo,5W-30,,,C2,,,PSA B71 2290,https://lubricants.catalog.totalenergies.com/CATALOGUETotalEnergies/en_UK/lkx_quartz-ineo-ecs-5w-30,confirmado
+gulf-max-15w40,Gulf,Max,Max 15W-40,pcmo,15W-40,,,,,,,,inferido
+gulf-max-20w50,Gulf,Max,Max 20W-50,pcmo,20W-50,,,,,,,,inferido
+totalenergies-quartz-9000-future-gf6-0w20,TotalEnergies,Quartz,Quartz 9000 Future GF-6 0W-20,pcmo,0W-20,,,,,,,,inferido
+totalenergies-quartz-9000-nfc-5w30,TotalEnergies,Quartz,Quartz 9000 NFC 5W-30,pcmo,5W-30,,,,,,,,inferido
+totalenergies-quartz-diesel-7000-10w40,TotalEnergies,Quartz,Quartz Diesel 7000 10W-40,pcmo,10W-40,,,,,,,,inferido
+totalenergies-quartz-5000-15w40,TotalEnergies,Quartz,Quartz 5000 15W-40,pcmo,15W-40,mineral,SL/CF,A3/B3,,,,https://www.easy.com.ar/lubricante-quartz-total-5000-15w40-4l/p,inferido
+totalenergies-quartz-5000-20w50,TotalEnergies,Quartz,Quartz 5000 20W-50,pcmo,20W-50,,,,,,,,inferido
+totalenergies-quartz-ineo-mc3-5w30,TotalEnergies,Quartz,Quartz Ineo MC3 5W-30,pcmo,5W-30,sintetico,,,,,,https://www.masonline.com.ar/aceite-total-quartz-ineo-mc3-5w30-1l-dorado-2/p,inferido
+totalenergies-quartz-ineo-first-0w30,TotalEnergies,Quartz,Quartz Ineo First 0W-30,pcmo,0W-30,sintetico,,,,,,,inferido
+totalenergies-quartz-ineo-long-life-5w30,TotalEnergies,Quartz,Quartz Ineo Long Life 5W-30,pcmo,5W-30,sintetico,,,,,,,inferido
+totalenergies-genecelf-20w50,TotalEnergies,Genecelf,Motor Oil Genecelf 20W-50,pcmo,20W-50,mineral,SJ,,,,,https://www.easy.com.ar/lubrican-genecelf-multigr-total-20w50-4/p,inferido
+elf-evolution-500-ts-15w40,Elf,Evolution,Evolution 500 TS 15W-40,pcmo,15W-40,,,,,,,,inferido
+elf-evolution-700-sti-10w40,Elf,Evolution,Evolution 700 STI 10W-40,pcmo,10W-40,semisintetico,,,,,,,inferido
+elf-evolution-700-15w50,Elf,Evolution,Evolution 700 15W-50,pcmo,15W-50,semisintetico,,,,,,,inferido
+elf-evolution-900-ft-5w40,Elf,Evolution,Evolution 900 FT 5W-40,pcmo,5W-40,sintetico,,,,,,,inferido
+elf-moto-4-cruise-20w50,Elf,Moto 4,Moto 4 Cruise 20W-50,moto4t,20W-50,mineral,SL,,,MA2,,https://www.easy.com.ar/lubricante-moto-4-cruise-elf-20w50-1l/p,inferido
+elf-moto-4-road-15w50,Elf,Moto 4,Moto 4 Road 15W-50,moto4t,15W-50,semisintetico,SL,,,MA2,,https://www.masonline.com.ar/aceite-elf-moto-4-road-15w50-1l-azul-2/p,inferido
+elf-moto-4-tech-10w50,Elf,Moto 4,Moto 4 Tech 10W-50,moto4t,10W-50,,,,,,,,inferido
+gulf-max-ultra-plus-10w40,Gulf,Max,Max Ultra Plus 10W-40,pcmo,10W-40,,,,,,,,inferido
+gulf-tec-plus-10w40,Gulf,Tec,Tec Plus 10W-40,pcmo,10W-40,,,,,,,,inferido
+gulf-formula-g-5w40,Gulf,Formula,Formula G 5W-40,pcmo,5W-40,,,,,,,,inferido
+gulf-pride-4t-special,Gulf,Pride,Pride 4T Special,moto4t,,,,,,,,,inferido
+puma-advanced-5w30,Puma,Advanced,Advanced 5W-30,pcmo,5W-30,sintetico,SN,C3,,,,https://www.carrefour.com.ar/puma-advanced-5w30-sn-sintetico-x-1-l-1659832/p,inferido
+puma-advanced-5w40,Puma,Advanced,Advanced 5W-40,pcmo,5W-40,sintetico,SN,C3,,,VW 502.00,https://www.carrefour.com.ar/puma-advanced-5w40-sn-sintetico-1659809/p,inferido
+puma-hd-super-s-15w40,Puma,HD,HD Super S 15W-40,hddo,15W-40,mineral,SL,,,,,https://www.carrefour.com.ar/puma-hd-super-s-15w40-mineral-sl-x-4l-1659828/p,inferido
+puma-hd-super-sae40,Puma,HD,HD Super SAE 40,hddo,SAE 40,mineral,SJ,,,,,https://www.carrefour.com.ar/puma-hd-super-sae-40-mineral-sj-x-4-l-1659825/p,inferido
+puma-super-20w50,Puma,Super,Super 20W-50,pcmo,20W-50,mineral,SN/CF,A3/B4,,,,https://www.masonline.com.ar/aceite-lubricante-puma-super-20w-50-1-lt-2/p,inferido
+puma-super-gd-15w40,Puma,Super,Super GD 15W-40,pcmo,15W-40,mineral,SN/CF,A3/B4,,,,https://www.masonline.com.ar/aceite-lubricante-puma-super-gd-15w-40-1-lt-2/p,inferido
+puma-extra-gd-10w40,Puma,Extra,Extra GD 10W-40,pcmo,10W-40,,SN/CF,A3/B4,,,,https://www.masonline.com.ar/aceite-lubricante-puma-extra-gd-10w-40-1-lt-2/p,inferido
+puma-scooter-10w40,Puma,Scooter,Scooter 10W-40,moto4t,10W-40,semisintetico,,,,MB,,https://www.carrefour.com.ar/puma-scooter-10w40-semisintetico-jaso-mb-s-x-1l-1659814/p,inferido
+puma-2t-semisintetico,Puma,2T,2T semisintético,moto2t,,semisintetico,TC,,,FC,,https://www.carrefour.com.ar/puma-2t-jaso-fc-api-tc-semisintetico-x-1-l-1659805/p,inferido
+puma-2t-outboard,Puma,2T,2T Outboard semisintético,marino,,semisintetico,,,,,,,inferido
+bardahl-moto-4t-20w50,Bardahl,Motos,4T Motos 20W-50,moto4t,20W-50,,SM,,,,,https://www.jumbo.com.ar/aceite-4t-motos-x-1-litro-bardahl/p,inferido
+bardahl-2t-parques-jardines,Bardahl,2T,2T Parques y Jardines,moto2t,,,,,,,,,inferido
+bardahl-2t-premium-low-smoke,Bardahl,2T,2T Premium Low Smoke Motos,moto2t,,,,,,,,,inferido
+bardahl-mpv-10w40,Bardahl,MPV,MPV 10W-40 semisintético,pcmo,10W-40,semisintetico,,,,,,,inferido
+bardahl-top-lub-mpv-10w40,Bardahl,Top Lub,Top Lub MPV 10W-40 semisintético,pcmo,10W-40,semisintetico,,,,,,,inferido
+goodyear-sintetico-5w40,Goodyear,Goodyear,Full sintético 5W-40,pcmo,5W-40,sintetico,,,,,,,inferido
+goodyear-semisintetico-10w40,Goodyear,Goodyear,Semi sintético 10W-40,pcmo,10W-40,semisintetico,,,,,,,inferido
+goodyear-mineral-15w40,Goodyear,Goodyear,Mineral 15W-40,pcmo,15W-40,mineral,,,,,,,inferido
+goodyear-mineral-20w50,Goodyear,Goodyear,Mineral 20W-50,pcmo,20W-50,mineral,,,,,,,inferido
+shell-helix-hx3-sae40,Shell,Helix,Helix HX3 40,pcmo,SAE 40,,SF/CD,,,,,https://www.jumbo.com.ar/lubricante-helix-hx3-40-sf-cd-mf-s-e-un-1-2/p,inferido
+shell-helix-hx3-k-25w60,Shell,Helix,Helix HX3 K 25W-60,pcmo,25W-60,,SG/CD,,,,,https://www.jumbo.com.ar/lubricante-helix-hx3-k-25w-60-sg-cd-mf-s-e-un-1/p,inferido
+shell-helix-ultra-5w40,Shell,Helix,Helix Ultra 5W-40,pcmo,5W-40,,SN/CF,A3/B4,,,,https://www.jumbo.com.ar/lubricante-helix-ultra-5w-40-sn-cf-a3-b4-s-e-un-1/p,inferido
+shell-helix-ultra-e-5w30,Shell,Helix,Helix Ultra E 5W-30,pcmo,5W-30,,SL/CF,A3/B4,,,,https://www.jumbo.com.ar/lubricante-helix-ultra-e-5w-30-sl-cf-a3-b4-oems-s-e-un-1-2/p,inferido
+shell-helix-plus-10w40,Shell,Helix,Helix Plus 10W-40,pcmo,10W-40,,,,,,,,inferido
+shell-helix-super-15w40,Shell,Helix,Helix Super 15W-40,pcmo,15W-40,,,,,,,,inferido
+shell-helix-diesel-super,Shell,Helix,Helix Diesel Super,pcmo,,,,,,,,,inferido
+shell-rotella-tx-sae40,Shell,Rotella,Rotella TX 40,hddo,SAE 40,,,,,,,,inferido
+shell-rotella-gnc,Shell,Rotella,Rotella GNC,hddo,,,,,,,,,inferido
+castrol-super-2t,Castrol,Super,Super 2T,moto2t,,,,,,,,,inferido
+castrol-2t-one-shot,Castrol,2T,2T One Shot,moto2t,,,,,,,,,inferido
+pennzoil-ultra-turbo-10w40,Pennzoil,Ultra Turbo,Ultra Turbo 10W-40,pcmo,10W-40,,,,,,,,inferido
+pennzoil-long-life-15w40,Pennzoil,Long Life,Long Life 15W-40,hddo,15W-40,,,,,,,,inferido
+pennzoil-alto-kilometraje-25w50,Pennzoil,Alto Kilometraje,Alto Kilometraje 25W-50,pcmo,25W-50,,,,,,,,inferido
+pennzoil-gt-performance-20w50,Pennzoil,GT Performance,GT Performance 20W-50,pcmo,20W-50,,,,,,,,inferido
+pennzoil-premium-outboard-tcw3,Pennzoil,Outboard,Premium Outboard TC-W3,marino,,,,,,,,,inferido
+pennzoil-2-cycle,Pennzoil,2-Cycle,2-Cycle moto,moto2t,,,,,,,,,inferido

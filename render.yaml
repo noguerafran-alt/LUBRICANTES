@@ -1,0 +1,16 @@
+# Referencia de la configuración del Render Web Service (free). Si el servicio se creó
+# a mano en el panel, estos mismos valores van ahí.
+services:
+  - type: web
+    name: lubricantes
+    runtime: python
+    plan: free
+    buildCommand: "true"   # solo stdlib: no hay nada que instalar
+    startCommand: python server.py
+    healthCheckPath: /salud
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.10
+      - key: LUB_CLAVE
+        sync: false        # se carga a mano en el panel; sin ella el server no arranca

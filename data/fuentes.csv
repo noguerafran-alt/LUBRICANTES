@@ -1,0 +1,9 @@
+fecha,fuente,http,n_items,n_con_precio,n_sin_stock,n_sin_match,error
+2026-11-02,sepa,200,111,111,0,111,
+2026-11-03,ypf_gql,200,69,0,0,0,
+2026-11-03,vtex_carrefour,200,185,70,115,57,
+2026-11-03,vtex_masonline,200,61,54,7,18,
+2026-11-03,vtex_easy,200,48,48,0,19,
+2026-11-03,vtex_jumbo,200,224,0,224,0,
+2026-11-03,ml_cat,200,4,0,0,0,
+2026-11-03,ml,,0,0,0,0,sin token

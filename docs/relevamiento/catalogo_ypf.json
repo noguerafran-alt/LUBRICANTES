@@ -1,0 +1,3486 @@
+[
+ {
+  "linea": "Lubricantes ELAION",
+  "grupo": "ELAION AURO HYBRID",
+  "producto": "D1 020",
+  "descripcion": "Lubricante que cuenta con la aprobación dexos1™ Generación 3 de General Motors, también es recomendado y aprobado por Ford según la especificación WSS-M2C962-A1. Dentro de sus características principales se destacan su economía de combustible gracias a su baja viscosidad en todo el rango de temperaturas, su excelente control de desgaste por medio de un paquete de aditivos de última generación, y su protección frente al fenómeno del LSPI (Pre-ignición a baja velocidad).",
+  "ficha_url": "https://elaion.com.ar/fichas/elaion-auro-d1.pdf",
+  "pds": {
+   "ficha_n": "274",
+   "fecha": "ABRIL 2026",
+   "rubro": "AUTOMOTOR",
+   "sae": [
+    "0W- 20",
+    "5W- 30"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "dexos 1",
+    "dexos 1®"
+   ],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Lubricantes ELAION",
+  "grupo": "ELAION AURO HYBRID",
+  "producto": "D1 530",
+  "descripcion": "Lubricante que cuenta con la aprobación dexos1™ Generación 3 de General Motors, el cual implica una mayor protección antidesgaste, óptima limpieza en zona de pistones, mayor control sobre el consumo de aceite y una probada economía de combustible. También es recomendado y aprobado por Ford según la especificación WSS-M2C961-A1. Protege al motor frente al fenómeno del LSPI (Pre-ignición a baja velocidad).",
+  "ficha_url": "https://elaion.com.ar/fichas/elaion-auro-d1.pdf",
+  "pds": {
+   "ficha_n": "274",
+   "fecha": "ABRIL 2026",
+   "rubro": "AUTOMOTOR",
+   "sae": [
+    "0W- 20",
+    "5W- 30"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "dexos 1",
+    "dexos 1®"
+   ],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Lubricantes ELAION",
+  "grupo": "ELAION AURO",
+  "producto": "D2 530",
+  "descripcion": "Lubricante que cuenta con la aprobación dexos2™ de General Motors, el cual implica una excelente protección en zonas críticas del motor, como el tren de válvulas, una compatibilidad con los sistemas de postratamiento de gases de escape y una mayor contribución en el ahorro de combustible. Producto especialmente diseñado para vehículos diesel.",
+  "ficha_url": "https://elaion.com.ar/fichas/elaion-auro-d2.pdf",
+  "pds": {
+   "ficha_n": "278",
+   "fecha": "DICIEMBRE 2025",
+   "rubro": "",
+   "sae": [
+    "5W-30"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "MB 229.31",
+    "dexos 2",
+    "dexos 2®"
+   ],
+   "base": [
+    "sintético"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Lubricantes ELAION",
+  "grupo": "ELAION AURO",
+  "producto": "FE 530",
+  "descripcion": "Lubricante aprobado y recomendado por Ford, según la especificación WSS-M2C913-D. También satisface las exigencias de automotrices orientales como Toyota. Dentro de sus características principales se destacan la economía de combustible y el excelente control de desgaste. Apto para motores que utilicen cualquier tipo de combustible.",
+  "ficha_url": "https://elaion.com.ar/fichas/elaion-auro-fe-530.pdf",
+  "pds": {
+   "ficha_n": "272",
+   "fecha": "DICIEMBRE 2025",
+   "rubro": "",
+   "sae": [
+    "5W-30"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [
+    "API SN"
+   ],
+   "acea": [
+    "ACEA A5/B5"
+   ],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "WSS-M2C913-D"
+   ],
+   "base": [
+    "sintético"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Lubricantes ELAION",
+  "grupo": "ELAION AURO HYBRID",
+  "producto": "DPF 530",
+  "descripcion": "Lubricante especialmente formulado para los nuevos motores que cuentan con sistemas de postratamiento de gases de escape de última tecnología, tales como los filtros de partículas para Diesel (DPF) y para Nafta (GPF), además de los catalizadores (TWC) para los motores nafteros. ELAION AURO DPF 530 cuenta con las aprobaciones de las normas VW 504.00 / 507.00 de Volkswagen, C30 de Porsche y MB-Approvals 229.51 / 229.52 de Mercedes Benz. Protege al motor frente al fenómeno del LSPI (Pre-ignición a baja velocidad) y es apto para motores que utilicen cualquier tipo de combustible.",
+  "ficha_url": "https://elaion.com.ar/fichas/elaion-auro-dpf-530.pdf",
+  "pds": {
+   "ficha_n": "277",
+   "fecha": "DICIEMBRE 2025",
+   "rubro": "",
+   "sae": [
+    "5W-30"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "MB 229.51"
+   ],
+   "base": [
+    "sintético"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Lubricantes ELAION",
+  "grupo": "ELAION AURO",
+  "producto": "PLUS 540",
+  "descripcion": "Lubricante que cuenta con las aprobaciones VW 508.88 / 509.99 de Volkswagen. Estas contemplan una excelente protección frente al desgaste en la más alta exigencia y superior capacidad de limpieza. Apto para motores que utilicen cualquier tipo de combustible.",
+  "ficha_url": "https://elaion.com.ar/fichas/elaion-auro-plus-540.pdf",
+  "pds": {
+   "ficha_n": "276",
+   "fecha": "DICIEMBRE 2025",
+   "rubro": "",
+   "sae": [
+    "5W-40"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [
+    "sintético"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Lubricantes ELAION",
+  "grupo": "ELAION AURO",
+  "producto": "FR 530",
+  "descripcion": "Lubricante diseñado para los vehículos europeos, especialmente para aquellos Peugeot y Citröen que requieran la especificación PSA B71 2290. Entre sus principales atributos destacan su probada economía de combustible, su compatibilidad con sistemas de post tratamiento de gases de escape (DPF en diesel y TWC en nafta) y un máximo poder de limpieza en pistones y turbo cargadores. Apto para motores que utilicen cualquier tipo de \ncombustible.",
+  "ficha_url": "https://elaion.com.ar/fichas/elaion-auro-fr.pdf",
+  "pds": {
+   "ficha_n": "275",
+   "fecha": "DICIEMBRE 2025",
+   "rubro": "",
+   "sae": [
+    "5W- 30",
+    "5W- 40"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [
+    "ACEA C2"
+   ],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "MB 229.5",
+    "PSA B71 2290",
+    "PSA B71 2296"
+   ],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Lubricantes ELAION",
+  "grupo": "ELAION AURO",
+  "producto": "FR 540",
+  "descripcion": "Lubricante diseñado para los vehículos europeos, especialmente para aquellos Peugeot y Citröen que requieran la especificación PSA B71 2296; y cuenta con las aprobaciones de las normas  A40 de Porsche y VW 502.00 / 505.00 de Volkswagen. Entre sus principales atributos destacan una protección superior en zonas altas del motor (tren de válvulas) y su máximo poder de limpieza de pistones y turbo cargadores. Apto para motores que utilicen cualquier tipo de combustible.",
+  "ficha_url": "https://elaion.com.ar/fichas/elaion-auro-fr.pdf",
+  "pds": {
+   "ficha_n": "275",
+   "fecha": "DICIEMBRE 2025",
+   "rubro": "",
+   "sae": [
+    "5W- 30",
+    "5W- 40"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [
+    "ACEA C2"
+   ],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "MB 229.5",
+    "PSA B71 2290",
+    "PSA B71 2296"
+   ],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Lubricantes ELAION",
+  "grupo": "ELAION",
+  "producto": "FS 530",
+  "descripcion": "Lubricante especialmente formulado para cubrir la más alta exigencia de la industria automotriz. Concebido para motores que posean sistemas de post-tratamiento de gases de escape de última tecnología, tales como los DPF (Diesel Particulate Filter) para los automóviles Diesel y los TWC (Three-Way Catalyst) para los motores nafteros. Protege al motor frente al fenómeno del LSPI (Pre-ignición a baja velocidad) y es apto para motores que utilicen cualquier tipo de combustible.",
+  "ficha_url": "https://elaion.com.ar/fichas/elaion.pdf",
+  "pds": {
+   "ficha_n": "285",
+   "fecha": "MARZO 2024",
+   "rubro": "",
+   "sae": [
+    "10W-40",
+    "15W-40",
+    "20W-50",
+    "5W-30",
+    "5W-40"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "MB 229.1",
+    "MB 229.31",
+    "PSA B71 2300",
+    "VW 501.01"
+   ],
+   "base": [
+    "mineral",
+    "semisintético"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Lubricantes ELAION",
+  "grupo": "ELAION",
+  "producto": "FS 540",
+  "descripcion": "Lubricante especialmente formulado para cubrir la más alta exigencia de la industria automotriz. Concebido para motores que posean sistemas de post-tratamiento de gases de escape de última tecnología, tales como los DPF (Diesel Particulate Filter) para los automóviles Diesel y los TWC (Three-Way Catalyst) para los motores nafteros. Protege al motor frente al fenómeno del LSPI (Pre-ignición a baja velocidad) y es apto para motores que utilicen cualquier tipo de combustible.",
+  "ficha_url": "https://elaion.com.ar/fichas/elaion.pdf",
+  "pds": {
+   "ficha_n": "285",
+   "fecha": "MARZO 2024",
+   "rubro": "",
+   "sae": [
+    "10W-40",
+    "15W-40",
+    "20W-50",
+    "5W-30",
+    "5W-40"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "MB 229.1",
+    "MB 229.31",
+    "PSA B71 2300",
+    "VW 501.01"
+   ],
+   "base": [
+    "mineral",
+    "semisintético"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Lubricantes ELAION",
+  "grupo": "ELAION",
+  "producto": "TS 1040",
+  "descripcion": "Lubricante para motores naturalmente aspirados o turbocomprimidos que utilicen cualquier tipo de combustible. Posee un excelente comportamiento en el momento del arranque y una inmejorable resistencia de la película lubricante en condiciones de alto régimen, minimizando el desgaste.",
+  "ficha_url": "https://elaion.com.ar/fichas/elaion.pdf",
+  "pds": {
+   "ficha_n": "285",
+   "fecha": "MARZO 2024",
+   "rubro": "",
+   "sae": [
+    "10W-40",
+    "15W-40",
+    "20W-50",
+    "5W-30",
+    "5W-40"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "MB 229.1",
+    "MB 229.31",
+    "PSA B71 2300",
+    "VW 501.01"
+   ],
+   "base": [
+    "mineral",
+    "semisintético"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Lubricantes ELAION",
+  "grupo": "ELAION",
+  "producto": "MI 1540",
+  "descripcion": "Lubricante para motores naturalmente aspirados o turbocomprimidos que utilicen cualquier tipo de combustible. Su capacidad dispersante y su comportamiento viscosimétrico optimizan su performance y generan protección extra al motor.",
+  "ficha_url": "https://elaion.com.ar/fichas/elaion.pdf",
+  "pds": {
+   "ficha_n": "285",
+   "fecha": "MARZO 2024",
+   "rubro": "",
+   "sae": [
+    "10W-40",
+    "15W-40",
+    "20W-50",
+    "5W-30",
+    "5W-40"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "MB 229.1",
+    "MB 229.31",
+    "PSA B71 2300",
+    "VW 501.01"
+   ],
+   "base": [
+    "mineral",
+    "semisintético"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Lubricantes ELAION",
+  "grupo": "ELAION",
+  "producto": "MI 2050",
+  "descripcion": "Lubricante para motores naturalmente aspirados o turbocomprimidos con alto kilometraje que utilicen cualquier tipo de combustible. Su capacidad dispersante y su comportamiento viscosimétrico optimizan su performance y generan protección extra al motor.",
+  "ficha_url": "https://elaion.com.ar/fichas/elaion.pdf",
+  "pds": {
+   "ficha_n": "285",
+   "fecha": "MARZO 2024",
+   "rubro": "",
+   "sae": [
+    "10W-40",
+    "15W-40",
+    "20W-50",
+    "5W-30",
+    "5W-40"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "MB 229.1",
+    "MB 229.31",
+    "PSA B71 2300",
+    "VW 501.01"
+   ],
+   "base": [
+    "mineral",
+    "semisintético"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Lubricantes Extravida",
+  "grupo": "Mainstream",
+  "producto": "EXTRAVIDA XV300",
+  "descripcion": "Lubricante de alta calidad para motores diésel pesados 4 tiempos. Su formulación cuenta con la más alta tecnología de control de hollín, evitando la formación de depósitos en pistones y válvulas. Su capacidad antioxidante y de control de hollín permiten extender el periodo de drenaje del lubricante. Puede ser utilizado en equipos con motores Euro V y Euro IV sin DPF, con recirculación de gases de escape (EGR) o con sistema de reducción catalítica selectiva (SCR), así como en motores Euro III y anteriores. Cuenta con las siguientes cartas de aprobación: MB-Approval 228.3, Volvo VDS-3, Cummins CES 20078, Detroit Diesel DDC 93K215.",
+  "ficha_url": "https://lubricantes.ypf.com/docs/extravida/extravida_xv_300_ft.pdf",
+  "pds": {
+   "ficha_n": null,
+   "fecha": null,
+   "rubro": null,
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": true
+  }
+ },
+ {
+  "linea": "Lubricantes Extravida",
+  "grupo": "Mainstream",
+  "producto": "EXTRAVIDA XV100",
+  "descripcion": "Lubricante de alta calidad para motores diésel pesados 4 tiempos. Su formulación garantiza la limpieza del motor evitando la formación de depósitos en pistones. Puede ser utilizado en equipos con motores Euro V y Euro IV sin DPF, con recirculación de gases de escape (EGR) o con sistema de reducción catalítica selectiva (SCR), así como en motores Euro III y anteriores. Cumple con normas de los principales fabricantes (OEMs) de motores diesel pesados.",
+  "ficha_url": "https://lubricantes.ypf.com/docs/extravida/extravida_xv_100_ft.pdf",
+  "pds": {
+   "ficha_n": "281",
+   "fecha": "MARZO 2025",
+   "rubro": "",
+   "sae": [
+    "15W-40"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "CES 20071",
+    "CES 20078",
+    "Caterpillar ECF",
+    "M3275",
+    "MB 228.3",
+    "Mack EO-M",
+    "VDS-2",
+    "VDS-3"
+   ],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Lubricantes Extravida",
+  "grupo": "Transporte",
+  "producto": "EXTRAVIDA XVT650",
+  "descripcion": "Lubricante premium diseñado para ser utilizado en motores diésel pesados 4 tiempos. Su formulación, elegida especialmente para satisfacer los requerimientos de los motores a gas (GNL, GNC y GLP) exigidos por Scania, ofrece una excelente resistencia a la oxidación que permite alcanzar periodos de drenaje extendidos y promueve el ahorro de combustible. Por tener una composición baja en cenizas, lo hace apto para equipos con filtros de partículas diésel (DPF). También puede ser utilizado en equipos con motores Euro VI y Euro V, con recirculación de gases de escape (EGR) o con sistema de reducción catalítica selectiva (SCR), así como en motores Euro anteriores. Cuenta con las cartas de aprobación de Scania LDF-4 y Volvo VDS-4.5.",
+  "ficha_url": "https://lubricantes.ypf.com/docs/extravida/extravida_xvt_ft.pdf",
+  "pds": {
+   "ficha_n": "282",
+   "fecha": "AGOSTO 2026",
+   "rubro": "TRANSPORTE",
+   "sae": [
+    "10W",
+    "10W- 40",
+    "15W- 40",
+    "5W- 30"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [
+    "API CK"
+   ],
+   "acea": [
+    "ACEA E11",
+    "ACEA E9"
+   ],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "Allison TES",
+    "CES 20072",
+    "CES 20077",
+    "CES 20081",
+    "CES 20086",
+    "Caterpillar ECF",
+    "M3277",
+    "M3477",
+    "M3575",
+    "M3775",
+    "MTU DQC III - 1",
+    "WSS M2C171"
+   ],
+   "base": [
+    "Mineral",
+    "Semisintético",
+    "Sintético"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Lubricantes Extravida",
+  "grupo": "Transporte",
+  "producto": "EXTRAVIDA XVT600",
+  "descripcion": "Lubricante premium diseñado para ser utilizado en motores diésel pesados 4 tiempos. Su formulación ofrece una excelente resistencia a la oxidación en condición de torque elevado y altas temperaturas. A su vez, protege al motor contra el desgaste asociado a altas cargas lo que incrementa la vida útil de los componentes. Al tener una composición baja en cenizas lo hace apto para equipos con filtros de partículas diésel (DPF). También puede ser utilizado en equipos con motores Euro VI y Euro V, con recirculación de gases de escape (EGR) o con sistema de reducción catalítica selectiva (SCR), así como en motores Euro anteriores.",
+  "ficha_url": "https://lubricantes.ypf.com/docs/extravida/extravida_xvt_ft.pdf",
+  "pds": {
+   "ficha_n": "282",
+   "fecha": "AGOSTO 2026",
+   "rubro": "TRANSPORTE",
+   "sae": [
+    "10W",
+    "10W- 40",
+    "15W- 40",
+    "5W- 30"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [
+    "API CK"
+   ],
+   "acea": [
+    "ACEA E11",
+    "ACEA E9"
+   ],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "Allison TES",
+    "CES 20072",
+    "CES 20077",
+    "CES 20081",
+    "CES 20086",
+    "Caterpillar ECF",
+    "M3277",
+    "M3477",
+    "M3575",
+    "M3775",
+    "MTU DQC III - 1",
+    "WSS M2C171"
+   ],
+   "base": [
+    "Mineral",
+    "Semisintético",
+    "Sintético"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Lubricantes Extravida",
+  "grupo": "Transporte",
+  "producto": "EXTRAVIDA XVT550 10W-40",
+  "descripcion": "Lubricante premium diseñado para ser utilizado en motores diésel pesados 4 tiempos. Su formulación, elegida especialmente para satisfacer los requerimientos exigidos por Scania, ofrece una mayor capacidad de detergencia para evitar la formación de depósitos y un excelente control de la oxidación que, junto a su gran reserva alcalina, garantiza la protección del motor y brinda periodos de drenaje extendidos. Puede ser utilizado en equipos con motores Euro V y Euro IV sin DPF, con recirculación de gases de escape (EGR) o con sistema de reducción catalítica selectiva (SCR), así como en motores Euro anteriores. Cuenta con las siguientes cartas de aprobación: MB-Approval 228.5, Scania LDF-3, Volvo VDS-3, MAN M 3277.",
+  "ficha_url": "https://lubricantes.ypf.com/docs/extravida/extravida_xvt_ft.pdf",
+  "pds": {
+   "ficha_n": "282",
+   "fecha": "AGOSTO 2026",
+   "rubro": "TRANSPORTE",
+   "sae": [
+    "10W",
+    "10W- 40",
+    "15W- 40",
+    "5W- 30"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [
+    "API CK"
+   ],
+   "acea": [
+    "ACEA E11",
+    "ACEA E9"
+   ],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "Allison TES",
+    "CES 20072",
+    "CES 20077",
+    "CES 20081",
+    "CES 20086",
+    "Caterpillar ECF",
+    "M3277",
+    "M3477",
+    "M3575",
+    "M3775",
+    "MTU DQC III - 1",
+    "WSS M2C171"
+   ],
+   "base": [
+    "Mineral",
+    "Semisintético",
+    "Sintético"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Lubricantes Extravida",
+  "grupo": "Transporte",
+  "producto": "EXTRAVIDA XVT550 5W-30",
+  "descripcion": "Lubricante premium diseñado para ser utilizado en motores diésel pesados 4 tiempos. Su formulación, elegida especialmente para satisfacer los requerimientos exigidos por Ford (WSS M2C212-A1), ofrece una mayor capacidad de detergencia para evitar la formación de depósitos y un excelente control de la oxidación que, junto a su gran reserva alcalina, garantiza la protección del motor y brinda periodos de drenaje extendidos. Puede ser utilizado en equipos con motores Euro V y Euro IV sin DPF, con recirculación de gases de escape (EGR) o con sistema de reducción catalítica selectiva (SCR), así como en motores Euro anteriores. Además, cumple con normas de diversos fabricantes (OEMs): Cummins, Volvo, MAN, Scania, DAF, Renault e Iveco.",
+  "ficha_url": "https://lubricantes.ypf.com/docs/extravida/extravida_xvt_ft.pdf",
+  "pds": {
+   "ficha_n": "282",
+   "fecha": "AGOSTO 2026",
+   "rubro": "TRANSPORTE",
+   "sae": [
+    "10W",
+    "10W- 40",
+    "15W- 40",
+    "5W- 30"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [
+    "API CK"
+   ],
+   "acea": [
+    "ACEA E11",
+    "ACEA E9"
+   ],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "Allison TES",
+    "CES 20072",
+    "CES 20077",
+    "CES 20081",
+    "CES 20086",
+    "Caterpillar ECF",
+    "M3277",
+    "M3477",
+    "M3575",
+    "M3775",
+    "MTU DQC III - 1",
+    "WSS M2C171"
+   ],
+   "base": [
+    "Mineral",
+    "Semisintético",
+    "Sintético"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Lubricantes Extravida",
+  "grupo": "Transporte",
+  "producto": "EXTRAVIDA XVT450",
+  "descripcion": "Lubricante semisintético especialmente diseñado para ser utilizado en motores diésel pesados 4 tiempos. Sus bases de tecnología sintética le confieren una excelente resistencia a la oxidación que permite alcanzar periodos de drenaje extendidos. También ofrece una excelente protección al desgaste incluso a bajas temperaturas, especialmente en condición de arranque. Puede ser utilizado en equipos con motores Euro V y Euro IV sin DPF, con recirculación de gases de escape (EGR) o con sistema de reducción catalítica selectiva (SCR), así como en motores Euro anteriores.",
+  "ficha_url": "https://lubricantes.ypf.com/docs/extravida/extravida_xvt_ft.pdf",
+  "pds": {
+   "ficha_n": "282",
+   "fecha": "AGOSTO 2026",
+   "rubro": "TRANSPORTE",
+   "sae": [
+    "10W",
+    "10W- 40",
+    "15W- 40",
+    "5W- 30"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [
+    "API CK"
+   ],
+   "acea": [
+    "ACEA E11",
+    "ACEA E9"
+   ],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "Allison TES",
+    "CES 20072",
+    "CES 20077",
+    "CES 20081",
+    "CES 20086",
+    "Caterpillar ECF",
+    "M3277",
+    "M3477",
+    "M3575",
+    "M3775",
+    "MTU DQC III - 1",
+    "WSS M2C171"
+   ],
+   "base": [
+    "Mineral",
+    "Semisintético",
+    "Sintético"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Lubricantes Extravida",
+  "grupo": "Transporte",
+  "producto": "EXTRAVIDA XVT300",
+  "descripcion": "Lubricante premium diseñado para ser utilizado en motores diésel pesados 4 tiempos. Su formulación, elegida especialmente para satisfacer los requerimientos de los motores a gas (GNL, GNC y GLP) exigidos por Scania, ofrece una excelente resistencia a la oxidación que permite alcanzar periodos de drenaje extendidos y promueve el ahorro de combustible. Por tener una composición baja en cenizas, lo hace apto para equipos con filtros de partículas diésel (DPF). También puede ser utilizado en equipos con motores Euro VI y Euro V, con recirculación de gases de escape (EGR) o con sistema de reducción catalítica selectiva (SCR), así como en motores Euro anteriores. Cuenta con las cartas de aprobación de Scania LDF-4 y Volvo VDS-4.5.",
+  "ficha_url": "https://lubricantes.ypf.com/docs/extravida/extravida_xvt_ft.pdf",
+  "pds": {
+   "ficha_n": "282",
+   "fecha": "AGOSTO 2026",
+   "rubro": "TRANSPORTE",
+   "sae": [
+    "10W",
+    "10W- 40",
+    "15W- 40",
+    "5W- 30"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [
+    "API CK"
+   ],
+   "acea": [
+    "ACEA E11",
+    "ACEA E9"
+   ],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "Allison TES",
+    "CES 20072",
+    "CES 20077",
+    "CES 20081",
+    "CES 20086",
+    "Caterpillar ECF",
+    "M3277",
+    "M3477",
+    "M3575",
+    "M3775",
+    "MTU DQC III - 1",
+    "WSS M2C171"
+   ],
+   "base": [
+    "Mineral",
+    "Semisintético",
+    "Sintético"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Lubricantes Extravida",
+  "grupo": "Agro",
+  "producto": "EXTRAVIDA XVA300",
+  "descripcion": "Lubricante mineral premium con bases API Grupo II diseñado para ser utilizado en motores diésel pesados 4 tiempos. Por su excelente resistencia a la oxidación y control del particulado para evitar el desgaste abrasivo se recomienda en aplicaciones de tipo agrícola. Además, posee una formulación baja en cenizas que lo hace apto para sistemas de post tratamiento propios de motorizaciones de última generación Euro V y anteriores. Cumple con los requerimientos de los motores Cummins, MWM, Mercedes Benz, AGCO, Deutz, FPT o Scania empleados por los principales fabricantes de maquinaria agrícola: John Deere, New Holland, Massey Ferguson, Case, Grupo AGCO ALLIS, Pauny, Claas, Vasalli o Metalfor.",
+  "ficha_url": "https://lubricantes.ypf.com/docs/extravida/extravida_xva_300_ft.pdf",
+  "pds": {
+   "ficha_n": "283",
+   "fecha": "AGOSTO 2024",
+   "rubro": "",
+   "sae": [
+    "15W-40"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [
+    "ACEA E11",
+    "ACEA E9"
+   ],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "Allison 2",
+    "CES 20086",
+    "Caterpillar VDS",
+    "DH-2",
+    "M3575",
+    "M3775",
+    "MB 228.31",
+    "MTU WSS M2C171-"
+   ],
+   "base": [
+    "mineral"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Lubricantes Extravida",
+  "grupo": "Industria",
+  "producto": "EXTRAVIDA XVI200",
+  "descripcion": "Lubricante para motores diésel pesados 4 tiempos utilizados en ferrocarriles de carga y pasajeros. Especialmente formulado para cumplir con las máximas exigencias del fabricante de motores MTU. Su tecnología exclusiva le confiere un destacado control del hollín, una excelente protección contra el desgaste y una gran resistencia a la oxidación que se traduce en una mayor vida útil del lubricante. Puede ser utilizado en equipos con motores Euro V y Euro IV sin DPF, con recirculación de gases de escape (EGR) o con sistema de reducción catalítica selectiva (SCR), así como en motores Euro anteriores. Cuenta con la carta de aprobación de MTU Tipo 2.",
+  "ficha_url": "https://lubricantes.ypf.com/docs/extravida/extravida_xvi_200_ft.pdf",
+  "pds": {
+   "ficha_n": "284",
+   "fecha": "AGOSTO 2024",
+   "rubro": "",
+   "sae": [
+    "15W-40"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "CES 20078",
+    "Caterpillar DTFR",
+    "M3275",
+    "MB 228.3",
+    "MTU",
+    "MTU CI-4/SL Cum",
+    "MTU Tipo 2. EXT",
+    "VDS-3"
+   ],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Lubricantes Extravida",
+  "grupo": "Industria",
+  "producto": "EXTRAVIDA XVI500",
+  "descripcion": "Lubricante premium diseñado con tecnología de última generación para motores diésel pesados 4 tiempos que operan en Minería y Oil & Gas. Su formulación ofrece una máxima protección contra el desgaste y excelente resistencia a la oxidación, asociado a las altas cargas y operaciones severas. También otorga una óptima fluidez en arranque en frío. Puede ser utilizado en equipos con motores Euro VI, Euro V y anteriores, con filtro de partículas (DPF), recirculación de gases de escape (EGR) o con sistema de reducción catalítica selectiva (SCR). Cumple con normas de diversos fabricantes: Caterpillar, Cummins, Volvo, Detroit Diesel y Mercedes-Benz.",
+  "ficha_url": "https://lubricantes.ypf.com/docs/extravida/extravida_xvi_500_ft.pdf",
+  "pds": {
+   "ficha_n": "280",
+   "fecha": "ABRIL 2024",
+   "rubro": "",
+   "sae": [
+    "5W-40"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [
+    "ACEA E11",
+    "ACEA E9"
+   ],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "Allison WSS",
+    "Caterpillar CES",
+    "MB 228.31",
+    "VDS-4.5"
+   ],
+   "base": [
+    "sintético"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Lubricantes ROD",
+  "grupo": "RÖD 4T",
+  "producto": "RÖD 4T 10W-50",
+  "descripcion": "Lubricante 100% sintético, que por su viscosidad y formulación está indicado para motos sometidas a altas exigencias y para la competición, donde el diseño de sus motores puede ocasionar la dilución del aceite por combustible. Esta característica le permite mantener una viscosidad adecuada para proteger del desgaste tanto a los elementos del motor como a los engranajes de la transmisión.",
+  "ficha_url": "https://lubricantes.ypf.com/docs/rod/fROD_4T.pdf",
+  "pds": {
+   "ficha_n": "290",
+   "fecha": "MAYO 2024",
+   "rubro": "",
+   "sae": [
+    "10W-30",
+    "10W-40",
+    "10W-50",
+    "20W-50",
+    "SAE 18"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [
+    "JASO T903 MA2"
+   ],
+   "oem": [],
+   "base": [
+    "mineral",
+    "semisintético",
+    "sintético"
+   ],
+   "envases_publicados": true
+  }
+ },
+ {
+  "linea": "Lubricantes ROD",
+  "grupo": "RÖD 4T",
+  "producto": "RÖD 4T 20W-50",
+  "descripcion": "Lubricante mineral para las motocicletas y motos de baja cilindrada que se utilizan en el intenso tránsito de las ciudades, donde se combina el viaje en autopista a velocidades constantes con alta carga y la circulación en las calles, con frecuentes arranques y paradas.",
+  "ficha_url": "https://lubricantes.ypf.com/docs/rod/fROD_4T.pdf",
+  "pds": {
+   "ficha_n": "290",
+   "fecha": "MAYO 2024",
+   "rubro": "",
+   "sae": [
+    "10W-30",
+    "10W-40",
+    "10W-50",
+    "20W-50",
+    "SAE 18"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [
+    "JASO T903 MA2"
+   ],
+   "oem": [],
+   "base": [
+    "mineral",
+    "semisintético",
+    "sintético"
+   ],
+   "envases_publicados": true
+  }
+ },
+ {
+  "linea": "Lubricantes ROD",
+  "grupo": "RÖD 4T",
+  "producto": "RÖD 4T 10W-30",
+  "descripcion": "Lubricante semisintético que se ajusta a la tendencia de los fabricantes de motocicletas de utilizar menores viscosidades con el objeto de mejorar la economía de combustible y con ello las emisiones al medio ambiente.",
+  "ficha_url": "https://lubricantes.ypf.com/docs/rod/fROD_4T.pdf",
+  "pds": {
+   "ficha_n": "290",
+   "fecha": "MAYO 2024",
+   "rubro": "",
+   "sae": [
+    "10W-30",
+    "10W-40",
+    "10W-50",
+    "20W-50",
+    "SAE 18"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [
+    "JASO T903 MA2"
+   ],
+   "oem": [],
+   "base": [
+    "mineral",
+    "semisintético",
+    "sintético"
+   ],
+   "envases_publicados": true
+  }
+ },
+ {
+  "linea": "Lubricantes ROD",
+  "grupo": "RÖD 4T",
+  "producto": "RÖD 4T 10W-40",
+  "descripcion": "Lubricante semisintético con un rango de viscosidad SAE que se adapta a la mayoría de los climas y aplicaciones, siendo el grado de viscosidad más recomendado por los principales fabricantes de motocicletas.",
+  "ficha_url": "https://lubricantes.ypf.com/docs/rod/fROD_4T.pdf",
+  "pds": {
+   "ficha_n": "290",
+   "fecha": "MAYO 2024",
+   "rubro": "",
+   "sae": [
+    "10W-30",
+    "10W-40",
+    "10W-50",
+    "20W-50",
+    "SAE 18"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [
+    "JASO T903 MA2"
+   ],
+   "oem": [],
+   "base": [
+    "mineral",
+    "semisintético",
+    "sintético"
+   ],
+   "envases_publicados": true
+  }
+ },
+ {
+  "linea": "Lubricantes ROD",
+  "grupo": "RÖD 2T",
+  "producto": "RÖD 2T",
+  "descripcion": "Lubricante semisintético diseñado para satisfacer las más altas exigencias de los motores de 2 tiempos, tanto en motocicletas con sistema de inyección de aceite (autolube o automix), como también en motocicletas con sistema de premezcla. Su composición semisintética, junto a sus aditivos, mejora la lubricidad, disminuye la formación de humos en los gases de escape, evita la generación de depósitos carbonosos y otorga un control superior en la formación de cenizas en las partes calientes.",
+  "ficha_url": "https://lubricantes.ypf.com/docs/rod/fROD_2T.pdf",
+  "pds": {
+   "ficha_n": "291",
+   "fecha": "MAYO 2024",
+   "rubro": "",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [
+    "semisintético"
+   ],
+   "envases_publicados": true
+  }
+ },
+ {
+  "linea": "Lubricantes ROD",
+  "grupo": "RÖD Cadenas",
+  "producto": "RÖD CADENAS",
+  "descripcion": "Lubricante en aerosol de gran adhesividad diseñado para proteger las cadenas de motocicletas. Su cuidadosa formulación lo hace exento de CFC (productos clorofluorocarburos) que degradan la capa de ozono. Para ser aplicado en las cadenas de motocicletas, ciclomotores y otros vehículos que utilicen este tipo de sistema de transmisión. Puede ser aplicado en cadenas con o sin o-ring.",
+  "ficha_url": "https://lubricantes.ypf.com/docs/rod/fROD_CADENAS.pdf",
+  "pds": null
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Motores con alto kilometraje",
+  "subgrupo": "Motores livianos",
+  "producto": "Super 20W-50",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/super_20W-50_ft.pdf",
+  "pds": {
+   "ficha_n": "020",
+   "fecha": "JULIO 2024",
+   "rubro": "AUTOMOTOR",
+   "sae": [
+    "20W-50"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [
+    "API SF"
+   ],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Motores con alto kilometraje",
+  "subgrupo": "Motores livianos",
+  "producto": "Normal",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/normal_ft.pdf",
+  "pds": {
+   "ficha_n": "019",
+   "fecha": "JULIO 2024",
+   "rubro": "AUTOMOTOR",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [
+    "API SB"
+   ],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Motores con alto kilometraje",
+  "subgrupo": "Motores livianos",
+  "producto": "HD Suplemento",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/hd_suplemento1_ft.pdf",
+  "pds": {
+   "ficha_n": "017",
+   "fecha": "JULIO 2024",
+   "rubro": "AUTOMOTOR, AGRO Y TRANSPORTE",
+   "sae": [
+    "10W",
+    "10W 30"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [
+    "mineral"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Motores con alto kilometraje",
+  "subgrupo": "Motores pesados",
+  "producto": "Multiturbo",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/multiturbo_ft.pdf",
+  "pds": {
+   "ficha_n": "141",
+   "fecha": "AGOSTO 2024",
+   "rubro": "AGRO Y TRANSPORTE",
+   "sae": [
+    "15W-40",
+    "25W-50"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [
+    "mineral"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Motores con alto kilometraje",
+  "subgrupo": "Motores pesados",
+  "producto": "Multiturbo 25W-60",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/multiturbo_25W-60_ft.pdf",
+  "pds": {
+   "ficha_n": "272",
+   "fecha": "AGOSTO 2024",
+   "rubro": "AGRO Y TRANSPORTE",
+   "sae": [
+    "25W-60"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [
+    "API CF-4"
+   ],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [
+    "mineral"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Motores con alto kilometraje",
+  "subgrupo": "Motores pesados",
+  "producto": "Multiturbo 20W-50",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/multiturbo_20W-50_ft.pdf",
+  "pds": {
+   "ficha_n": "251",
+   "fecha": "AGOSTO 2024",
+   "rubro": "AGRO Y TRANSPORTE",
+   "sae": [
+    "20W-50"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [
+    "API CG-4"
+   ],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [
+    "mineral"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Motores con alto kilometraje",
+  "subgrupo": "Motores pesados",
+  "producto": "HD Diesel",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/hd_diesel_ft.pdf",
+  "pds": {
+   "ficha_n": null,
+   "fecha": null,
+   "rubro": "",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [
+    "API CD"
+   ],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Motores con alto kilometraje",
+  "subgrupo": "Motores pesados",
+  "producto": "Diesel bc",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/diesel_bc_ft.pdf",
+  "pds": {
+   "ficha_n": "012",
+   "fecha": "JULIO 2024",
+   "rubro": "INDUSTRIA",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Motores con alto kilometraje",
+  "subgrupo": "Motores pesados",
+  "producto": "AT Turbo",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/at_turbo_ft.pdf",
+  "pds": {
+   "ficha_n": "008",
+   "fecha": "JULIO 2024",
+   "rubro": "AUTOMOTOR, AGRO Y TRANSPORTE",
+   "sae": [
+    "SAE 30"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Transmisión",
+  "subgrupo": "Transmisiones automáticas",
+  "producto": "Hidro ATF",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/hidro_atf_ft.pdf",
+  "pds": {
+   "ficha_n": "030",
+   "fecha": "JULIO 2024",
+   "rubro": "AUTOMOTOR, AGRO Y TRANSPORTE",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "Allison II",
+    "Dexron 236"
+   ],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Transmisión",
+  "subgrupo": "Transmisiones automáticas",
+  "producto": "ATF Sintético All",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/atf_sintetico_all_ft.pdf",
+  "pds": {
+   "ficha_n": "242",
+   "fecha": "AGOSTO 2024",
+   "rubro": "AUTOMOTOR, AGRO Y TRANSPORTE",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "ALLISON TES",
+    "Allison ATF",
+    "Allison Serie",
+    "Allison TES",
+    "MB 236.9"
+   ],
+   "base": [
+    "SINTÉTICO"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Transmisión",
+  "subgrupo": "Transmisiones automáticas",
+  "producto": "ATF D-VI",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/atf_D-VI_ft.pdf",
+  "pds": {
+   "ficha_n": "235",
+   "fecha": "AGOSTO 2024",
+   "rubro": "AUTOMOTOR",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "Dexron VI"
+   ],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Transmisión",
+  "subgrupo": "Transmisiones automáticas",
+  "producto": "ATF D-lll",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/atf_D-lll_ft.pdf",
+  "pds": {
+   "ficha_n": "122",
+   "fecha": "MAYO 2026",
+   "rubro": "AUTOMOTOR, AGRO Y TRANSPORTE",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "DEXRON III-H",
+    "MERCON ALLISON"
+   ],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Transmisión",
+  "subgrupo": "Transmisiones agrícolas",
+  "producto": "Hidro 19",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/hidro_19_ft.pdf",
+  "pds": {
+   "ficha_n": "009",
+   "fecha": "JULIO 2024",
+   "rubro": "AUTOMOTOR, AGRO Y TRANSPORTE",
+   "sae": [
+    "10W-30"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "Allison T0",
+    "Caterpillar ENVASES",
+    "John Deere M1143"
+   ],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Transmisión",
+  "subgrupo": "Transmisiones de exigencia moderada",
+  "producto": "Helicoidal stl 75w-90",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/helicoidal_stl_75w-90_ft.pdf",
+  "pds": {
+   "ficha_n": "217",
+   "fecha": "JULIO 2024",
+   "rubro": "AUTOMOTOR, AGRO Y TRANSPORTE",
+   "sae": [
+    "75W-90"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "EATON Europe",
+    "MB 235.8",
+    "ZF TE-ML 300"
+   ],
+   "base": [
+    "sintético"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Transmisión",
+  "subgrupo": "Transmisiones de exigencia moderada",
+  "producto": "Helicoidal m 80w",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/helicoidal_m_80w_ft.pdf",
+  "pds": {
+   "ficha_n": "018",
+   "fecha": "JULIO 2024",
+   "rubro": "AUTOMOTOR, AGRO Y TRANSPORTE",
+   "sae": [
+    "80W"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [
+    "API GL-4"
+   ],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "MB 235.1"
+   ],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Transmisión",
+  "subgrupo": "Transmisiones de exigencia moderada",
+  "producto": "Helicoidal 75w-90",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/helicoidal_75w-90_ft.pdf",
+  "pds": {
+   "ficha_n": "123",
+   "fecha": "JULIO 2024",
+   "rubro": "AUTOMOTOR, AGRO Y TRANSPORTE",
+   "sae": [
+    "75W-90"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [
+    "semisintético"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Transmisión",
+  "subgrupo": "Transmisiones de exigencia leve",
+  "producto": "Transmisión",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/transmision_ft.pdf",
+  "pds": {
+   "ficha_n": "082",
+   "fecha": "JULIO 2024",
+   "rubro": "AGRO Y TRANSPORTE",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [
+    "API GL-1"
+   ],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Transmisión",
+  "subgrupo": "Transmisiones de exigencia severa",
+  "producto": "Hipoidal Super S75W-90",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/hipoidal_super_S75W-90_ft.pdf",
+  "pds": {
+   "ficha_n": "135",
+   "fecha": "JULIO 2024",
+   "rubro": "AUTOMOTOR, AGRO Y TRANSPORTE",
+   "sae": [
+    "75W-90"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "MB 235.8"
+   ],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Transmisión",
+  "subgrupo": "Transmisiones de exigencia severa",
+  "producto": "Hipoidal Super",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/hipoidal_super_ft.pdf",
+  "pds": {
+   "ficha_n": "143",
+   "fecha": "JULIO 2020",
+   "rubro": "AUTOMOTOR, AGRO Y TRANSPORTE",
+   "sae": [
+    "85W 140",
+    "85W-140"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [
+    "semisintético"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Transmisión",
+  "subgrupo": "Transmisiones de exigencia severa",
+  "producto": "Hipoidal",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/hipoidal_ft.pdf",
+  "pds": {
+   "ficha_n": "056",
+   "fecha": "ENERO 2026",
+   "rubro": "AUTOMOTOR, AGRO Y TRANSPORTE",
+   "sae": [
+    "80W-90",
+    "85W-140"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Transmisión",
+  "subgrupo": "Transmisiones maquinaria pesada",
+  "producto": "FT Super",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/ft_super_ft.pdf",
+  "pds": {
+   "ficha_n": "014",
+   "fecha": "JULIO 2024",
+   "rubro": "INDUSTRIA",
+   "sae": [
+    "10W 30"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "Allison Komatsu",
+    "Allison y",
+    "Caterpillar C"
+   ],
+   "base": [
+    "mineral"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Transmisión",
+  "subgrupo": "Transmisiones maquinaria pesada",
+  "producto": "FT Super D 50",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/ft_super_d_50_ft.pdf",
+  "pds": {
+   "ficha_n": "166",
+   "fecha": "AGOSTO 2024",
+   "rubro": "INDUSTRIA",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "CATERPILLAR ENVASES",
+    "Caterpillar TO",
+    "Caterpillar en"
+   ],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Aceites de procesos",
+  "subgrupo": "Protección de piezas",
+  "producto": "Butia DW 50",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/butia_dw_50_ft.pdf",
+  "pds": {
+   "ficha_n": "037",
+   "fecha": "JULIO 2024",
+   "rubro": "INDUSTRIA",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Aceites de procesos",
+  "subgrupo": "Solubles",
+  "producto": "Solubles para Maquinado",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/solubles_para_maquinado_ft.pdf",
+  "pds": {
+   "ficha_n": "077",
+   "fecha": "AGOSTO 2024",
+   "rubro": "",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [
+    "mineral"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Aceites de procesos",
+  "subgrupo": "Corte neto",
+  "producto": "Aceites de corte netos",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/aceites_de_corte_netos_ft.pdf",
+  "pds": {
+   "ficha_n": "057",
+   "fecha": "AGOSTO 2024",
+   "rubro": "INDUSTRIA",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Aceites de procesos",
+  "subgrupo": "Temple",
+  "producto": "Tratamientos térmicos",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/tratamientos_termicos_ft.pdf",
+  "pds": {
+   "ficha_n": "039",
+   "fecha": "AGOSTO 2024",
+   "rubro": "INDUSTRIA",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Aceites de procesos",
+  "subgrupo": "Transferencia térmica",
+  "producto": "Transferencia térmica",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/transferencia_termica_ft.pdf",
+  "pds": {
+   "ficha_n": "040",
+   "fecha": "AGOSTO 2024",
+   "rubro": "INDUSTRIA",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Grasas",
+  "subgrupo": "Litio",
+  "producto": "Grasas Limit",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/grasas_limit_ft.pdf",
+  "pds": {
+   "ficha_n": "002",
+   "fecha": "MARZO 2025",
+   "rubro": "LITIO",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Grasas",
+  "subgrupo": "Litio",
+  "producto": "Grasas 60 62 y 63 EP",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/grasas_60_62_y_63_EP_ft.pdf",
+  "pds": {
+   "ficha_n": "003",
+   "fecha": "AGOSTO 2024",
+   "rubro": "LITIO",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Grasas",
+  "subgrupo": "Litio",
+  "producto": "Grasalgon",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/grasalgon_ft.pdf",
+  "pds": {
+   "ficha_n": "050",
+   "fecha": "JULIO 2024",
+   "rubro": "LITIO",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [
+    "NLGI 4"
+   ],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Grasas",
+  "subgrupo": "Litio",
+  "producto": "Grasa Nerea CLS 15",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/grasa_nerea_CLS_15_ft.pdf",
+  "pds": {
+   "ficha_n": "243",
+   "fecha": "AGOSTO 2024",
+   "rubro": "COMPLEJO DE LITIO",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Grasas",
+  "subgrupo": "Litio",
+  "producto": "Grasa Nerea CL EP2",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/grasa_nerea_CL_EP2_ft.pdf",
+  "pds": {
+   "ficha_n": "172",
+   "fecha": "AGOSTO 2024",
+   "rubro": "COMPLEJO DE LITIO",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Grasas",
+  "subgrupo": "Litio",
+  "producto": "Grasa Nerea CL AW2",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/grasa_nerea_CL_AW2_ft.pdf",
+  "pds": {
+   "ficha_n": "173",
+   "fecha": "AGOSTO 2024",
+   "rubro": "COMPLEJO DE LITIO",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Grasas",
+  "subgrupo": "Litio",
+  "producto": "Grasa Limit WSO",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/grasa_limit_WSO_ft.pdf",
+  "pds": {
+   "ficha_n": "244",
+   "fecha": "AGOSTO 2024",
+   "rubro": "LITIO",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Grasas",
+  "subgrupo": "Litio",
+  "producto": "Grasa 63 FC",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/grasa_63_FC_ft.pdf",
+  "pds": {
+   "ficha_n": "015",
+   "fecha": "JULIO 2024",
+   "rubro": "LITIO",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [
+    "NLGI 2"
+   ],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Grasas",
+  "subgrupo": "Calcio",
+  "producto": "Grasas 3 8 30 C y 102",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/grasas_3_8_30_C_y_102_ft.pdf",
+  "pds": {
+   "ficha_n": "016",
+   "fecha": "JULIO 2024",
+   "rubro": "CALCIO",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Grasas",
+  "subgrupo": "Calcio",
+  "producto": "Grasa Nerea CS MO1",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/grasa_nerea_CS_MO1_ft.pdf",
+  "pds": {
+   "ficha_n": "218",
+   "fecha": "FEBRERO 2026",
+   "rubro": "SULFONATO DE CALCIO COMPLEJO",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Grasas",
+  "subgrupo": "Compuestos para roscas",
+  "producto": "Grasas Crassus TC Premium",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/grasas_crassus_TC_Premium_ft.pdf",
+  "pds": {
+   "ficha_n": "259",
+   "fecha": "AGOSTO 2024",
+   "rubro": "LITIO",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [
+    "mineral",
+    "sintético"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Grasas",
+  "subgrupo": "Compuestos para roscas",
+  "producto": "Grasas Crassus TC API",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/grasas_crassus_TC_API_ft.pdf",
+  "pds": {
+   "ficha_n": "260",
+   "fecha": "AGOSTO 2024",
+   "rubro": "LITIO",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [
+    "sintético"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Grasas",
+  "subgrupo": "Compuestos para roscas",
+  "producto": "Grasas Crassus Perfo",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/grasas_crassus_perfo_ft.pdf",
+  "pds": {
+   "ficha_n": "261",
+   "fecha": "AGOSTO 2024",
+   "rubro": "LITIO",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [
+    "mineral",
+    "sintético"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Grasas",
+  "subgrupo": "Otras Grasas",
+  "producto": "Grasa PEX G 10716",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/grasa_PEX-G-10716_ft.pdf",
+  "pds": {
+   "ficha_n": "052",
+   "fecha": "JULIO 2024",
+   "rubro": "OTRAS",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [
+    "mineral"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Grasas",
+  "subgrupo": "Otras Grasas",
+  "producto": "Grasa asfaltica luida 650",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/grasa_asfaltica _luida_650_ft.pdf",
+  "pds": {
+   "ficha_n": "050",
+   "fecha": "JULIO 2024",
+   "rubro": "ASFÁLTICAS",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Grasas",
+  "subgrupo": "Otras Grasas",
+  "producto": "Grasa 107 EP",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/grasa_107_EP_ft.pdf",
+  "pds": {
+   "ficha_n": "001",
+   "fecha": "JULIO 2024",
+   "rubro": "OTRAS",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Industriales",
+  "subgrupo": "Sistemas hidráulicos",
+  "producto": "Hidro 19",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/hidro_19_ft.pdf",
+  "pds": {
+   "ficha_n": "009",
+   "fecha": "JULIO 2024",
+   "rubro": "AUTOMOTOR, AGRO Y TRANSPORTE",
+   "sae": [
+    "10W-30"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "Allison T0",
+    "Caterpillar ENVASES",
+    "John Deere M1143"
+   ],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Industriales",
+  "subgrupo": "Sistemas hidráulicos",
+  "producto": "Hidráulico HSVI",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/hidraulico_HSVI_ft.pdf",
+  "pds": {
+   "ficha_n": "068",
+   "fecha": "JULIO 2024",
+   "rubro": "",
+   "sae": [],
+   "iso_vg": [
+    "ISO VG 32",
+    "ISO VG 46"
+   ],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "DENISON VG",
+    "DIN 51524 HVLP (Par",
+    "EATON VICKERS"
+   ],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Industriales",
+  "subgrupo": "Sistemas hidráulicos",
+  "producto": "Hidráulico D",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/hidraulico_D_ft.pdf",
+  "pds": {
+   "ficha_n": "055",
+   "fecha": "JULIO 2024",
+   "rubro": "INDUSTRIA",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Industriales",
+  "subgrupo": "Sistemas hidráulicos",
+  "producto": "Hidráulico BP",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/hidraulico_bp_ft.pdf",
+  "pds": {
+   "ficha_n": "054",
+   "fecha": "JULIO 2024",
+   "rubro": "INDUSTRIA",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "DENISON HF-0",
+    "DENISON HF-1",
+    "Eaton Vickers"
+   ],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Industriales",
+  "subgrupo": "Sistemas hidráulicos",
+  "producto": "HD Suplemento1",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/hd_suplemento1_ft.pdf",
+  "pds": {
+   "ficha_n": "017",
+   "fecha": "JULIO 2024",
+   "rubro": "AUTOMOTOR, AGRO Y TRANSPORTE",
+   "sae": [
+    "10W",
+    "10W 30"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [
+    "mineral"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Industriales",
+  "subgrupo": "Sistemas hidráulicos",
+  "producto": "FT Super",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/ft_super_ft.pdf",
+  "pds": {
+   "ficha_n": "014",
+   "fecha": "JULIO 2024",
+   "rubro": "INDUSTRIA",
+   "sae": [
+    "10W 30"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "Allison Komatsu",
+    "Allison y",
+    "Caterpillar C"
+   ],
+   "base": [
+    "mineral"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Industriales",
+  "subgrupo": "Sistemas de refrigeración",
+  "producto": "Polar",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/polar_ft.pdf",
+  "pds": {
+   "ficha_n": "121",
+   "fecha": "AGOSTO 2024",
+   "rubro": "INDUSTRIA",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [
+    "mineral"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Industriales",
+  "subgrupo": "Sistemas de refrigeración",
+  "producto": "Frigorífico",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/frigorifico_ft.pdf",
+  "pds": {
+   "ficha_n": "048",
+   "fecha": "JULIO 2024",
+   "rubro": "INDUSTRIA",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Industriales",
+  "subgrupo": "Engranajes y reductores",
+  "producto": "Transmisión EP",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/transmision_ep_ft.pdf",
+  "pds": {
+   "ficha_n": "083",
+   "fecha": "JULIO 2024",
+   "rubro": "INDUSTRIA",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Industriales",
+  "subgrupo": "Engranajes y reductores",
+  "producto": "Molino TP",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/molino_tp_ft.pdf",
+  "pds": {
+   "ficha_n": "064",
+   "fecha": "JULIO 2024",
+   "rubro": "INDUSTRIA",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Industriales",
+  "subgrupo": "Engranajes y reductores",
+  "producto": "Gluma",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/gluma_ft.pdf",
+  "pds": {
+   "ficha_n": "155",
+   "fecha": "AGOSTO 2024",
+   "rubro": "INDUSTRIA",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [
+    "sintético"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Industriales",
+  "subgrupo": "Turbinas",
+  "producto": "Turbina EP",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/turbina-ep.pdf",
+  "pds": {
+   "ficha_n": "084",
+   "fecha": "JULIO 2024",
+   "rubro": "INDUSTRIA",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Industriales",
+  "subgrupo": "Turbinas",
+  "producto": "Turbina R",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/turbina-r.pdf",
+  "pds": {
+   "ficha_n": "085",
+   "fecha": "JULIO 2024",
+   "rubro": "INDUSTRIA",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Industriales",
+  "subgrupo": "Compresores",
+  "producto": "Merak",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/merak.pdf",
+  "pds": {
+   "ficha_n": "118",
+   "fecha": "JULIO 2024",
+   "rubro": "INDUSTRIA",
+   "sae": [],
+   "iso_vg": [
+    "ISO VG 100",
+    "ISO VG 32"
+   ],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Industriales",
+  "subgrupo": "Compresores",
+  "producto": "Merak S",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/merak-rs.pdf",
+  "pds": null
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Industriales",
+  "subgrupo": "Guías y bancadas",
+  "producto": "Lissos",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/lissos.pdf",
+  "pds": {
+   "ficha_n": "061",
+   "fecha": "JULIO 2024",
+   "rubro": "INDUSTRIA",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Industriales",
+  "subgrupo": "Herramientas neumáticas",
+  "producto": "Lissos N",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/lissos-n.pdf",
+  "pds": {
+   "ficha_n": "062",
+   "fecha": "JULIO 2024",
+   "rubro": "INDUSTRIA",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Industriales",
+  "subgrupo": "Otros lubricantes industriales",
+  "producto": "Cilindro",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/cilindro.pdf",
+  "pds": {
+   "ficha_n": "041",
+   "fecha": "JULIO 2024",
+   "rubro": "",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Industriales",
+  "subgrupo": "Otros lubricantes industriales",
+  "producto": "Forestal 3040",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/forestal-3040.pdf",
+  "pds": {
+   "ficha_n": "047",
+   "fecha": "JULIO 2024",
+   "rubro": "INDUSTRIA",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [
+    "mineral"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Industriales",
+  "subgrupo": "Otros lubricantes industriales",
+  "producto": "Librador HTA",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/librador-hta.pdf",
+  "pds": {
+   "ficha_n": "154",
+   "fecha": "AGOSTO 2024",
+   "rubro": "INDUSTRIA",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Industriales",
+  "subgrupo": "Otros lubricantes industriales",
+  "producto": "Sirus",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/sirus.pdf",
+  "pds": {
+   "ficha_n": "248",
+   "fecha": "AGOSTO 2024",
+   "rubro": "INDUSTRIALES",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Líquidos refrigerantes",
+  "subgrupo": "Motores livianos",
+  "producto": "Kriox Orgánico",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/kriox_organico_ft.pdf",
+  "pds": {
+   "ficha_n": "188",
+   "fecha": "AGOSTO 2025",
+   "rubro": "",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "PSA B71 5110"
+   ],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Líquidos refrigerantes",
+  "subgrupo": "Motores livianos",
+  "producto": "Kriox Inorgánico",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/kriox_inorganico_ftp.pdf",
+  "pds": {
+   "ficha_n": "058",
+   "fecha": "AGOSTO 2025",
+   "rubro": "FLUIDOS",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "CES 14603",
+    "John Deere H24C1",
+    "MTU-Mercedes VO"
+   ],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Líquidos refrigerantes",
+  "subgrupo": "Motores pesados",
+  "producto": "Kriox MTL 50",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/kriox_mtl_50_ft.pdf",
+  "pds": {
+   "ficha_n": "257",
+   "fecha": "MARZO 2026",
+   "rubro": "INDUSTRIA",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "CES 14603",
+    "John Deere H24",
+    "John Deere coolant",
+    "MB 325.3",
+    "MB 326.3",
+    "MTU MTL 5048 ·"
+   ],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Líquidos refrigerantes",
+  "subgrupo": "Motores pesados",
+  "producto": "Kriox M EC 1",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/kriox_m_ec_1_ft.pdf",
+  "pds": {
+   "ficha_n": "202",
+   "fecha": "AGOSTO 2026",
+   "rubro": "",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "CES 14439",
+    "Caterpillar EC",
+    "John Deere H24C1",
+    "MTU 5048 · ASTM"
+   ],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Líquidos refrigerantes",
+  "subgrupo": "Motores pesados",
+  "producto": "Kriox ATI",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/kriox_ati_ft.pdf",
+  "pds": {
+   "ficha_n": "216",
+   "fecha": "AGOSTO 2025",
+   "rubro": "",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "CES 14603",
+    "Caterpillar TMC",
+    "John Deere H24C1",
+    "MTU - Mercedes"
+   ],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Líquidos de frenos",
+  "subgrupo": "Líquidos de frenos",
+  "producto": "Liq p/ frenos hidráulicos Dot 4",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/liq_p_frenos_hidraulicos_dot4_ft.pdf",
+  "pds": {
+   "ficha_n": "119",
+   "fecha": "AGOSTO 2024",
+   "rubro": "FLUIDOS",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Líquidos de frenos",
+  "subgrupo": "Líquidos de frenos",
+  "producto": "Liq p/ Frenos hidráulicos Dot 3",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/liq_p_frenos_hidraulicos_dot3_ft.pdf",
+  "pds": {
+   "ficha_n": "060",
+   "fecha": "AGOSTO 2024",
+   "rubro": "FLUIDOS",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Náutica",
+  "subgrupo": "Náutica",
+  "producto": "Elaion náutico 4T",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/elaion_nautico_4t_ft.pdf",
+  "pds": {
+   "ficha_n": "193",
+   "fecha": "AGOSTO 2024",
+   "rubro": "NÁUTICA Y MOTO",
+   "sae": [
+    "10W-30"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [
+    "semisintético"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Náutica",
+  "subgrupo": "Náutica",
+  "producto": "Elaion náutico 2T",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/elaion_nautico_2t_ft.pdf",
+  "pds": {
+   "ficha_n": "192",
+   "fecha": "AGOSTO 2024",
+   "rubro": "NÁUTICA Y MOTO",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [
+    "mineral"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Náutica",
+  "subgrupo": "Náutica",
+  "producto": "Elaion náutico 2T Semisintético",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/elaion_nautico_2t_semisintetico_ft.pdf",
+  "pds": {
+   "ficha_n": "198",
+   "fecha": "AGOSTO 2024",
+   "rubro": "NÁUTICA Y MOTO",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [
+    "SEMISINTÉTICO"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Línea cuidado",
+  "subgrupo": "Línea cuidado",
+  "producto": "Renovador con siliconas",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/renovador_con_siliconas_ft.pdf",
+  "pds": {
+   "ficha_n": "181",
+   "fecha": "AGOSTO 2024",
+   "rubro": "COSMÉTICA",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Línea cuidado",
+  "subgrupo": "Línea cuidado",
+  "producto": "Limpia tapizados",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/limpia_tapizados_ft.pdf",
+  "pds": {
+   "ficha_n": "183",
+   "fecha": "AGOSTO 2024",
+   "rubro": "COSMÉTICA",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Línea cuidado",
+  "subgrupo": "Línea cuidado",
+  "producto": "Limpia motores",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/limpia_motores_ft.pdf",
+  "pds": {
+   "ficha_n": "182",
+   "fecha": "AGOSTO 2024",
+   "rubro": "COSMÉTICA",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Línea cuidado",
+  "subgrupo": "Línea cuidado",
+  "producto": "Limit aerosol",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/limit_aerosol_ft.pdf",
+  "pds": {
+   "ficha_n": "059",
+   "fecha": "AGOSTO 2024",
+   "rubro": "",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Línea cuidado",
+  "subgrupo": "Línea cuidado",
+  "producto": "Lava parabrisas",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/lava_parabrisas_ft.pdf",
+  "pds": {
+   "ficha_n": "184",
+   "fecha": "AGOSTO 2024",
+   "rubro": "COSMÉTICA",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Línea cuidado",
+  "subgrupo": "Línea cuidado",
+  "producto": "Lava autos",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/lava_autos_ft.pdf",
+  "pds": {
+   "ficha_n": "189",
+   "fecha": "AGOSTO 2024",
+   "rubro": "COSMÉTICA",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Línea cuidado",
+  "subgrupo": "Línea cuidado",
+  "producto": "Cera brillo final",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/cera_brillo_final_ft.pdf",
+  "pds": {
+   "ficha_n": "185",
+   "fecha": "AGOSTO 2024",
+   "rubro": "COSMÉTICA",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Línea cuidado",
+  "subgrupo": "Línea cuidado",
+  "producto": "Aromatizador",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/aromatizador_ft.pdf",
+  "pds": {
+   "ficha_n": "186",
+   "fecha": "AGOSTO 2024",
+   "rubro": "COSMÉTICA",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Aislación eléctrica",
+  "subgrupo": "Aislación eléctrica",
+  "producto": "Transformador",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/transformador.pdf",
+  "pds": {
+   "ficha_n": "081",
+   "fecha": null,
+   "rubro": "INDUSTRIA",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Aislación eléctrica",
+  "subgrupo": "Aislación eléctrica",
+  "producto": "Transformador HFP",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/transformador-hfp.pdf",
+  "pds": {
+   "ficha_n": "150",
+   "fecha": "AGOSTO 2024",
+   "rubro": "INDUSTRIA",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [
+    "mineral"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Motores marinos",
+  "subgrupo": "2T Carter",
+  "producto": "Atlanta Marine D 3005",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/atlanta_marine_d_3005_ft.pdf",
+  "pds": {
+   "ficha_n": "033",
+   "fecha": "JULIO 2024",
+   "rubro": "INDUSTRIA",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [
+    "mineral"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Motores marinos",
+  "subgrupo": "4T Motores semi rápidos",
+  "producto": "Aurelia TI",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/aurelia_ti_ft.pdf",
+  "pds": {
+   "ficha_n": "124",
+   "fecha": "AGOSTO 2024",
+   "rubro": "INDUSTRIA",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [
+    "API CF"
+   ],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Motores marinos",
+  "subgrupo": "4T Motores rápidos",
+  "producto": "Disola M",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/disola_m_ft.pdf",
+  "pds": {
+   "ficha_n": "044",
+   "fecha": "JULIO 2024",
+   "rubro": "INDUSTRIA",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "Caterpillar en",
+    "MTU (Detroit Di"
+   ],
+   "base": [
+    "mineral"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Motores marinos",
+  "subgrupo": "2T Cilindros",
+  "producto": "Talusia Universal",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/talusia_universal_ft.pdf",
+  "pds": {
+   "ficha_n": "204",
+   "fecha": "AGOSTO 2024",
+   "rubro": "INDUSTRIA",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [
+    "mineral"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Motores marinos",
+  "subgrupo": "2T Cilindros",
+  "producto": "Talusia Universal 100",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/talusia_universal_100_ft.pdf",
+  "pds": {
+   "ficha_n": "232",
+   "fecha": "AGOSTO 2024",
+   "rubro": "INDUSTRIALES",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [
+    "mineral"
+   ],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Motores marinos",
+  "subgrupo": "2T Cilindros",
+  "producto": "Talusia LS",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/talusia_ls_ft.pdf",
+  "pds": {
+   "ficha_n": "237",
+   "fecha": "AGOSTO 2024",
+   "rubro": "INDUSTRIA",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Motores marinos",
+  "subgrupo": "2T Cilindros",
+  "producto": "Talusia HR 70",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/talusia_hr_70_ft.pdf",
+  "pds": {
+   "ficha_n": "079",
+   "fecha": "AGOSTO 2024",
+   "rubro": "INDUSTRIA",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Motores a gas",
+  "subgrupo": "VECTIS",
+  "producto": "Vectis G2540",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/vectis_g2540_ft.pdf",
+  "pds": {
+   "ficha_n": "276",
+   "fecha": "AGOSTO 2024",
+   "rubro": "INDUSTRIA",
+   "sae": [
+    "15W-40"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Motores a gas",
+  "subgrupo": "VECTIS",
+  "producto": "Vectis G2940",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/vectis_g2940_ft.pdf",
+  "pds": {
+   "ficha_n": "277",
+   "fecha": "AGOSTO 2024",
+   "rubro": "",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Motores a gas",
+  "subgrupo": "VECTIS",
+  "producto": "Vectis G540",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/vectis_G540_ft.pdf",
+  "pds": {
+   "ficha_n": "272",
+   "fecha": "AGOSTO 2024",
+   "rubro": "INDUSTRIA",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "CATERPILLAR bajo",
+    "CATERPILLAR y"
+   ],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Motores a gas",
+  "subgrupo": "VECTIS",
+  "producto": "Vectis G640",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/vectis_G640_ft.pdf",
+  "pds": {
+   "ficha_n": "254",
+   "fecha": "AGOSTO 2024",
+   "rubro": "",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Motores a gas",
+  "subgrupo": "VECTIS",
+  "producto": "Vectis G740",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/vectis_G740_ft.pdf",
+  "pds": {
+   "ficha_n": "273",
+   "fecha": "AGOSTO 2024",
+   "rubro": "",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [
+    "CATERPILLAR bajo"
+   ],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Motores a gas",
+  "subgrupo": "VECTIS",
+  "producto": "Vectis G130",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/vectis_G130_ft.pdf",
+  "pds": {
+   "ficha_n": "274",
+   "fecha": "AGOSTO 2024",
+   "rubro": "",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Motores a gas",
+  "subgrupo": "VECTIS",
+  "producto": "Vectis G140",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/vectis_G140_ft.pdf",
+  "pds": {
+   "ficha_n": "275",
+   "fecha": "AGOSTO 2024",
+   "rubro": "",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Motores ferroviarios",
+  "subgrupo": "Motores ferroviarios",
+  "producto": "Ferrodiesel 397",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/ferrodiesel_397_ft.pdf",
+  "pds": {
+   "ficha_n": "046",
+   "fecha": "MAYO 2026",
+   "rubro": "INDUSTRIA",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Motores ferroviarios",
+  "subgrupo": "Motores ferroviarios",
+  "producto": "Ferrodiesel 597 II",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/ferrodiesel_597_ll_ft.pdf",
+  "pds": {
+   "ficha_n": "045",
+   "fecha": "JULIO 2024",
+   "rubro": "INDUSTRIA",
+   "sae": [
+    "SAE 40"
+   ],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [
+    "API CF-2"
+   ],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Otros lubricantes",
+  "grupo": "Industriales",
+  "subgrupo": "GLICO PRF",
+  "producto": "Ficha técnica",
+  "ficha_url": "https://lubricantes.ypf.com/docs/otroslubricantes/glico-prf-ft.pdf",
+  "pds": {
+   "ficha_n": "3",
+   "fecha": "ABRIL 2025",
+   "rubro": "",
+   "sae": [],
+   "iso_vg": [],
+   "nlgi": [],
+   "api": [],
+   "acea": [],
+   "ilsac": [],
+   "jaso": [],
+   "oem": [],
+   "base": [],
+   "envases_publicados": false
+  }
+ },
+ {
+  "linea": "Azul 32",
+  "grupo": "Solución líquida",
+  "producto": "Azul 32",
+  "descripcion": "Solución Urea para Diesel pesados. Tecnología a Euro V bajo licencia AdBlue(r).",
+  "ficha_url": "https://lubricantes.ypf.com/docs/azul32/ficha-tecnica-azul-32.pdf",
+  "pds": null
+ }
+]

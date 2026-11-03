@@ -1,0 +1,134 @@
+# LUBRICANTES — contrato del repo
+
+Centraliza los lubricantes que se venden en Argentina (YPF y competencia), sus
+precios en el tiempo y las equivalencias YPF ↔ competidor, y los expone en un
+visor y una API con clave para que YPF los analice internamente.
+
+**Arquitectura:** GitHub Actions recolecta una vez por día y comitea CSV en
+`data/`. El push redeploya el Render Web Service free, que sirve visor y API
+leyendo esos archivos. No hay base de datos: git es el almacenamiento y el
+historial. Render free tiene disco efímero y su Postgres vence a los 30 días;
+por eso no se escribe nada en el server.
+
+El relevamiento que fundamenta todo esto está en `docs/relevamiento/`
+(`sintesis.md` es el diseño; el resto, las pruebas HTTP de cada fuente).
+
+## Reglas que no se negocian
+
+- **Python solo stdlib** (3.12). Ni requests ni pandas ni Flask: la Action corre
+  `python` pelado y el server entra holgado en 512 MB.
+- **No inventar datos.** Fuente caída = no se escribe fila ese día, no se arrastra
+  el precio anterior. En el visor, vacío explicado ("Carrefour: sin datos desde
+  2026-11-05, HTTP 403"), nunca 0 ni un guion sin explicación.
+- **No se adivina el matcheo.** Un aviso entra con `producto_id` solo si hay
+  exactamente un candidato. Si no, `producto_id` vacío y `match=none`.
+- **Sin scraping de Mercado Libre** (Términos del Programa de Desarrolladores
+  7.5/7.6). Solo API: categorías sin token, precios con OAuth de app propia.
+- **Clave obligatoria en Render.** Si `RENDER` está definida y falta
+  `LUB_CLAVE`, el server no arranca. Nunca una clave en la URL.
+- Lógica nueva → su `assert` en el `demo()` de ese módulo
+  (`python <modulo>.py test` tiene que dar `OK`).
+- `ESTADO.md` se actualiza en el mismo commit que cualquier cambio.
+- Todo en español. Comentarios solo para el porqué.
+
+## Archivos
+
+```
+recolectar.py      # una corrida: YPF GraphQL + VTEX + ML categorías (+ ML con token si hay secrets)
+ml.py              # cliente ML: categorías sin token, OAuth refresh, products/items con token
+sepa.py            # Precios Claros (SEPA): zip diario en streaming, filtra lubricantes
+normalizar.py      # aviso → (marca, sae, litros, unidades, producto_id, match)
+server.py          # http.server: visor estático site/ + /api/* calculado desde data/ y seed/
+site/index.html    # visor: Comparador, Evolución, Índice, Fuentes (JS vanilla, SVG propio)
+seed/productos.csv     # catálogo normalizado YPF + competencia (a mano)
+seed/alias.csv         # EAN / regex de título → producto_id
+seed/equivalencias.csv # pares YPF ↔ competidor (a mano)
+data/obs/AAAA-MM.csv   # observaciones de precio, append-only
+data/fuentes.csv       # una fila por fuente y corrida
+data/ml_oferta.csv     # total de publicaciones por categoría ML por día
+data/catalogo_ypf.json # foto del catálogo oficial YPF (el diff de git avisa altas/bajas)
+.github/workflows/recolectar.yml
+```
+
+## Esquemas (CSV UTF-8, coma, con encabezado)
+
+**seed/productos.csv** — PK `producto_id` slug `marca-linea-nombre-sae`
+(ej. `ypf-elaion-ts1040-10w40`, `shell-helix-hx7-10w40`).
+`producto_id,marca,linea,nombre,segmento,sae,base,api,acea,ilsac,jaso,oem,fuente_specs,verificado`
+- `marca`: canónica — `YPF, Shell, Castrol, Mobil, TotalEnergies, Elf, Gulf,
+  Petronas, Motul, Bardahl, Puma, Valvoline, Pennzoil, Liqui Moly, Goodyear`.
+- `segmento`: `pcmo|hddo|moto4t|moto2t|transmision|grasa|industrial|marino|gas|otro`.
+- `sae`: `5W-30` (con guion), monogrado `SAE 40`, engranaje `75W-90`; vacío si no aplica.
+- `base`: `mineral|semisintetico|sintetico` o vacío.
+- `oem`: separadas por `;`. `verificado`: `confirmado|inferido`.
+- Sin litros: la presentación es atributo de la observación.
+
+**seed/alias.csv** — `producto_id,tipo,valor`
+- `tipo=ean`: `valor` es el EAN exacto.
+- `tipo=texto`: `valor` es una regex (Python `re`) sobre el título normalizado
+  (minúsculas, sin acentos). Solo cuenta si la marca detectada del aviso coincide
+  con la del producto y, si el aviso tiene SAE, coincide con la del producto.
+
+**seed/equivalencias.csv** — `eq_id,ypf_id,comp_id,tipo,criterio,evidencia,fuente`
+- `tipo`: `match_total|match_total_probable|match_parcial|sustituto_comercial|no_equivalente`.
+- `evidencia`: `confirmada|inferida`. Sin puntajes de confianza inventados.
+
+**data/obs/AAAA-MM.csv** —
+`fecha,fuente,url,ean,titulo,marca,precio,precio_lista,stock,vendedor,sucursal,litros,unidades,producto_id,match`
+- `fecha` ISO `AAAA-MM-DD`. `precio` en ARS. `stock` entero o vacío.
+- `match`: `ean|texto|none`.
+- Si `stock == 0` o `precio <= 0`, no se escribe fila (se cuenta en `fuentes.csv`).
+- Cencosud (Jumbo/Disco/Vea): `ListPrice` viene inflado, va vacío en `precio_lista`.
+- Una corrida no duplica: si ya hay filas de esa `fuente` y `fecha`, se reemplazan.
+
+**data/fuentes.csv** —
+`fecha,fuente,http,n_items,n_con_precio,n_sin_stock,n_sin_match,error`
+- `n_items == 0` con HTTP 200 es error: `"categoria vacia, revisar fq"`.
+
+**data/ml_oferta.csv** — `fecha,categoria_id,categoria,total_items`
+
+## Fuentes v1 (probadas el 2026-11-03)
+
+| fuente | endpoint |
+|---|---|
+| `ypf_gql` | `POST https://magui.ypf.com/shp/yforms-lists/Metadata/` GraphQL `getMetadataGlobal(type:PRODUCTION){title structure data props}` |
+| `vtex_carrefour` | `https://www.carrefour.com.ar/api/catalog_system/pub/products/search?fq=C:/635/640/642/&_from=&_to=` |
+| `vtex_masonline` | `https://www.masonline.com.ar/...` `fq=C:/1000039/2000174/3000496/` |
+| `vtex_easy` | `https://www.easy.com.ar/...` `fq=C:/9/68/321/` |
+| `vtex_jumbo` | `https://www.jumbo.com.ar/...` `fq=C:/16/126/412/` — precio solo con `AvailableQuantity>0` |
+| `sepa` | CKAN `package_show?id=sepa-precios` → zip del día |
+| `ml_cat` | `https://api.mercadolibre.com/categories/{id}` sin token (MLA375007 y hermanas) |
+| `ml` | con token: `/products/search`, `/products/{id}/items`, `/items/bulk`, `/highlights` |
+
+VTEX pagina de a 50 (`_from`/`_to`, máximo 2500). 1 request/s por host,
+`User-Agent` honesto, timeout 30 s, un reintento.
+
+## Mercado Libre con token
+
+Apagado hasta que existan los secrets `ML_CLIENT_ID`, `ML_CLIENT_SECRET`,
+`ML_REFRESH_TOKEN`. El refresh token rota en cada canje (solo vale el último):
+la Action guarda el nuevo con `gh secret set ML_REFRESH_TOKEN` usando el secret
+`GH_PAT` (el `GITHUB_TOKEN` no puede escribir secrets). Sin secrets, `ml` queda
+en `fuentes.csv` con `error="sin token"`.
+
+## API (server.py)
+
+Autenticación: header `X-API-Key: <LUB_CLAVE>` o Basic Auth (usuario cualquiera,
+contraseña `LUB_CLAVE`). Respuestas JSON; `?formato=csv` devuelve CSV.
+
+| ruta | contenido |
+|---|---|
+| `/api/productos` | `seed/productos.csv` |
+| `/api/equivalencias` | equivalencias con nombre y marca de ambos lados |
+| `/api/ultimo` | último precio por (producto_id, fuente, litros) con `precio_litro` y fecha |
+| `/api/obs?mes=AAAA-MM` | observaciones crudas del mes (insumo del análisis interno) |
+| `/api/serie?p=<producto_id>` | serie diaria: mediana de $/L por fuente |
+| `/api/indice` | índice $/L por fecha, segmento, SAE y marca (YPF = 100) |
+| `/api/fuentes` | último estado de cada fuente + días sin datos |
+| `/api/sin_match` | avisos sin `producto_id` (cola de revisión) |
+| `/api/oferta_ml` | `data/ml_oferta.csv` |
+| `/salud` | sin clave, `{"ok":true}` para el health check de Render |
+
+`precio_litro = precio / (litros × unidades)`. Índice: mediana de `precio_litro`
+del día por (segmento, SAE, marca) / mediana YPF del mismo grupo y día × 100.
+Sin YPF ese día en ese grupo → celda vacía, no se calcula.

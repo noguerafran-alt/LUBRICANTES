@@ -1,0 +1,78 @@
+name: recolectar
+
+on:
+  schedule:
+    - cron: "0 9 * * *"  # 06:00 ART
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: recolectar
+  cancel-in-progress: false
+
+jobs:
+  recolectar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Recolectar
+        env:
+          ML_CLIENT_ID: ${{ secrets.ML_CLIENT_ID }}
+          ML_CLIENT_SECRET: ${{ secrets.ML_CLIENT_SECRET }}
+          ML_REFRESH_TOKEN: ${{ secrets.ML_REFRESH_TOKEN }}
+        run: python recolectar.py
+      # El refresh de ML es de un solo uso: si el canje rotó, hay que guardarlo aunque falle lo demás.
+      - name: Rotar refresh token ML
+        if: always() && hashFiles('.ml_refresh_nuevo') != ''
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          if [ -n "$GH_TOKEN" ]; then
+            gh secret set ML_REFRESH_TOKEN --repo "$GITHUB_REPOSITORY" < .ml_refresh_nuevo
+          else
+            echo "::warning::Falta el secret GH_PAT: el refresh token nuevo de ML no se guardó"
+          fi
+          rm -f .ml_refresh_nuevo
+      - name: Comitear data/
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/
+          git diff --cached --quiet && exit 0
+          git commit -m "datos $(date -u +%F): recolectar"
+          git pull --rebase
+          git push
+
+  # Corre después de recolectar y sobre el main actualizado: los dos jobs agregan filas
+  # al final de data/fuentes.csv y data/obs/, y en paralelo el rebase choca.
+  sepa:
+    needs: recolectar
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: SEPA
+        run: python sepa.py
+      - name: Comitear data/
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/
+          git diff --cached --quiet && exit 0
+          git commit -m "datos $(date -u +%F): sepa"
+          git pull --rebase
+          git push

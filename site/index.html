@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lubricantes YPF</title>
+<style>
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --tx: #1b1f24; --mut: #5c6672; --borde: #dde2e8;
+  --acento: #0b5cad; --ok: #1d7a3a; --mal: #b3261e; --aviso-bg: #fff4d6; --aviso-tx: #6b4a00;
+  --caro: #b3261e; --barato: #1d7a3a;
+  --c1: #0b5cad; --c2: #d9480f; --c3: #2b8a3e; --c4: #862e9c; --c5: #c2255c; --c6: #5c940d;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111418; --panel: #1a1f25; --tx: #e6e9ed; --mut: #9aa4b0; --borde: #2e353d;
+    --acento: #6cb0f5; --ok: #5cc57c; --mal: #ff8a80; --aviso-bg: #3a2f10; --aviso-tx: #ffd98a;
+    --caro: #ff8a80; --barato: #6fd18f;
+    --c1: #6cb0f5; --c2: #ff9a5a; --c3: #69db7c; --c4: #da77f2; --c5: #f783ac; --c6: #a9e34b;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--tx); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+header, main { max-width: 1200px; margin: 0 auto; padding: 0 16px; }
+header h1 { font-size: 20px; margin: 16px 0 8px; }
+nav { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--borde); }
+nav button { background: none; border: 0; border-bottom: 3px solid transparent; color: var(--mut); font: inherit; padding: 8px 10px; cursor: pointer; }
+nav button[aria-selected="true"] { color: var(--tx); border-color: var(--acento); font-weight: 600; }
+#banner:empty { display: none; }
+#banner { background: var(--aviso-bg); color: var(--aviso-tx); border-radius: 6px; padding: 8px 12px; margin: 12px 0; font-size: 14px; }
+#banner ul { margin: 4px 0 0; padding-left: 18px; }
+section { padding: 12px 0 32px; }
+section[hidden] { display: none; }
+.filtros { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 12px; }
+.filtros label { display: flex; flex-direction: column; font-size: 12px; color: var(--mut); }
+select, input { font: inherit; color: var(--tx); background: var(--panel); border: 1px solid var(--borde); border-radius: 6px; padding: 6px 8px; min-width: 0; }
+input[type=search] { width: 220px; max-width: 100%; }
+.tabla { overflow-x: auto; background: var(--panel); border: 1px solid var(--borde); border-radius: 8px; margin-bottom: 14px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { padding: 6px 8px; border-bottom: 1px solid var(--borde); text-align: left; vertical-align: top; }
+th { font-size: 12px; color: var(--mut); font-weight: 600; white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+td.n { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+tr.ypf td { font-weight: 600; background: color-mix(in srgb, var(--acento) 7%, transparent); }
+.mut { color: var(--mut); font-size: 12px; font-weight: 400; }
+.vacio { color: var(--mut); font-size: 12px; font-style: italic; font-weight: 400; }
+.badge { display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 10px; border: 1px solid var(--borde); color: var(--mut); white-space: nowrap; margin: 1px 2px 1px 0; }
+.badge.confirmada { border-color: var(--ok); color: var(--ok); }
+.caro { color: var(--caro); } .barato { color: var(--barato); }
+.nota { color: var(--mut); font-size: 13px; max-width: 70ch; }
+.explica { background: var(--panel); border: 1px dashed var(--borde); border-radius: 8px; padding: 16px; color: var(--mut); }
+a { color: var(--acento); }
+button.link { background: none; border: 0; padding: 0; color: var(--acento); font: inherit; font-size: 12px; cursor: pointer; text-decoration: underline; }
+.graf { background: var(--panel); border: 1px solid var(--borde); border-radius: 8px; padding: 8px; margin-bottom: 12px; }
+.graf h3 { font-size: 14px; margin: 0 0 4px; }
+.graf svg { width: 100%; height: auto; display: block; }
+.ley { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; margin: 4px 0 10px; }
+.ley i { display: inline-block; width: 14px; height: 3px; vertical-align: middle; margin-right: 4px; }
+svg text { fill: var(--mut); font-size: 11px; }
+svg .eje { stroke: var(--borde); }
+pre { background: var(--panel); border: 1px solid var(--borde); border-radius: 8px; padding: 10px; overflow-x: auto; font-size: 13px; }
+h2 { font-size: 17px; margin: 18px 0 6px; }
+/* misma grilla en todas las tablas del comparador, aunque sean una por producto */
+table.comp { table-layout: fixed; min-width: 640px; }
+table.comp th:nth-child(1) { width: 26%; } table.comp th:nth-child(2) { width: 17%; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Lubricantes: YPF vs competencia</h1>
+  <nav role="tablist">
+    <button role="tab" data-tab="comparador">Comparador</button>
+    <button role="tab" data-tab="evolucion">Evolución</button>
+    <button role="tab" data-tab="indice">Índice</button>
+    <button role="tab" data-tab="fuentes">Fuentes</button>
+  </nav>
+</header>
+<main>
+  <div id="banner"></div>
+
+  <section id="comparador" hidden>
+    <div class="filtros">
+      <label>Segmento <select id="f-seg"></select></label>
+      <label>SAE <select id="f-sae"></select></label>
+      <label>Presentación <select id="f-lit"></select></label>
+      <label>Buscar <input id="f-q" type="search" placeholder="nombre, marca o línea"></label>
+    </div>
+    <p class="nota">Último $/L por fuente para la presentación elegida. La diferencia compara contra el producto YPF en la misma fuente y presentación.</p>
+    <div id="comp-out">Cargando…</div>
+  </section>
+
+  <section id="evolucion" hidden>
+    <div class="filtros"><label>Producto YPF <select id="e-prod"></select></label></div>
+    <p class="nota">Mediana diaria de $/L por fuente. Un día sin dato corta la línea: no se arrastra el precio anterior.</p>
+    <div id="evo-out"></div>
+  </section>
+
+  <section id="indice" hidden>
+    <p class="nota">Mediana de $/L de cada marca dividida por la de YPF, mismo segmento, SAE y día, × 100. 110 = 10 % más caro por litro que YPF. Sin YPF ese día no se calcula. Debajo de cada valor, los últimos 90 días.</p>
+    <div id="ind-out"></div>
+  </section>
+
+  <section id="fuentes" hidden>
+    <h2>Estado de las fuentes</h2>
+    <div id="fue-out"></div>
+    <h2>Avisos sin producto (cola de revisión)</h2>
+    <p class="nota">Avisos con más de un candidato o ninguno. No se adivina: quedan afuera del comparador y del índice hasta que se agreguen a <code>seed/alias.csv</code>.</p>
+    <div id="sm-out"></div>
+    <h2 id="api">Cómo usar la API</h2>
+    <p class="nota">Todas las rutas <code>/api/*</code> piden la clave en el header <code>X-API-Key</code> (o Basic Auth, contraseña = clave). Nunca en la URL. Agregá <code>?formato=csv</code> para CSV. Rutas: <code>productos</code>, <code>equivalencias</code>, <code>ultimo</code>, <code>obs?mes=AAAA-MM</code>, <code>serie?p=producto_id</code>, <code>indice</code>, <code>fuentes</code>, <code>sin_match</code>, <code>oferta_ml</code>.</p>
+    <p class="nota">Python sin dependencias:</p>
+<pre>import csv, io, os, urllib.request
+
+req = urllib.request.Request("<span class="origen"></span>/api/ultimo?formato=csv",
+                             headers={"X-API-Key": os.environ["LUB_CLAVE"]})
+with urllib.request.urlopen(req) as r:
+    filas = list(csv.DictReader(io.TextIOWrapper(r, encoding="utf-8")))
+print(filas[0])</pre>
+    <p class="nota">pandas:</p>
+<pre>import os, pandas as pd
+
+obs = pd.read_csv("<span class="origen"></span>/api/obs?mes=2026-11&amp;formato=csv",
+                  storage_options={"X-API-Key": os.environ["LUB_CLAVE"]})</pre>
+  </section>
+</main>
+
+<script>
+const NOMBRE_FUENTE = { ypf_gql: "YPF catálogo", vtex_carrefour: "Carrefour", vtex_masonline: "Masonline", vtex_easy: "Easy",
+  vtex_jumbo: "Jumbo", sepa: "Precios Claros", ml_cat: "ML categorías", ml: "Mercado Libre" };
+const SEGMENTO = { pcmo: "Autos (PCMO)", hddo: "Pesados (HDDO)", moto4t: "Moto 4T", moto2t: "Moto 2T", transmision: "Transmisión",
+  grasa: "Grasa", industrial: "Industrial", marino: "Marino", gas: "Gas", otro: "Otro" };
+const TIPO = { match_total: "match total", match_total_probable: "match total probable", match_parcial: "match parcial",
+  sustituto_comercial: "sustituto comercial", no_equivalente: "no equivalente" };
+const COLORES = ["--c1", "--c2", "--c3", "--c4", "--c5", "--c6"];
+const pesos = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 });
+const entero = new Intl.NumberFormat("es-AR");
+const dec1 = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 1 });
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const nf = f => NOMBRE_FUENTE[f] || f;
+const fechaAR = iso => iso ? iso.slice(8, 10) + "/" + iso.slice(5, 7) + "/" + iso.slice(0, 4) : "";
+const dia = iso => Date.parse(iso + "T00:00:00Z") / 864e5;
+
+async function api(ruta) {
+  // mismo origen: el navegador reenvía el Basic Auth con el que se abrió la página.
+  // location.origin y no "/api/": si la página se abrió como https://u:clave@host, fetch rechaza URLs relativas con credenciales.
+  const r = await fetch(location.origin + "/api/" + ruta, { credentials: "same-origin" });
+  if (!r.ok) throw new Error(`/api/${ruta}: HTTP ${r.status}`);
+  return r.json();
+}
+
+let D = {};             // respuestas de la API
+const series = {};      // producto_id → serie
+
+// por qué no hay precio en una fuente: si la fuente está caída, decirlo
+function motivoVacio(fuente) {
+  const f = D.fuentes.find(x => x.fuente === fuente);
+  if (f && (f.error || f.dias_sin_datos > 1))
+    return f.ultimo_ok ? `${nf(fuente)}: sin datos desde ${fechaAR(f.ultimo_ok)}${f.error ? ", " + f.error : ""}` : `${nf(fuente)}: nunca trajo datos${f.error ? " (" + f.error + ")" : ""}`;
+  return "sin oferta con stock";
+}
+
+function caidas() {
+  return D.fuentes.filter(f => f.error || f.dias_sin_datos === null || f.dias_sin_datos > 1);
+}
+
+function banner() {
+  const c = caidas();
+  if (!c.length) return;
+  $("#banner").innerHTML = "<strong>Fuentes con problemas</strong><ul>" + c.map(f => "<li>" +
+    esc(f.ultimo_ok ? `${nf(f.fuente)}: sin datos desde ${fechaAR(f.ultimo_ok)}${f.error ? ", " + f.error : ""}`
+                    : `${nf(f.fuente)}: nunca trajo datos${f.error ? " (" + f.error + ")" : ""}`) + "</li>").join("") + "</ul>";
+}
+
+function opciones(sel, valores, todas, etiqueta = v => v) {
+  const prev = sel.value;
+  sel.innerHTML = (todas ? `<option value="">${todas}</option>` : "") + valores.map(v => `<option value="${esc(v)}">${esc(etiqueta(v))}</option>`).join("");
+  if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
+}
+
+const prod = id => D.prodPorId[id];
+const ypfs = () => D.productos.filter(p => p.marca === "YPF");
+const equivDe = id => D.equivalencias.filter(e => e.ypf_id === id);
+
+// ---------- Comparador ----------
+function initComparador() {
+  const ys = ypfs();
+  opciones($("#f-seg"), [...new Set(ys.map(p => p.segmento))].sort(), "Todos", v => SEGMENTO[v] || v);
+  opciones($("#f-sae"), [...new Set(ys.map(p => p.sae).filter(Boolean))].sort(), "Todas");
+  const cuenta = {};
+  D.ultimo.forEach(u => cuenta[u.litros] = (cuenta[u.litros] || 0) + 1);
+  const litros = Object.keys(cuenta).map(Number).sort((a, b) => a - b);
+  opciones($("#f-lit"), litros, null, l => dec1.format(l) + " L");
+  if (litros.length) $("#f-lit").value = Object.entries(cuenta).sort((a, b) => b[1] - a[1])[0][0];
+  ["#f-seg", "#f-sae", "#f-lit", "#f-q"].forEach(s => $(s).addEventListener("input", comparador));
+  comparador();
+}
+
+function comparador() {
+  const out = $("#comp-out");
+  const ys = ypfs();
+  if (!ys.length) return out.innerHTML = `<div class="explica">Todavía no hay productos YPF en <code>seed/productos.csv</code>.</div>`;
+  const seg = $("#f-seg").value, sae = $("#f-sae").value, lit = Number($("#f-lit").value), q = $("#f-q").value.trim().toLowerCase();
+  const fuentes = [...new Set(D.ultimo.map(u => u.fuente))].sort();
+  if (!fuentes.length) return out.innerHTML = `<div class="explica">Todavía no hay precios con producto asignado en <code>data/obs/</code>. Ver la pestaña Fuentes.</div>`;
+  const precio = {};
+  D.ultimo.filter(u => u.litros === lit).forEach(u => precio[u.producto_id + "|" + u.fuente] = u);
+  const texto = p => [p.marca, p.linea, p.nombre, p.sae, p.producto_id].join(" ").toLowerCase();
+  const filas = ys.filter(p => (!seg || p.segmento === seg) && (!sae || p.sae === sae) &&
+    (!q || texto(p).includes(q) || equivDe(p.producto_id).some(e => prod(e.comp_id) && texto(prod(e.comp_id)).includes(q))));
+  if (!filas.length) return out.innerHTML = `<div class="explica">Ningún producto YPF coincide con los filtros.</div>`;
+
+  const celda = (pid, f, ref) => {
+    const u = precio[pid + "|" + f];
+    if (!u) return `<td><span class="vacio" title="${esc(motivoVacio(f))}">${esc(motivoVacio(f))}</span></td>`;
+    let dif = "";
+    if (ref) {
+      const r = precio[ref + "|" + f];
+      if (r && r.fecha !== u.fecha) dif = `<br><span class="vacio">YPF con precio de otra fecha (${fechaAR(r.fecha)})</span>`;
+      else if (r) {
+        const d = (u.precio_litro / r.precio_litro - 1) * 100;
+        dif = `<br><span class="${d > 0 ? "caro" : "barato"}">${d > 0 ? "+" : ""}${dec1.format(d)} %</span>`;
+      } else dif = `<br><span class="vacio">sin YPF para comparar</span>`;
+    }
+    return `<td class="n">${pesos.format(u.precio_litro)}/L${dif}<br><span class="mut">${fechaAR(u.fecha)}${u.n > 1 ? " · " + u.n + " precios" : ""}</span></td>`;
+  };
+  const cab = `<tr><th>Producto</th><th>Equivalencia</th>${fuentes.map(f => `<th>${esc(nf(f))}</th>`).join("")}</tr>`;
+  out.innerHTML = filas.map(p => {
+    const eqs = equivDe(p.producto_id);
+    const filasEq = eqs.length ? eqs.map(e => {
+      const c = prod(e.comp_id);
+      return `<tr><td>${esc(e.comp_marca)} ${esc(e.comp_nombre || e.comp_id)}${c ? "" : ` <span class="vacio">(no está en productos.csv)</span>`}</td>
+        <td><span class="badge">${esc(TIPO[e.tipo] || e.tipo)}</span><span class="badge ${esc(e.evidencia)}">${esc(e.evidencia)}</span></td>
+        ${fuentes.map(f => celda(e.comp_id, f, p.producto_id)).join("")}</tr>`;
+    }).join("") : `<tr><td colspan="${fuentes.length + 2}" class="vacio">Sin equivalencias cargadas en seed/equivalencias.csv</td></tr>`;
+    return `<div class="tabla"><table class="comp">${cab}
+      <tr class="ypf"><td>YPF ${esc(p.linea)} ${esc(p.nombre)} <span class="mut">${esc(p.sae)} · ${esc(SEGMENTO[p.segmento] || p.segmento)}</span><br>
+        <button class="link" data-evo="${esc(p.producto_id)}">ver evolución</button></td><td></td>
+        ${fuentes.map(f => celda(p.producto_id, f)).join("")}</tr>${filasEq}</table></div>`;
+  }).join("");
+  out.querySelectorAll("[data-evo]").forEach(b => b.onclick = () => { $("#e-prod").value = b.dataset.evo; ir("evolucion"); });
+}
+
+// ---------- Evolución ----------
+function initEvolucion() {
+  const ys = ypfs();
+  opciones($("#e-prod"), ys.map(p => p.producto_id), null, id => `${prod(id).linea} ${prod(id).nombre} ${prod(id).sae}`);
+  $("#e-prod").addEventListener("input", evolucion);
+}
+
+async function evolucion() {
+  const out = $("#evo-out");
+  const id = $("#e-prod").value;
+  if (!id) return out.innerHTML = `<div class="explica">Todavía no hay productos YPF en <code>seed/productos.csv</code>.</div>`;
+  const ids = [id, ...equivDe(id).map(e => e.comp_id).filter(prod)];
+  out.innerHTML = "Cargando…";
+  try {
+    await Promise.all(ids.filter(x => !series[x]).map(async x => series[x] = await api("serie?p=" + encodeURIComponent(x))));
+  } catch (e) { return out.innerHTML = `<div class="explica">No se pudo leer la serie: ${esc(e.message)}</div>`; }
+  if ($("#e-prod").value !== id) return;
+  const color = {}; ids.forEach((x, i) => color[x] = `var(${COLORES[i % COLORES.length]})`);
+  const nombre = x => `${prod(x).marca} ${prod(x).nombre}`;
+  const ley = `<div class="ley">${ids.map(x => `<span><i style="background:${color[x]}"></i>${esc(nombre(x))}${series[x].length ? "" : " (sin precios)"}</span>`).join("")}</div>`;
+  const fuentes = [...new Set(ids.flatMap(x => series[x].map(s => s.fuente)))].sort();
+  if (!fuentes.length) return out.innerHTML = ley + `<div class="explica">Ni este producto ni sus equivalentes tienen precios todavía.</div>`;
+  out.innerHTML = ley + fuentes.map(f => {
+    const lineas = ids.map(x => ({ color: color[x], nombre: nombre(x), puntos: series[x].filter(s => s.fuente === f).map(s => [s.fecha, s.precio_litro]) }));
+    const caida = caidas().find(c => c.fuente === f);
+    return `<div class="graf"><h3>${esc(nf(f))}${caida ? ` <span class="vacio">${esc(motivoVacio(f))}</span>` : ""}</h3>${grafico(lineas)}</div>`;
+  }).join("");
+}
+
+function grafico(lineas) {
+  const W = 700, H = 240, m = { l: 70, r: 10, t: 10, b: 24 };
+  const todos = lineas.flatMap(l => l.puntos);
+  if (!todos.length) return `<div class="vacio">sin precios en esta fuente</div>`;
+  const xs = todos.map(p => dia(p[0])), ys = todos.map(p => p[1]);
+  let x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  if (x1 === x0) { x0 -= 1; x1 += 1; }
+  const pad = (y1 - y0) * 0.08 || y1 * 0.05 || 1; y0 -= pad; y1 += pad;
+  const X = d => m.l + (dia(d) - x0) / (x1 - x0) * (W - m.l - m.r);
+  const Y = v => H - m.b - (v - y0) / (y1 - y0) * (H - m.t - m.b);
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="$/L en el tiempo">`;
+  for (let i = 0; i <= 3; i++) {
+    const v = y0 + (y1 - y0) * i / 3;
+    s += `<line class="eje" x1="${m.l}" x2="${W - m.r}" y1="${Y(v)}" y2="${Y(v)}"/><text x="${m.l - 6}" y="${Y(v) + 4}" text-anchor="end">${pesos.format(v)}</text>`;
+  }
+  const fx = d => fechaAR(new Date(d * 864e5).toISOString().slice(0, 10));
+  s += `<text x="${m.l}" y="${H - 6}">${fx(x0)}</text><text x="${W - m.r}" y="${H - 6}" text-anchor="end">${fx(x1)}</text>`;
+  for (const l of lineas) {
+    // corta la línea cuando falta un día: el hueco se ve como hueco
+    let tramo = [];
+    const cerrar = () => { if (tramo.length > 1) s += `<polyline fill="none" stroke="${l.color}" stroke-width="2" points="${tramo.join(" ")}"/>`; tramo = []; };
+    l.puntos.forEach((p, i) => {
+      if (i && dia(p[0]) - dia(l.puntos[i - 1][0]) > 1) cerrar();
+      tramo.push(`${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`);
+    });
+    cerrar();
+    l.puntos.forEach(p => s += `<circle cx="${X(p[0]).toFixed(1)}" cy="${Y(p[1]).toFixed(1)}" r="2" fill="${l.color}"><title>${esc(l.nombre)} ${fechaAR(p[0])}: ${pesos.format(p[1])}/L</title></circle>`);
+  }
+  return s + "</svg>";
+}
+
+// ---------- Índice ----------
+function indice() {
+  const out = $("#ind-out");
+  if (!D.indice.length) return out.innerHTML = `<div class="explica">Todavía no hay precios con producto asignado para calcular el índice.</div>`;
+  const ultimo = D.indice.reduce((a, r) => r.fecha > a ? r.fecha : a, "");
+  const hoy = D.indice.filter(r => r.fecha === ultimo);
+  const grupos = [...new Set(hoy.map(r => r.segmento + "|" + r.sae))].sort();
+  const marcas = [...new Set(hoy.map(r => r.marca))].sort((a, b) => (b === "YPF") - (a === "YPF") || a.localeCompare(b));
+  const desde = dia(ultimo) - 90;
+  const hist = {};
+  D.indice.filter(r => dia(r.fecha) > desde).forEach(r => (hist[r.marca + "|" + r.segmento + "|" + r.sae] ??= []).push(r));
+  const celda = (marca, g) => {
+    const r = hoy.find(x => x.marca === marca && x.segmento + "|" + x.sae === g);
+    if (!r) return D.productos.some(p => p.marca === marca && p.segmento + "|" + p.sae === g)
+      ? `<td><span class="vacio">sin precio el ${fechaAR(ultimo)}</span></td>`
+      : `<td><span class="vacio">sin producto en el catálogo</span></td>`;
+    const v = r.indice === null ? `<span class="vacio">sin YPF ese día</span>`
+      : `<span class="${marca === "YPF" ? "" : r.indice > 100 ? "caro" : "barato"}">${dec1.format(r.indice)}</span>`;
+    return `<td class="n">${v}<br><span class="mut">${pesos.format(r.mediana_litro)}/L</span><br>${sparkline(hist[marca + "|" + g] || [], desde)}</td>`;
+  };
+  out.innerHTML = `<p class="nota">Último día con datos: <strong>${fechaAR(ultimo)}</strong>.</p><div class="tabla"><table>
+    <tr><th>Marca</th>${grupos.map(g => { const [seg, sae] = g.split("|"); return `<th>${esc(SEGMENTO[seg] || seg)}<br>${esc(sae || "sin SAE")}</th>`; }).join("")}</tr>
+    ${marcas.map(mk => `<tr${mk === "YPF" ? ' class="ypf"' : ""}><td>${esc(mk)}</td>${grupos.map(g => celda(mk, g)).join("")}</tr>`).join("")}</table></div>`;
+}
+
+function sparkline(filas, desde) {
+  const W = 90, H = 22, pts = filas.filter(r => r.indice !== null);
+  if (pts.length < 2) return `<span class="vacio">sin historia</span>`;
+  const vs = pts.map(r => r.indice);
+  const y0 = Math.min(...vs, 100), y1 = Math.max(...vs, 100), rango = y1 - y0 || 1;
+  const X = f => ((dia(f) - desde) / 90 * W).toFixed(1), Y = v => (H - 2 - (v - y0) / rango * (H - 4)).toFixed(1);
+  let s = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true"><line class="eje" x1="0" x2="${W}" y1="${Y(100)}" y2="${Y(100)}" stroke-dasharray="2 2"/>`, tramo = [];
+  const cerrar = () => { if (tramo.length > 1) s += `<polyline fill="none" stroke="var(--acento)" stroke-width="1.5" points="${tramo.join(" ")}"/>`; tramo = []; };
+  pts.forEach((r, i) => { if (i && dia(r.fecha) - dia(pts[i - 1].fecha) > 1) cerrar(); tramo.push(X(r.fecha) + "," + Y(r.indice)); });
+  cerrar();
+  return s + "</svg>";
+}
+
+// ---------- Fuentes ----------
+function fuentes() {
+  $("#fue-out").innerHTML = !D.fuentes.length ? `<div class="explica">Todavía no corrió ninguna recolección (<code>data/fuentes.csv</code> vacío).</div>` :
+    `<div class="tabla"><table><tr><th>Fuente</th><th>Última corrida</th><th>HTTP</th><th>Ítems</th><th>Con precio</th><th>Sin stock</th><th>Sin match</th><th>Último OK</th><th>Días sin datos</th><th>Error</th></tr>
+    ${D.fuentes.map(f => `<tr><td>${esc(nf(f.fuente))}<br><span class="mut">${esc(f.fuente)}</span></td><td>${fechaAR(f.fecha)}</td><td>${esc(f.http) || '<span class="vacio">sin respuesta</span>'}</td>
+      <td class="n">${esc(f.n_items)}</td><td class="n">${esc(f.n_con_precio)}</td><td class="n">${esc(f.n_sin_stock)}</td><td class="n">${esc(f.n_sin_match)}</td>
+      <td>${f.ultimo_ok ? fechaAR(f.ultimo_ok) : '<span class="vacio">nunca</span>'}</td>
+      <td class="n${f.dias_sin_datos > 1 || f.dias_sin_datos === null ? " caro" : ""}">${f.dias_sin_datos ?? '<span class="vacio">nunca trajo datos</span>'}</td>
+      <td>${f.error ? `<span class="caro">${esc(f.error)}</span>` : '<span class="mut">sin error</span>'}</td></tr>`).join("")}</table></div>`;
+  const sm = D.sin_match, max = 300;
+  $("#sm-out").innerHTML = !sm.length ? `<div class="explica">No hay avisos sin producto: todos matchearon con exactamente un candidato.</div>` :
+    `<p class="nota">${entero.format(sm.length)} avisos distintos${sm.length > max ? `, se muestran los ${max} más recientes (todos en <code>/api/sin_match?formato=csv</code>)` : ""}.</p>
+    <div class="tabla"><table><tr><th>Fuente</th><th>Título</th><th>Marca</th><th>EAN</th><th>Precio</th><th>Litros</th><th>Última vez</th><th>Veces</th></tr>
+    ${sm.slice(0, max).map(r => `<tr><td>${esc(nf(r.fuente))}</td><td>${/^https?:\/\//.test(r.url) ? `<a href="${esc(r.url)}" rel="noreferrer noopener" target="_blank">${esc(r.titulo)}</a>` : esc(r.titulo)}</td>
+      <td>${esc(r.marca) || '<span class="vacio">no detectada</span>'}</td><td>${esc(r.ean) || '<span class="vacio">sin EAN</span>'}</td>
+      <td class="n">${Number(r.precio) > 0 ? pesos.format(r.precio) : '<span class="vacio">sin precio</span>'}</td><td class="n">${esc(r.litros) || '<span class="vacio">sin dato</span>'}</td>
+      <td>${fechaAR(r.ultima)}</td><td class="n">${r.veces}</td></tr>`).join("")}</table></div>`;
+  document.querySelectorAll(".origen").forEach(e => e.textContent = location.origin);
+}
+
+// ---------- pestañas ----------
+const vistas = { comparador: () => {}, evolucion, indice: () => {}, fuentes: () => {} };
+function ir(tab) {
+  if (!vistas[tab]) tab = "comparador";
+  document.querySelectorAll("nav button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === tab));
+  document.querySelectorAll("main section").forEach(s => s.hidden = s.id !== tab);
+  if (location.hash !== "#" + tab) history.replaceState(null, "", "#" + tab);
+  if (D.productos) vistas[tab]();
+}
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => ir(b.dataset.tab));
+addEventListener("hashchange", () => ir(location.hash.slice(1)));
+
+(async () => {
+  ir(location.hash.slice(1));
+  try {
+    const nombres = ["productos", "equivalencias", "ultimo", "indice", "fuentes", "sin_match"];
+    const r = await Promise.all(nombres.map(api));
+    nombres.forEach((n, i) => D[n] = r[i]);
+  } catch (e) {
+    $("#banner").textContent = "No se pudieron leer los datos: " + e.message;
+    document.querySelectorAll("main section > div[id$=out]").forEach(d => d.textContent = "");
+    return;
+  }
+  D.prodPorId = Object.fromEntries(D.productos.map(p => [p.producto_id, p]));
+  banner();
+  initComparador(); initEvolucion(); indice(); fuentes();
+  ir(location.hash.slice(1));
+})();
+</script>
+</body>
+</html>
