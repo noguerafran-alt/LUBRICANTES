@@ -214,11 +214,7 @@ bardahl-2t-parques-jardines,texto,\bparques\b
 bardahl-2t-premium-low-smoke,ean,7790627100445
 bardahl-2t-premium-low-smoke,texto,\blow\s+smoke\b
 bardahl-mpv-10w40,ean,7790627112288
-bardahl-mpv-10w40,ean,7790627112714
-bardahl-mpv-10w40,ean,7790627701482
 bardahl-mpv-10w40,texto,^(?!.*\btop\s*lub\b).*\bmpv\b
-bardahl-top-lub-mpv-10w40,ean,7790627112295
-bardahl-top-lub-mpv-10w40,ean,7790627701499
 bardahl-top-lub-mpv-10w40,texto,\btop\s*lub\b
 goodyear-sintetico-5w40,ean,8434691477650
 goodyear-sintetico-5w40,texto,\bfull\s+sintetico\b

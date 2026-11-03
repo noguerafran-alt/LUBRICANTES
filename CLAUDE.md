@@ -34,7 +34,7 @@ El relevamiento que fundamenta todo esto está en `docs/relevamiento/`
 ## Archivos
 
 ```
-recolectar.py      # una corrida: YPF GraphQL + VTEX + ML categorías (+ ML con token si hay secrets)
+recolectar.py      # (--renormalizar: recalcula el matcheo de data/obs/ sin tocar precios) una corrida: YPF GraphQL + VTEX + ML categorías (+ ML con token si hay secrets)
 ml.py              # cliente ML: categorías sin token, OAuth refresh, products/items con token
 sepa.py            # Precios Claros (SEPA): zip diario en streaming, filtra lubricantes
 normalizar.py      # aviso → (marca, sae, litros, unidades, producto_id, match)
@@ -67,7 +67,11 @@ data/catalogo_ypf.json # foto del catálogo oficial YPF (el diff de git avisa al
 - `tipo=ean`: `valor` es el EAN exacto.
 - `tipo=texto`: `valor` es una regex (Python `re`) sobre el título normalizado
   (minúsculas, sin acentos). Solo cuenta si la marca detectada del aviso coincide
-  con la del producto y, si el aviso tiene SAE, coincide con la del producto.
+  con la del producto (Elf y TotalEnergies cuentan como la misma: Elf es marca de
+  TotalEnergies y Carrefour publica Elf con marca VTEX `TotalEnergies`; en
+  `productos.csv` las marcas siguen separadas) y, si el aviso tiene SAE, coincide
+  con la del producto. Si el slug de la URL trae otro SAE u otros litros que el
+  título, el aviso queda `match=none` (cola `sin_match`).
 
 **seed/equivalencias.csv** — `eq_id,ypf_id,comp_id,tipo,criterio,evidencia,fuente`
 - `tipo`: `match_total|match_total_probable|match_parcial|sustituto_comercial|no_equivalente`.
@@ -84,6 +88,8 @@ data/catalogo_ypf.json # foto del catálogo oficial YPF (el diff de git avisa al
 **data/fuentes.csv** —
 `fecha,fuente,http,n_items,n_con_precio,n_sin_stock,n_sin_match,error`
 - `n_items == 0` con HTTP 200 es error: `"categoria vacia, revisar fq"`.
+- `n_items > 0` y `n_con_precio == 0` sin error (Jumbo, todo sin stock): no es caída;
+  el visor dice "sin precios con stock" (no aplica a `ypf_gql` ni `ml_cat`, que no traen precio).
 
 **data/ml_oferta.csv** — `fecha,categoria_id,categoria,total_items`
 

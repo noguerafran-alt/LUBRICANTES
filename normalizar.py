@@ -35,6 +35,8 @@ SAE_MONO = re.compile(r"\bsae\s*(30|40|50|90|140)\b")
 LITROS = re.compile(r"(?<![\d.,])(\d+(?:[.,]\d+)?)\s*(l|lt|lts|litro|litros)\b")
 ML = re.compile(r"(?<![\d.,])(\d+(?:[.,]\d+)?)\s*(ml|cc|c\.c\.)(?!\w)")
 X_FINAL = re.compile(r"\bx\s*(\d+)\s*$")
+LINEA_YPF = re.compile(r"\b(mi|ts|fs|tf)\s*\d{3,4}\b")  # códigos Elaion/Extravida: MI 1540, TS 1040, FS 540
+GRUPO = {"Elf": "TotalEnergies"}  # Elf es marca de TotalEnergies: compatibles al matchear, sin fusionar en productos.csv
 UNIDADES = re.compile(r"x\s*(\d+)\s*unidades")
 
 
@@ -83,13 +85,23 @@ def cargar(ruta_alias=None, ruta_productos=None):
                 elif r["tipo"] == "texto" and r["producto_id"] in prod:
                     p = prod[r["producto_id"]]
                     textos.append((re.compile(r["valor"]), r["producto_id"], p["marca"], p["sae"]))
-    return {"ean": eans, "texto": textos}
+    return {"ean": eans, "texto": textos, "sae": {k: v["sae"] for k, v in prod.items()}}
 
 
 _REGLAS = None
 
 
-def normalizar(titulo, marca_vtex="", ean="", reglas=None):
+def url_contradice(t, sae, litros, url):
+    """True si el slug de la URL trae otro SAE u otros litros que el título (aviso mal armado: no se atribuye)."""
+    slug = texto(re.sub(r"/p$", "", (url or "").rstrip("/")).rsplit("/", 1)[-1]).replace("-", " ")
+    u_sae, resto = sae_de(slug)
+    if u_sae and sae and u_sae != sae:
+        return True
+    m = LITROS.search(resto)
+    return bool(m and litros is not None and float(m[1].replace(",", ".")) != litros)
+
+
+def normalizar(titulo, marca_vtex="", ean="", reglas=None, url=""):
     global _REGLAS
     if reglas is None:
         if _REGLAS is None:
@@ -99,6 +111,20 @@ def normalizar(titulo, marca_vtex="", ean="", reglas=None):
     marca = marca_de(marca_vtex) or marca_de(titulo)
     sae, resto = sae_de(t)
 
+    m = UNIDADES.search(t)
+    unidades = int(m[1]) if m else 1
+
+    pid, match = "", "none"
+    ean = (ean or "").strip()
+    g = lambda x: GRUPO.get(x, x)
+    if ean and ean in reglas["ean"]:
+        pid, match = reglas["ean"][ean], "ean"
+    elif marca:
+        cand = {p for rx, p, pm, ps in reglas["texto"]
+                if g(pm) == g(marca) and (not sae or ps == sae) and rx.search(t)}
+        if len(cand) == 1:
+            pid, match = cand.pop(), "texto"
+
     litros = None
     m = LITROS.search(resto)
     if m:
@@ -107,22 +133,13 @@ def normalizar(titulo, marca_vtex="", ean="", reglas=None):
         m = ML.search(resto)
         if m:
             litros = float(m[1].replace(",", ".")) / 1000
-        elif sae:  # "x 4" al final solo se lee como litros si es aceite (tiene SAE)
+        # "x 4" al final solo se lee como litros si es aceite: SAE, producto con SAE o código Elaion/Extravida
+        elif sae or reglas["sae"].get(pid) or LINEA_YPF.search(resto):
             m = X_FINAL.search(resto)
             if m:
                 litros = float(m[1])
-    m = UNIDADES.search(t)
-    unidades = int(m[1]) if m else 1
-
-    pid, match = "", "none"
-    ean = (ean or "").strip()
-    if ean and ean in reglas["ean"]:
-        pid, match = reglas["ean"][ean], "ean"
-    elif marca:
-        cand = {p for rx, p, pm, ps in reglas["texto"]
-                if pm == marca and (not sae or ps == sae) and rx.search(t)}
-        if len(cand) == 1:
-            pid, match = cand.pop(), "texto"
+    if match != "none" and url_contradice(t, sae, litros, url):
+        pid, match = "", "none"
     return dict(marca=marca, sae=sae, litros=litros, unidades=unidades, producto_id=pid, match=match)
 
 
@@ -137,7 +154,8 @@ def demo():
                 "ypf-elaion-ts1040-10w40,YPF,10W-40\n"
                 "ypf-elaion-fs540-5w40,YPF,5W-40\n"
                 "shell-helix-hx7-10w40,Shell,10W-40\n"
-                "totalenergies-quartz-7000-10w40,TotalEnergies,10W-40\n")
+                "totalenergies-quartz-7000-10w40,TotalEnergies,10W-40\n"
+                "elf-evolution-900-ft-5w40,Elf,5W-40\n")
     with open(ra, "w", encoding="utf-8") as f:
         f.write("producto_id,tipo,valor\n"
                 r"ypf-elaion-mi1540-15w40,texto,\bmi\s*1540\b|\bf\s*10\b" "\n"
@@ -145,11 +163,12 @@ def demo():
                 r"ypf-elaion-ts1040-10w40,texto,\bts\s*1040\b|\bf\s*30\b|elaion.*semi\s*-?sint|semi\s*-?sint.*elaion" "\n"
                 r"ypf-elaion-fs540-5w40,texto,\bfs\s*540\b" "\n"
                 r"shell-helix-hx7-10w40,texto,\bhx\s*7\b" "\n"
-                "totalenergies-quartz-7000-10w40,ean,7798038700728\n")
+                "totalenergies-quartz-7000-10w40,ean,7798038700728\n"
+                r"elf-evolution-900-ft-5w40,texto,\bevolution\s*900\b" "\n")
     R = cargar(ra, rp)
 
-    def n(titulo, marca="", ean=""):
-        return normalizar(titulo, marca, ean, reglas=R)
+    def n(titulo, marca="", ean="", url=""):
+        return normalizar(titulo, marca, ean, reglas=R, url=url)
 
     # Easy: nombre viejo y nuevo juntos; el SAE descarta MI 2050 (también es F10).
     r = n("Elaion F10 15W40 MI 1540")
@@ -195,6 +214,20 @@ def demo():
     # Acentos rotos de YPF GraphQL y marca VTEX compuesta.
     assert texto("Sint�tico Lubricación") == "sinttico lubricacion"
     assert marca_de("Elaion Ypf") == "YPF" and marca_de("QUARTZ") == "TotalEnergies" and marca_de("Quim Bat") == ""
+    # Elaion sin SAE: el código de línea habilita "x 4".
+    assert n("ACEITE ELAION MI 1540 X 4", "YPF")["litros"] == 4.0
+    assert n("ACEITE ELAION TS 1040 X 1")["litros"] == 1.0 and n("ACEITE ELAION FS 540 X 4")["litros"] == 4.0
+    # Elf y TotalEnergies compatibles al matchear (Carrefour publica Elf con marca VTEX TotalEnergies).
+    r = n("Aceite Evolution 900 5W40 Sintetico Ft 1LT", "TotalEnergies")
+    assert (r["marca"], r["producto_id"]) == ("TotalEnergies", "elf-evolution-900-ft-5w40"), r
+    # URL que contradice al título (Easy/Bardahl: título 10W-40, URL 25W-60 x4): no se atribuye.
+    u = "https://www.easy.com.ar/lubricante-25w60-x4lts-bardahl/p"
+    r = n("Aceite Shell Helix HX7 10W40 1 L", "Shell", url=u)
+    assert (r["producto_id"], r["match"]) == ("", "none"), r
+    r = n("Aceite Shell Helix HX7 10W40 1 L", "Shell", url="https://x.com/aceite-helix-hx7-10w40-1l/p")
+    assert r["producto_id"] == "shell-helix-hx7-10w40", r
+    r = n("Aceite Shell Helix HX7 10W40 1 L", "Shell", url="https://x.com/aceite-helix-hx7-10w40-4l/p")
+    assert r["match"] == "none", r
     # Seed vacío (rutas inexistentes) → nunca matchea, no explota.
     assert normalizar("Aceite Elaion FS 540 4 lts", "Elaion", "", cargar(ra + "x", rp + "x"))["match"] == "none"
     print("OK")

@@ -1,6 +1,7 @@
 """Una corrida diaria: YPF GraphQL + 4 VTEX + ML categorías (+ ML con token si hay secrets).
 
 python recolectar.py [--solo <fuente>] [--fecha AAAA-MM-DD]
+python recolectar.py --renormalizar   # recalcula el matcheo de data/obs/ sin tocar precios
 python recolectar.py test
 Escribe data/obs/AAAA-MM.csv, data/fuentes.csv, data/ml_oferta.csv y data/catalogo_ypf.json.
 """
@@ -64,13 +65,29 @@ def a_obs(fuente, fecha, avisos):
         if stock == 0 or not a["precio"] or float(a["precio"]) <= 0:
             sin_stock += 1
             continue
-        n = normalizar(a["titulo"], a.get("marca_cruda", ""), a.get("ean", ""))
+        n = normalizar(a["titulo"], a.get("marca_cruda", ""), a.get("ean", ""), url=a["url"])
         filas.append(dict(fecha=fecha, fuente=fuente, url=a["url"], ean=a.get("ean", ""), titulo=a["titulo"],
                           marca=n["marca"], precio=num(a["precio"]), precio_lista=num(a.get("precio_lista")),
                           stock="" if stock is None else int(stock), vendedor=a.get("vendedor", ""),
                           sucursal="", litros=num(n["litros"]), unidades=n["unidades"],
                           producto_id=n["producto_id"], match=n["match"]))
     return filas, sin_stock, sum(1 for f in filas if not f["producto_id"])
+
+
+def renormalizar():
+    """Recalcula marca/litros/unidades/producto_id/match de todas las filas de data/obs/, sin tocar precios."""
+    for nombre in sorted(os.listdir(os.path.join(DATA, "obs"))):
+        ruta = os.path.join(DATA, "obs", nombre)
+        filas = leer(ruta)
+        for f in filas:
+            n = normalizar(f["titulo"], f["marca"], f["ean"], url=f["url"])
+            f.update(marca=n["marca"], litros=num(n["litros"]), unidades=n["unidades"],
+                     producto_id=n["producto_id"], match=n["match"])
+        with open(ruta, "w", encoding="utf-8", newline="") as fh:
+            w = csv.DictWriter(fh, OBS, lineterminator=chr(10), extrasaction="ignore")
+            w.writeheader()
+            w.writerows(filas)
+        print(nombre, len(filas), "filas renormalizadas")
 
 
 def vtex(fuente):
@@ -144,6 +161,8 @@ def correr(fuente, fecha):
 
 
 def main(args):
+    if "--renormalizar" in args:
+        return renormalizar()
     fecha = datetime.now(timezone(timedelta(hours=-3))).date().isoformat()
     fuentes = ["ypf_gql", *VTEX, "ml_cat", "ml"]
     if "--fecha" in args:
@@ -179,6 +198,8 @@ def demo():
     assert filas[0]["precio"] == "159999" and filas[0]["litros"] == "4" and filas[0]["stock"] == 1
     assert filas[1]["stock"] == "" and filas[1]["precio_lista"] == "10560" and filas[1]["marca"] == "Gulf"
     import tempfile
+    assert a_obs("x", "d", [dict(url="https://e.com/aceite-gulf-max-20w-50-4l/p", ean="", titulo="Aceite Gulf max 20w-50 x 1l",
+                                 marca_cruda="Gulf", precio=1, stock=1)])[0][0]["litros"] == "1"  # el título manda en litros
     r = os.path.join(tempfile.mkdtemp(), "x.csv")
     reemplazar(r, OFERTA, [dict(fecha="d1", categoria_id="A", categoria="a", total_items=1),
                            dict(fecha="d2", categoria_id="A", categoria="a", total_items=2)], lambda f: (f["fecha"], f["categoria_id"]))

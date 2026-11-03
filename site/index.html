@@ -157,17 +157,24 @@ function motivoVacio(fuente) {
   const f = D.fuentes.find(x => x.fuente === fuente);
   if (f && (f.error || f.dias_sin_datos > 1))
     return f.ultimo_ok ? `${nf(fuente)}: sin datos desde ${fechaAR(f.ultimo_ok)}${f.error ? ", " + f.error : ""}` : `${nf(fuente)}: nunca trajo datos${f.error ? " (" + f.error + ")" : ""}`;
-  return "sin oferta con stock";
+  return f && sinPrecios(f) ? "sin precios con stock" : "sin oferta con stock";
 }
 
 function caidas() {
   return D.fuentes.filter(f => f.error || f.dias_sin_datos === null || f.dias_sin_datos > 1);
 }
 
+// Fuente que responde bien pero toda su oferta está sin stock (Jumbo): no es una caída HTTP.
+// ypf_gql y ml_cat son catálogo/conteo y nunca traen precio, no cuentan.
+function sinPrecios(f) {
+  return !f.error && +f.n_items > 0 && +f.n_con_precio === 0 && !["ypf_gql", "ml_cat"].includes(f.fuente);
+}
+const TXT_SIN_PRECIOS = f => `${nf(f.fuente)}: sin precios con stock (${f.n_items} ítems publicados, todos sin stock; la fuente responde bien)`;
+
 function banner() {
-  const c = caidas();
-  if (!c.length) return;
-  $("#banner").innerHTML = "<strong>Fuentes con problemas</strong><ul>" + c.map(f => "<li>" +
+  const c = caidas(), sp = D.fuentes.filter(sinPrecios);
+  if (!c.length && !sp.length) return;
+  $("#banner").innerHTML = (c.length ? "<strong>Fuentes con problemas</strong><ul>" : "<ul>") + sp.map(f => "<li>" + esc(TXT_SIN_PRECIOS(f)) + "</li>").join("") + c.map(f => "<li>" +
     esc(f.ultimo_ok ? `${nf(f.fuente)}: sin datos desde ${fechaAR(f.ultimo_ok)}${f.error ? ", " + f.error : ""}`
                     : `${nf(f.fuente)}: nunca trajo datos${f.error ? " (" + f.error + ")" : ""}`) + "</li>").join("") + "</ul>";
 }
@@ -344,7 +351,7 @@ function fuentes() {
   $("#fue-out").innerHTML = !D.fuentes.length ? `<div class="explica">Todavía no corrió ninguna recolección (<code>data/fuentes.csv</code> vacío).</div>` :
     `<div class="tabla"><table><tr><th>Fuente</th><th>Última corrida</th><th>HTTP</th><th>Ítems</th><th>Con precio</th><th>Sin stock</th><th>Sin match</th><th>Último OK</th><th>Días sin datos</th><th>Error</th></tr>
     ${D.fuentes.map(f => `<tr><td>${esc(nf(f.fuente))}<br><span class="mut">${esc(f.fuente)}</span></td><td>${fechaAR(f.fecha)}</td><td>${esc(f.http) || '<span class="vacio">sin respuesta</span>'}</td>
-      <td class="n">${esc(f.n_items)}</td><td class="n">${esc(f.n_con_precio)}</td><td class="n">${esc(f.n_sin_stock)}</td><td class="n">${esc(f.n_sin_match)}</td>
+      <td class="n">${esc(f.n_items)}</td><td class="n">${sinPrecios(f) ? '<span class="vacio" title="La fuente responde bien pero todos sus ítems están sin stock">sin precios con stock</span>' : esc(f.n_con_precio)}</td><td class="n">${esc(f.n_sin_stock)}</td><td class="n">${esc(f.n_sin_match)}</td>
       <td>${f.ultimo_ok ? fechaAR(f.ultimo_ok) : '<span class="vacio">nunca</span>'}</td>
       <td class="n${f.dias_sin_datos > 1 || f.dias_sin_datos === null ? " caro" : ""}">${f.dias_sin_datos ?? '<span class="vacio">nunca trajo datos</span>'}</td>
       <td>${f.error ? `<span class="caro">${esc(f.error)}</span>` : '<span class="mut">sin error</span>'}</td></tr>`).join("")}</table></div>`;
