@@ -25,7 +25,8 @@ jobs:
         env:
           ML_CLIENT_ID: ${{ secrets.ML_CLIENT_ID }}
           ML_CLIENT_SECRET: ${{ secrets.ML_CLIENT_SECRET }}
-          ML_REFRESH_TOKEN: ${{ secrets.ML_REFRESH_TOKEN }}
+          # Sin GH_PAT el refresh rotado no se puede guardar y el token se perdería: ML queda "sin token".
+          ML_REFRESH_TOKEN: ${{ secrets.GH_PAT != '' && secrets.ML_REFRESH_TOKEN || '' }}
         run: python recolectar.py
       # El refresh de ML es de un solo uso: si el canje rotó, hay que guardarlo aunque falle lo demás.
       - name: Rotar refresh token ML
