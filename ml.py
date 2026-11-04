@@ -1,8 +1,8 @@
 """Cliente Mercado Libre: solo API oficial (ToS 7.5/7.6 prohíben scraping).
 
 Sin token: /categories/{id}. Con token (secrets ML_CLIENT_ID, ML_CLIENT_SECRET,
-ML_REFRESH_TOKEN): /products/search, /products/{id}/items, /items/bulk, /highlights.
-La parte con token NO está probada: no hay app creada en DevCenter.
+ML_REFRESH_TOKEN, o .ml_local en la PC): /products/search + /products/{id}/items (probado
+2026-11-04). /items/bulk da [{}], /items?ids= 403 y /sites/MLA/search 403 con este token.
 `python ml.py test` corre los asserts.
 """
 import json
@@ -23,7 +23,12 @@ ARCHIVO_REFRESH = os.environ.get("ML_REFRESH_ARCHIVO", ".ml_refresh_nuevo")
 ARCHIVO_LOCAL = os.environ.get("ML_LOCAL", ".ml_local")
 # Provisorio: dominio propio en Render hasta que LUBRICANTES tenga el suyo (cambiarlo también en DevCenter).
 REDIRECT = "https://biblioteca-b8mb.onrender.com/ml-callback"
-BUSQUEDAS = ["elaion", "shell helix", "castrol", "mobil", "total quartz", "petronas", "motul", "gulf"]
+BUSQUEDAS = ["elaion", "extravida", "rod ypf", "ypf aceite", "shell helix", "shell rimula", "castrol edge",
+             "castrol magnatec", "castrol gtx", "castrol vecton", "mobil super", "mobil 1", "mobil delvac",
+             "total quartz", "total rubia", "elf evolution", "petronas syntium", "motul", "gulf",
+             "valvoline", "bardahl", "puma lubricantes", "liqui moly", "pennzoil"]
+TOPE_PRODUCTOS = 50  # por búsqueda; se loguea cuántas búsquedas se cortan
+TOPE_ITEMS = 100     # publicaciones por producto
 
 _ultimo = {}  # host → hora del último request
 
@@ -146,41 +151,67 @@ def highlights(tok, cat="MLA375007"):
     return pedir(f"/highlights/MLA/category/{cat}", tok)
 
 
+def aceite(p):
+    """Descarta lo que la búsqueda por marca trae de otros rubros (zapatillas Puma, pelucas, cervezas)."""
+    d = p.get("domain_id", "")
+    return "ENGINE_OILS" in d or (d.startswith("MLA-VEHICLE_") and d.endswith("_OILS"))
+
+
+def aviso(prod, it):
+    """Producto del catálogo + una publicación de products/{id}/items → aviso crudo.
+    El título suma SAE, volumen y pack del producto si el nombre no los trae: así normalizar los lee."""
+    at = {a.get("id"): a.get("value_name") or "" for a in prod.get("attributes") or []}
+    t = prod.get("name", "")
+    extra = [at.get("VISCOSITY_GRADE", ""), at.get("NET_VOLUME", "")]
+    if at.get("UNITS_PER_PACK", "1") not in ("", "1"):
+        extra.append(f"x {at['UNITS_PER_PACK']} unidades")
+    t = " ".join([t] + [e for e in extra if e and e.lower() not in t.lower()])
+    num = it["item_id"].removeprefix("MLA")
+    tienda = it.get("official_store_id")
+    return dict(url=f"https://articulo.mercadolibre.com.ar/MLA-{num}", ean=at.get("GTIN", ""), titulo=t,
+                marca_cruda=at.get("BRAND", ""), precio=it.get("price") or 0,
+                precio_lista=it.get("original_price") or "", stock=None,
+                vendedor=str(it.get("seller_id", "")) + (f" tienda:{tienda}" if tienda else ""))
+
+
+def _paginar(ruta, tope, token):
+    """→ (http, resultados, cortado). Pagina con offset/limit hasta `tope` o hasta agotar."""
+    out, http, off = [], 0, 0
+    while off < tope:
+        lim = min(50, tope - off)
+        http, d = pedir(f"{ruta}{'&' if '?' in ruta else '?'}limit={lim}&offset={off}", token)
+        if not d:
+            return http, out, False
+        r = d.get("results", [])
+        out += r
+        off += lim
+        if len(r) < lim or off >= (d.get("paging") or {}).get("total", off):
+            return http, out, False
+    return http, out, True
+
+
 def avisos():
-    """→ (http, avisos, error). Cada aviso con las columnas crudas de obs."""
+    """→ (http, avisos, error). Cada aviso con las columnas crudas de obs.
+    /items/bulk e /items dan vacío/403 con este token: el aviso sale de products/{id}/items + atributos."""
     tok, err = token()
     if not tok:
         return "", [], err
-    ids, http = [], 0
+    prods, cortadas, http = {}, 0, 0
     for q in BUSQUEDAS:
-        http, d = pedir("/products/search?" + urllib.parse.urlencode(
-            dict(status="active", site_id="MLA", q=q)), tok)
-        if d is None:
+        http, rs, cortado = _paginar("/products/search?" + urllib.parse.urlencode(
+            dict(status="active", site_id="MLA", q=q)), TOPE_PRODUCTOS, tok)
+        if not rs and http != 200:
             return http, [], f"products/search HTTP {http}"
-        ids += [p["id"] for p in d.get("results", [])]
-    items = []
-    for pid in dict.fromkeys(ids):
-        http, d = pedir(f"/products/{pid}/items", tok)
-        if d:  # un producto sin publicaciones da 404: no es caída
-            items += [r["item_id"] for r in d.get("results", []) if r.get("item_id")]
+        cortadas += cortado
+        prods.update({p["id"]: p for p in rs if aceite(p)})
     out = []
-    items = list(dict.fromkeys(items))
-    for i in range(0, len(items), 20):
-        http, d = pedir("/items/bulk?" + urllib.parse.urlencode(dict(
-            ids=",".join(items[i:i + 20]),
-            attributes="body.id,body.title,body.price,body.original_price,body.seller_id,"
-                       "body.available_quantity,body.permalink,body.attributes")), tok)
-        if d is None:
-            return http, [], f"items/bulk HTTP {http}"
-        for r in d:
-            b = r.get("body") or {}
-            if r.get("status_code", r.get("code")) != 200 or not b:
-                continue
-            at = {a.get("id"): a.get("value_name") or "" for a in b.get("attributes") or []}
-            out.append(dict(url=b.get("permalink", ""), ean=at.get("GTIN", ""), titulo=b.get("title", ""),
-                            marca_cruda=at.get("BRAND", ""), precio=b.get("price") or 0,
-                            precio_lista=b.get("original_price") or "", stock=b.get("available_quantity"),
-                            vendedor=str(b.get("seller_id", ""))))
+    for pid, p in prods.items():
+        _, rs, _ = _paginar(f"/products/{pid}/items", TOPE_ITEMS, tok)  # 404 = sin publicaciones, no es caída
+        out += [aviso(p, r) for r in rs if r.get("item_id") and r.get("condition", "new") == "new"]
+    print(f"ml: {len(BUSQUEDAS)} búsquedas, {len(prods)} productos de aceite, {cortadas} búsquedas cortadas "
+          f"en {TOPE_PRODUCTOS}, {len(out)} avisos", flush=True)
+    if not out:
+        return http, [], f"token válido pero 0 publicaciones ({len(prods)} productos encontrados)"
     return http, out, ""
 
 
@@ -191,6 +222,15 @@ def demo():
     real, ARCHIVO_LOCAL = ARCHIVO_LOCAL, os.path.join("tmp", "ml_local_inexistente")
     try:
         assert avisos() == ("", [], "sin token")
+        p = dict(name="Elaion F 50 F", attributes=[dict(id="BRAND", value_name="Elaion"), dict(id="GTIN", value_name="7790001"),
+                 dict(id="VISCOSITY_GRADE", value_name="5W-30"), dict(id="NET_VOLUME", value_name="4 L"),
+                 dict(id="UNITS_PER_PACK", value_name="2")])
+        a = aviso(p, dict(item_id="MLA2006591717", price=239900, original_price=None, seller_id=55, official_store_id=7))
+        assert a["url"] == "https://articulo.mercadolibre.com.ar/MLA-2006591717" and a["ean"] == "7790001"
+        assert a["titulo"] == "Elaion F 50 F 5W-30 4 L x 2 unidades" and a["precio_lista"] == "" and a["stock"] is None
+        assert a["vendedor"] == "55 tienda:7" and a["marca_cruda"] == "Elaion"
+        assert aceite(dict(domain_id="MLA-ENGINE_OILS")) and not aceite(dict(domain_id="MLA-SNEAKERS"))
+        assert aviso(dict(name="Aceite 5W-30 4 L"), dict(item_id="MLA1", price=1, seller_id=2))["titulo"] == "Aceite 5W-30 4 L"
         assert token() == (None, "sin token")
     finally:
         ARCHIVO_LOCAL = real
