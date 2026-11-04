@@ -81,7 +81,7 @@ def cargar(ruta_alias=None, ruta_productos=None):
         with open(ruta_alias, encoding="utf-8", newline="") as f:
             for r in csv.DictReader(f):
                 if r["tipo"] == "ean":
-                    eans[r["valor"].strip()] = r["producto_id"]
+                    eans[r["valor"].strip().lstrip("0")] = r["producto_id"]
                 elif r["tipo"] == "texto" and r["producto_id"] in prod:
                     p = prod[r["producto_id"]]
                     textos.append((re.compile(r["valor"]), r["producto_id"], p["marca"], p["sae"]))
@@ -115,10 +115,11 @@ def normalizar(titulo, marca_vtex="", ean="", reglas=None, url=""):
     unidades = int(m[1]) if m else 1
 
     pid, match = "", "none"
-    ean = (ean or "").strip()
+    # ML trae varios EAN por aviso ("a, b") y a veces con ceros de más (UPC en 14 dígitos): sirve si todos los conocidos dan el mismo producto.
+    por_ean = {reglas["ean"][e] for e in (x.strip().lstrip("0") for x in (ean or "").split(",")) if e in reglas["ean"]}
     g = lambda x: GRUPO.get(x, x)
-    if ean and ean in reglas["ean"]:
-        pid, match = reglas["ean"][ean], "ean"
+    if len(por_ean) == 1:
+        pid, match = por_ean.pop(), "ean"
     elif marca:
         cand = {p for rx, p, pm, ps in reglas["texto"]
                 if g(pm) == g(marca) and (not sae or ps == sae) and rx.search(t)}
@@ -228,6 +229,35 @@ def demo():
     assert r["producto_id"] == "shell-helix-hx7-10w40", r
     r = n("Aceite Shell Helix HX7 10W40 1 L", "Shell", url="https://x.com/aceite-helix-hx7-10w40-4l/p")
     assert r["match"] == "none", r
+    # EAN con ceros de más y lista de EAN de ML; dos productos distintos en la lista = sin match por EAN.
+    assert n("x", "", "07798038700728")["producto_id"] == "totalenergies-quartz-7000-10w40"
+    assert n("x", "", "111, 7798038700728")["match"] == "ean"
+    assert n("x", "", "7798038700728, 7798038700729")["match"] == "ean"
+    # Edge: sin alias propio, Professional y Titan no caen en los Edge genéricos (Castrol Edge real vive en seed/).
+    R2 = cargar()
+    def m(t, marca="Castrol"): return normalizar(t, marca, "", reglas=R2)["producto_id"]
+    assert m("Aceite Castrol Edge Professional 0W-20 4L") == "" and m("Castrol Edge Titan 5W-30 4L") == ""
+    assert m("Aceite Sintético Castrol Edge 0w20 4 Litros") == "castrol-edge-c5-0w20"
+    assert m("Aceite Castrol Edge 5w-40 A3/B4 4L") == "castrol-edge-5w40" and m("Castrol Edge 10W-60 4 L") == "castrol-edge-10w60"
+    assert m("Aceite Castrol Edge Turbo Diesel 5w-40 1l") == "castrol-edge-turbo-diesel-5w40"
+    # Un "ultra" suelto al final del título no puede abrir el alias genérico de Helix Ultra (regresión Pro AF, ML).
+    assert m("Aceite Shell Helix Ultra Pro Af 5w30 Sintetico 4 L 5w30 ultra", "Shell") == "shell-helix-ultra-professional-af-5w30"
+    assert m("Aceite Shell Helix Ultra 5w30 4l", "Shell") == "shell-helix-ultra-5w30" and m("Shell Helix Ultra 5W-40 1 L", "Shell") == "shell-helix-ultra-5w40"
+    # Quineo sin variante: no se adivina.
+    assert m("Aceite Total Quartz Ineo 5w-30 1l", "TotalEnergies") == ""
+    # Casos nuevos del seed.
+    assert m("Aceite Petronas Syntium 3000 XS 5W-30 100% Sintético x4L", "Petronas") == "petronas-syntium-3000-xs-5w30"
+    assert m("Aceite Petronas Syntium 3000 FR 5W-30 x4L", "Petronas") == "petronas-syntium-3000-fr-5w30"
+    assert m("Aceite Petronas Syntium 500 15w40 Mineral X 4 Litros", "Petronas") == "petronas-syntium-500-15w40"
+    assert m("Aceite Petronas Syntium 3000 5w40 4L", "Petronas") == ""  # falta la variante (AM/AV/BV)
+    assert m("Aceite Para Motor Elf Evolution 700st Semi Sintetico 15w50 4Lts", "Elf") == "elf-evolution-700-15w50"
+    assert m("Aceite Shell Helix Hx3 Sae 40 1 Litro", "Shell") == "shell-helix-hx3-sae40"
+    assert m("Aceite Shell Rimula R4 15w40 20lt", "Shell") == ""  # R4 L o R4 X: ambiguo
+    assert m("Aceite Magnatec 10w-30 4l Castrol") == "castrol-magnatec-10w30"
+    assert m("Aceite Castrol Magnatec Stop Start 5w30 C3 Auto Sintetico 4l") == "castrol-magnatec-stop-start-c3-5w30"
+    assert m("Aceite Valvoline Advanced Sintetico 5w20 4.73 Lts", "Valvoline") == "valvoline-advanced-5w20"
+    assert m("Motul 4100 10w40 X4lt Semi-sintetico", "Motul") == "motul-4100-10w40"
+    assert m("Aceite Shell Helix Ultra 0w30 Vw 504.00 507.00", "Shell") == ""
     # Seed vacío (rutas inexistentes) → nunca matchea, no explota.
     assert normalizar("Aceite Elaion FS 540 4 lts", "Elaion", "", cargar(ra + "x", rp + "x"))["match"] == "none"
     print("OK")
