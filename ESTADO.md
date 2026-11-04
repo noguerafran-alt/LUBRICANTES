@@ -98,6 +98,12 @@ Actualizado 2026-11-04 (carga de Grok). Remoto privado `noguerafran-alt/LUBRICAN
 - No hay API pública: el front lee el catálogo de Constructor.io (ac.cnstrc.com) con la clave de cliente de Coto embebida en el bundle, con precio por sucursal. No es un endpoint ofrecido a terceros: no se usa.
 - Conclusión: ambiguo con riesgo. No se implementa sin autorización escrita de Coto (o un dictamen de Legales de YPF).
 
+## Cierre de la Vitrina YPF (2026-11-04)
+- `sepa.py` y `POST /api/cargar` ahora filtran con la misma `recolectar.relacionados()` (no se duplicó). SEPA: `agregar(fecha, grupos, rel)` descarta lo ajeno y lo cuenta en `n_descartados` de `fuentes.csv` (`n_sin_match` = 0). Grok: un `tipo=producto` cuyo `producto_id` no es YPF ni `comp_id` sale en `errores` con `"no relacionado con YPF"` (y no se baja su URL); si todas las filas son ajenas, 400. Los `tipo=servicio` se aceptan siempre (combos Shell/competencia sin `producto_id`): van a `/api/servicios`, nunca al $/L. Asserts en `sepa.py test` y `server.py test`.
+- Visor: Fuentes y el banner muestran "n guardados · m descartados (no relacionados con YPF)" cuando hay descartados; "sin precios con stock" solo si `n_sin_stock == n_items`. La cola `sin_match` vacía se explica como diseño.
+- Vitrina: por defecto solo YPF con precio hoy (24 de 116 con los datos de hoy); botón `Ver todos (n)` (`aria-pressed`) suma los demás con su vacío explicado; el buscador mira todos y, si elige uno sin precio, activa el botón. CSS mínimo del botón, con las variables existentes (no se invocó la skill frontend-design).
+- Probado en Chrome headless (127.0.0.1:8791): 24 slides por defecto, 116 con el botón; buscar "Aceites de corte netos" lo activa y salta a ese producto; sin desborde a 375 px en claro y oscuro.
+
 ## Falta
 - Deploy en Render: formulario armado en el workspace YPF (`lubricantes-ypf`, free, /salud); falta que el usuario cargue LUB_CLAVE y despliegue.
 - ML con token: app "Lubricantes AR precios" armada en DevCenter el 2026-11-03 (lectura de publicaciones, redirect provisorio `https://biblioteca-b8mb.onrender.com/ml-callback`); la crea el usuario (T&C + captcha). Autorizada y probada en la PC. Para la Action faltan cargar los secrets ML_CLIENT_ID/ML_CLIENT_SECRET/ML_REFRESH_TOKEN/GH_PAT (la Action necesita ML_REFRESH_TOKEN además de los dos ya cargados).
@@ -107,3 +113,8 @@ Actualizado 2026-11-04 (carga de Grok). Remoto privado `noguerafran-alt/LUBRICAN
 
 ## Cómo retomar
 `python <modulo> test` en cada módulo; `LUB_CLAVE=x python server.py` y abrir http://127.0.0.1:8000; `python recolectar.py --solo <fuente>` para una fuente.
+
+## Sitios Grok (2026-11-04)
+- Lista blanca `seed/grok_sitios.csv`: helix + 15 sitios revisados (robots.txt y términos).
+- No habilitados: enausa (términos), mejorescompras (republica ML), fiatturin/motoracing/performance-lube y donagro (robots bloquea bots de IA), lubritodo/autodo/maxkar (términos prohíben copia o extracción), sodimac (Cloudflare), ceridono (solo aceites de refrigeración).
+- Visor 2026-11-04: el Comparador en escritorio tenía columnas de ~57 px y los textos se pisaban; ahora cada fuente tiene 118 px fijos (encabezados en dos líneas) y la tabla scrollea dentro de su recuadro. El banner junta en una línea los sitios Grok habilitados que todavía no tuvieron carga.

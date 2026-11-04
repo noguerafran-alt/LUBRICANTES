@@ -104,7 +104,7 @@ def leer_comercio(iz, grupos, cuenta):
                 g["precios"].append(0.0)
 
 
-def agregar(fecha, grupos):
+def agregar(fecha, grupos, rel=None):
     """Una fila por (comercio, bandera, EAN).
 
     Decisión: no se guarda una fila por sucursal. Carrefour y ChangoMás son ~1.400 filas/día
@@ -112,14 +112,18 @@ def agregar(fecha, grupos):
     entre sucursales; la dispersión queda en sucursal como "n=37;min=79999;max=82990".
     Se usa precio_lista (precio de góndola), no las promos, y precio_lista del CSV va vacío.
     Sucursales con precio <= 0 no entran a la mediana; si no queda ninguna, no hay fila.
+    Con `rel` (producto_id relacionados con YPF, ver recolectar.relacionados) lo ajeno no se escribe: se cuenta en descartados.
     """
-    filas, sin_precio = [], 0
+    filas, sin_precio, descartados = [], 0, 0
     for (comercio, bandera, ean), g in sorted(grupos.items()):
         ps = sorted(p for p in g["precios"] if p > 0)
         if not ps:
             sin_precio += 1
             continue
         n = g["n"]
+        if rel is not None and n["producto_id"] not in rel:
+            descartados += 1
+            continue
         filas.append({
             "fecha": fecha, "fuente": "sepa", "url": "", "ean": ean, "titulo": g["titulo"],
             "marca": n["marca"], "precio": f"{statistics.median(ps):.2f}", "precio_lista": "", "stock": "",
@@ -127,7 +131,7 @@ def agregar(fecha, grupos):
             "sucursal": f"n={len(ps)};min={ps[0]:.2f};max={ps[-1]:.2f}",
             "litros": n["litros"], "unidades": n["unidades"], "producto_id": n["producto_id"], "match": n["match"],
         })
-    return filas, sin_precio
+    return filas, sin_precio, descartados
 
 
 def escribir_obs(fecha, filas):
@@ -163,15 +167,16 @@ def correr():
                     if info.filename.endswith(".zip") and info.file_size:
                         with zipfile.ZipFile(z.open(info)) as iz:
                             leer_comercio(iz, grupos, cuenta)
-        filas, sin_precio = agregar(fecha, grupos)
+        from recolectar import relacionados  # una sola definición del filtro
+        filas, sin_precio, descartados = agregar(fecha, grupos, relacionados(str(RAIZ)))
     except Exception as e:
         http = getattr(e, "code", "")
         escribir_fuente({"fecha": date.today().isoformat(), "fuente": "sepa", "http": http, "n_items": 0,
-                         "n_con_precio": 0, "n_sin_stock": 0, "n_sin_match": 0, "error": f"{type(e).__name__}: {e}"[:200]})
+                         "n_con_precio": 0, "n_sin_stock": 0, "n_sin_match": 0, "n_descartados": 0, "error": f"{type(e).__name__}: {e}"[:200]})
         raise
     escribir_obs(fecha, filas)
     escribir_fuente({"fecha": fecha, "fuente": "sepa", "http": 200, "n_items": len(grupos), "n_con_precio": len(filas),
-                     "n_sin_stock": sin_precio, "n_sin_match": sum(f["match"] == "none" for f in filas),
+                     "n_sin_stock": sin_precio, "n_sin_match": 0, "n_descartados": descartados,
                      "error": "" if grupos else "sin lubricantes en el zip, revisar filtro"})
     print(f"sepa {fecha}: {mb:.0f} MB, {cuenta['filas']} filas por sucursal -> {len(filas)} filas escritas, {time.time() - t0:.0f} s")
 
@@ -212,13 +217,19 @@ def demo():
     grupos, cuenta = {}, {"filas": 0}
     leer_comercio(zipfile.ZipFile(buf), grupos, cuenta)
     assert cuenta["filas"] == 6, cuenta
-    filas, sin_precio = agregar("2026-11-02", grupos)
-    assert sin_precio == 1  # Gulf solo con precio 0: no se escribe, se cuenta
+    filas, sin_precio, descartados = agregar("2026-11-02", grupos)
+    assert sin_precio == 1 and descartados == 0  # Gulf solo con precio 0: no se escribe, se cuenta
     assert len(filas) == 2, filas
     hiper, market = filas
     assert hiper["precio"] == "80500.00" and hiper["sucursal"] == "n=3;min=79999.00;max=82990.00", hiper
     assert hiper["vendedor"] == "Hipermercado Carrefour" and hiper["fuente"] == "sepa"
     assert market["vendedor"] == "Carrefour Market" and market["sucursal"].startswith("n=1;")
+
+    # filtro YPF: solo se escribe lo relacionado; lo demás se cuenta
+    f2, sp2, d2 = agregar("2026-11-02", grupos, {filas[0]["producto_id"]} - {""})
+    assert len(f2) + d2 == len(filas) and d2 >= 0 and all(f["producto_id"] for f in f2)
+    f3, _, d3 = agregar("2026-11-02", grupos, set())
+    assert f3 == [] and d3 == len(filas)
 
     assert ultimo_zip({"resources": [
         {"url": "x/sepa_martes.zip", "description": "Precios SEPA Minoristas martes, 2026-10-27"},

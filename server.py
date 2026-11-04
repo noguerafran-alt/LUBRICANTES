@@ -27,6 +27,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import normalizar
 from ml import UA
+from recolectar import relacionados  # mismo filtro "solo lo relacionado con YPF" que el recolector
 from tiendas import MAYORISTAS  # fuentes de precio mayorista: fuera del índice salvo ?mayoristas=1
 
 RAIZ = Path(__file__).resolve().parent
@@ -572,13 +573,18 @@ def procesar_carga(d, raiz, texto, hoy=None, ahora=None):
         if clave_grok(r) in por_clave:
             duplicadas.append({"fila": por_clave[clave_grok(r)]["_fila"], "reemplazada_por": r["_fila"], "titulo": r["titulo"]})
         por_clave[clave_grok(r)] = r
-    paginas, resultado = {}, []
-    for r in por_clave.values():
+    paginas, resultado, rel = {}, [], relacionados(raiz)
+    for k, r in list(por_clave.items()):
+        n = normalizar.normalizar(r["titulo"], r["marca"], "", url=r["url"])
+        # los servicios (combos Shell/competencia sin producto_id) van a /api/servicios y nunca al $/L: pasan igual
+        if r["tipo"] == "producto" and n["producto_id"] not in rel:
+            errores.append({"fila": r["_fila"], "titulo": r["titulo"], "error": "no relacionado con YPF"})
+            del por_clave[k]
+            continue
         if r["url"] not in paginas:
             paginas[r["url"]] = BAJAR(r["url"])
         pag = paginas[r["url"]]
         r["verificado"] = "1" if pag and precio_en_texto(float(r["precio"]), pag) else "0"
-        n = normalizar.normalizar(r["titulo"], r["marca"], "", url=r["url"])
         r["producto_id"], r["match"], r["cargado"] = n["producto_id"], n["match"], sello
         r["marca"] = r["marca"] or n["marca"] or ""
         if not r["litros"] and n["litros"]:
@@ -587,6 +593,8 @@ def procesar_carga(d, raiz, texto, hoy=None, ahora=None):
             r["unidades"] = str(n["unidades"])
         resultado.append({"fila": r.pop("_fila"), "titulo": r["titulo"], "tipo": r["tipo"], "verificado": r["verificado"] == "1",
                           "producto_id": r["producto_id"]})
+    if not por_clave:
+        return 400, {"error": "ninguna fila relacionada con YPF", "errores": errores}
     token, repo = os.environ.get("GH_CARGA_TOKEN", ""), os.environ.get("GH_REPO") or "noguerafran-alt/LUBRICANTES"
     commits, fallo = [], ""
     for mes in sorted({r["fecha"][:7] for r in por_clave.values()}):
@@ -928,8 +936,9 @@ def demo():
         return 201, {"commit": {"sha": "abc123"}}
     BAJAR, GH = (lambda url: "<html>Combo HX7 $ 84.999 con filtro</html>"), gh_fake
     norm_real = normalizar.normalizar
-    normalizar.normalizar = lambda t, m="", e="", reglas=None, url="": dict(
+    norm_fake = lambda t, m="", e="", reglas=None, url="": dict(
         marca="Shell", sae="10W-40", litros=4.0, unidades=1, producto_id="shell-b-10w40" if "HX7" in t else "", match="texto" if "HX7" in t else "none")
+    normalizar.normalizar = norm_fake
     token_ant = os.environ.pop("GH_CARGA_TOKEN", None)
     try:
         d2 = cargar(raiz)
@@ -1005,6 +1014,7 @@ def demo():
     assert autorizado_carga({"X-Carga-Clave": "c4rga"}, "s3cr3t", "c4rga") and autorizado_carga({"X-API-Key": "s3cr3t"}, "s3cr3t", "c4rga")
     assert not autorizado_carga({"X-Carga-Clave": "c4rga"}, "s3cr3t", "") and not autorizado_carga({"X-Carga-Clave": "mala"}, "s3cr3t", "c4rga")
     Handler.datos, Handler.calc, Handler.raiz, Handler.clave_carga = cargar(raiz), c, raiz, "c4rga"
+    normalizar.normalizar = norm_fake
     GH = gh_fake
 
     def post(cuerpo, headers, tipo="text/csv"):
@@ -1020,16 +1030,20 @@ def demo():
     assert post(csv_de(fila()), kc, "application/json")[0] == 415
     cod, rsp = post(csv_de(fila(), fila(precio="0")), kc, "text/plain")
     assert cod == 200 and rsp["ok"] == 1 and len(rsp["errores"]) == 1 and rsp["commit"] == "solo local"
-    cod, rsp = post("csv=" + urllib.parse.quote(csv_de(fila(titulo="otra"))), k, "application/x-www-form-urlencoded")  # la principal también carga
+    cod, rsp = post("csv=" + urllib.parse.quote(csv_de(fila(titulo="Combo HX7 otra"))), k, "application/x-www-form-urlencoded")  # la principal también carga
     assert cod == 200 and rsp["ok"] == 1
     assert post("basura", kc)[0] == 400
+    cod, rsp = post(csv_de(fila(titulo="Aceite Castrol GTX"), fila(titulo="Combo Castrol", tipo="servicio", precio="50000")), kc)
+    assert cod == 200 and rsp["ok"] == 1 and rsp["filas"][0]["tipo"] == "servicio" and rsp["errores"] == [
+        {"fila": 1, "titulo": "Aceite Castrol GTX", "error": "no relacionado con YPF"}], rsp   # producto ajeno rechazado; servicio pasa
+    assert post(csv_de(fila(titulo="Aceite Castrol GTX")), kc)[0] == 400
     mes = hoy_s[:7]
-    assert len(json.loads(get("/api/grok?mes=" + mes, k)[1])) == 2 and get("/api/grok?mes=1999-01", k)[0] == 404
-    assert json.loads(get("/api/servicios", k)[1]) == [] and get("/api/servicios?formato=csv", k)[1].startswith(b"fecha,fuente,url")
+    assert len(json.loads(get("/api/grok?mes=" + mes, k)[1])) == 3 and get("/api/grok?mes=1999-01", k)[0] == 404
+    assert [x["titulo"] for x in json.loads(get("/api/servicios", k)[1])] == ["Combo Castrol"] and get("/api/servicios?formato=csv", k)[1].startswith(b"fecha,fuente,url")
     assert json.loads(get("/api/grok_sitios", k)[1])[0]["fuente"] == "grok_helix"
     assert any(r["fuente"] == "grok_helix" for r in json.loads(get("/api/fuentes", k)[1]))
     shutil.rmtree(raiz / "data" / "grok")
-    BAJAR, GH = bajar, gh_api
+    BAJAR, GH, normalizar.normalizar = bajar, gh_api, norm_real
     srv.shutdown()
     print("OK")
 

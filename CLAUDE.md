@@ -99,7 +99,7 @@ data/imagenes.csv      # una foto por producto_id (ver esquema)
   `data/fuentes.csv`. Consecuencia: `match=none` y `producto_id` vacío ya no aparecen en `data/obs/` y la cola `/api/sin_match`
   queda vacía **por diseño** (el visor lo tiene que decir, no mostrar una cola "limpia" sin explicar). Para sumar un competidor
   hay que darlo de alta en el seed (producto + equivalencia) y recién ahí se recolecta. `python recolectar.py --podar` reescribe
-  el histórico de `data/obs/` con esta misma regla (una vez; es idempotente). `sepa.py` y Grok escriben por su cuenta y todavía no filtran.
+  el histórico de `data/obs/` con esta misma regla (una vez; es idempotente). `sepa.py` y `POST /api/cargar` (Grok) aplican el mismo filtro (`recolectar.relacionados`): SEPA cuenta lo ajeno en `n_descartados`; Grok rechaza el `tipo=producto` ajeno con el motivo `no relacionado con YPF` en `errores`, y acepta siempre `tipo=servicio` (va a `/api/servicios`, no al $/L).
 
 **data/grok/AAAA-MM.csv** —
 `fecha,fuente,url,titulo,marca,precio,precio_lista,litros,unidades,tipo,detalle,verificado,producto_id,match,cargado`
@@ -121,7 +121,7 @@ data/imagenes.csv      # una foto por producto_id (ver esquema)
   no figuran en ninguno de los contadores (el log de la corrida dice cuántos).
 - `n_items == 0` con HTTP 200 es error: `"categoria vacia, revisar fq"`.
 - `n_items > 0` y `n_con_precio == 0` sin error (Jumbo, todo sin stock): no es caída;
-  el visor dice "sin precios con stock" (no aplica a `ypf_gql` ni `ml_cat`, que no traen precio).
+  el visor dice "sin precios con stock" solo si `n_sin_stock == n_items`; si hay `n_descartados` muestra "n guardados · m descartados" (no aplica a `ypf_gql` ni `ml_cat`, que no traen precio).
 
 **data/ml_oferta.csv** — `fecha,categoria_id,categoria,total_items`
 
