@@ -240,6 +240,9 @@ def demo():
     assert m("Aceite Sintético Castrol Edge 0w20 4 Litros") == "castrol-edge-c5-0w20"
     assert m("Aceite Castrol Edge 5w-40 A3/B4 4L") == "castrol-edge-5w40" and m("Castrol Edge 10W-60 4 L") == "castrol-edge-10w60"
     assert m("Aceite Castrol Edge Turbo Diesel 5w-40 1l") == "castrol-edge-turbo-diesel-5w40"
+    # Un "ultra" suelto al final del título no puede abrir el alias genérico de Helix Ultra (regresión Pro AF, ML).
+    assert m("Aceite Shell Helix Ultra Pro Af 5w30 Sintetico 4 L 5w30 ultra", "Shell") == "shell-helix-ultra-professional-af-5w30"
+    assert m("Aceite Shell Helix Ultra 5w30 4l", "Shell") == "shell-helix-ultra-5w30" and m("Shell Helix Ultra 5W-40 1 L", "Shell") == "shell-helix-ultra-5w40"
     # Quineo sin variante: no se adivina.
     assert m("Aceite Total Quartz Ineo 5w-30 1l", "TotalEnergies") == ""
     # Casos nuevos del seed.

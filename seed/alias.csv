@@ -237,7 +237,7 @@ shell-helix-ultra-5w40,ean,5011987215160
 shell-helix-ultra-5w40,ean,5011987215184
 shell-helix-ultra-5w40,ean,7791460128603
 shell-helix-ultra-5w40,ean,7791460402932
-shell-helix-ultra-5w40,texto,\bhelix\b.*\bultra\b(?!\s+(e|pro\w*)\b)
+shell-helix-ultra-5w40,texto,^(?!.*\bultra\s+(e|pro\w*)\b).*\bhelix\b.*\bultra\b
 shell-helix-ultra-e-5w30,ean,5011987223370
 shell-helix-ultra-e-5w30,ean,5011987223394
 shell-helix-ultra-e-5w30,texto,\bultra\s+e\b
@@ -311,7 +311,7 @@ shell-rimula-r2-sae50,texto,\brimula\s*r2\b
 shell-rimula-r5-10w40,texto,\brimula\s*r5\b(?!\s*(e|le|lm)\b)
 shell-rimula-r6-lm-10w40,texto,\brimula\s*r6\s*lm\b
 shell-rimula-r6-ms-10w40,texto,\brimula\s*r6\s*ms\b
-shell-helix-ultra-0w30,texto,^(?!.*\b(vw|504|507)\b).*\bhelix\b.*\bultra\b(?!\s+(e|pro\w*)\b)
+shell-helix-ultra-0w30,texto,^(?!.*\b(vw|504|507)\b)(?!.*\bultra\s+(e|pro\w*)\b).*\bhelix\b.*\bultra\b
 totalenergies-quartz-0w30-thp,texto,\bquartz\b.*\bthp\b
 totalenergies-rubia-6400-15w40,texto,\brubia\s*6400\b
 totalenergies-rubia-7400-15w40,texto,\brubia\s*7400\b
@@ -342,5 +342,5 @@ liqui-moly-moto-4t-20w50,texto,\b4\s*t\b
 bardahl-sintetico-5w40,texto,\bsintetico\b
 bardahl-xtc-20w50,texto,\bxtc\b
 elf-evolution-900-fulltech-msx-5w30,texto,\bfulltech\s*msx\b
-shell-helix-ultra-5w30,texto,\bhelix\b.*\bultra\b(?!\s+(e|pro\w*)\b)
-shell-helix-ultra-0w20,texto,\bhelix\b.*\bultra\b(?!\s+(e|pro\w*)\b)
+shell-helix-ultra-5w30,texto,^(?!.*\bultra\s+(e|pro\w*)\b).*\bhelix\b.*\bultra\b
+shell-helix-ultra-0w20,texto,^(?!.*\bultra\s+(e|pro\w*)\b).*\bhelix\b.*\bultra\b
