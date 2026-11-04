@@ -25,6 +25,7 @@ La clave va siempre en el header, nunca en la URL. Rutas en `CLAUDE.md`.
 - Cada push de `data/` redeploya.
 
 ## Activar Mercado Libre
+0. Ya activo desde la PC (`python recolectar.py --solo ml`, ~14 min); la Action necesita ML_REFRESH_TOKEN además de ML_CLIENT_ID y ML_CLIENT_SECRET.
 1. Crear una app en developers.mercadolibre.com.ar y obtener un refresh token.
 2. Secrets del repo: `ML_CLIENT_ID`, `ML_CLIENT_SECRET`, `ML_REFRESH_TOKEN` y `GH_PAT` (PAT que puede escribir secrets: el refresh token rota en cada corrida y la Action guarda el nuevo).
 

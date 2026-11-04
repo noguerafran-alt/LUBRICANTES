@@ -104,18 +104,18 @@ data/catalogo_ypf.json # foto del catálogo oficial YPF (el diff de git avisa al
 | `vtex_jumbo` | `https://www.jumbo.com.ar/...` `fq=C:/16/126/412/` — precio solo con `AvailableQuantity>0` |
 | `sepa` | CKAN `package_show?id=sepa-precios` → zip del día |
 | `ml_cat` | `https://api.mercadolibre.com/categories/{id}` sin token (MLA375007 y hermanas) |
-| `ml` | con token: `/products/search`, `/products/{id}/items`, `/items/bulk`, `/highlights` |
+| `ml` | con token: `/products/search` + `/products/{id}/items` (un aviso por publicación nueva; atributos del producto: BRAND, GTIN, VISCOSITY_GRADE, NET_VOLUME, UNITS_PER_PACK). `/items/bulk` da `[{}]`, `/items?ids=` 403, `/sites/MLA/search` 403: no se usan. `/highlights` (top 20 por categoría, ids de producto) queda fuera: no hay forma de unirlos a `obs` |
 
 VTEX pagina de a 50 (`_from`/`_to`, máximo 2500). 1 request/s por host,
 `User-Agent` honesto, timeout 30 s, un reintento.
 
 ## Mercado Libre con token
 
-Apagado hasta que existan los secrets `ML_CLIENT_ID`, `ML_CLIENT_SECRET`,
-`ML_REFRESH_TOKEN`. El refresh token rota en cada canje (solo vale el último):
+Corre `python recolectar.py --solo ml` con las credenciales de `.ml_local` (PC) o con los secrets `ML_CLIENT_ID`, `ML_CLIENT_SECRET`,
+`ML_REFRESH_TOKEN` (Action). El refresh token rota en cada canje (solo vale el último):
 la Action guarda el nuevo con `gh secret set ML_REFRESH_TOKEN` usando el secret
 `GH_PAT` (el `GITHUB_TOKEN` no puede escribir secrets). Sin secrets, `ml` queda
-en `fuentes.csv` con `error="sin token"`.
+en `fuentes.csv` con `error="sin token"`. Búsquedas por marca/línea (`BUSQUEDAS`, tope 50 productos c/u) filtradas a dominios de aceites; `stock` queda vacío (la API no lo da); `vendedor` = `seller_id` (+ ` tienda:<official_store_id>`). Duración: ver ESTADO.md.
 
 ## API (server.py)
 
