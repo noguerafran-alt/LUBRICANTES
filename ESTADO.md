@@ -1,6 +1,6 @@
 # ESTADO
 
-Actualizado 2026-11-04. Sin remoto todavía: todo es local en la rama `main`.
+Actualizado 2026-11-04. Remoto privado `noguerafran-alt/LUBRICANTES`; la Action corre a diario.
 
 ## Qué hay
 - Recolección: `recolectar.py` (YPF GraphQL, VTEX Carrefour/Mas/Easy/Jumbo, ML categorías), `sepa.py` (Precios Claros), `ml.py` (ML con token activo: products/search + products/{id}/items).
@@ -18,9 +18,10 @@ Actualizado 2026-11-04. Sin remoto todavía: todo es local en la rama `main`.
 - Highlights (top 20 por categoría) no se guardan: devuelven ids de producto ML y `obs` no los conserva, no hay forma de unirlos.
 
 ## Falta
-- Deploy en Render (Web Service free, ver README). Nunca se desplegó.
+- Deploy en Render: formulario armado en el workspace YPF (`lubricantes-ypf`, free, /salud); falta que el usuario cargue LUB_CLAVE y despliegue.
 - ML con token: app "Lubricantes AR precios" armada en DevCenter el 2026-11-03 (lectura de publicaciones, redirect provisorio `https://biblioteca-b8mb.onrender.com/ml-callback`); la crea el usuario (T&C + captcha). Autorizada y probada en la PC. Para la Action faltan cargar los secrets ML_CLIENT_ID/ML_CLIENT_SECRET/ML_REFRESH_TOKEN/GH_PAT (la Action necesita ML_REFRESH_TOKEN además de los dos ya cargados).
-- Action en GitHub: no hay remoto, el workflow nunca corrió; falta repo, secrets y primer run.
+- Action en GitHub: primera corrida manual OK el 2026-11-04 (recolectar + sepa). `ypf_gql` da HTTP 200 sin data desde Actions (desde la PC trae 69): sin investigar.
+- Token ML rotativo: lo usa UN solo lado. Si se sube ML_REFRESH_TOKEN a la Action, la PC deja de correr `--solo ml` (o al revés), porque cada canje invalida el anterior.
 - Cola `sin_match` (~100 avisos): revisar y ampliar `seed/alias.csv`. "Quartz Ineo 5W-30" sin variante queda sin match a propósito.
 - El snippet de pandas del README no se ejecutó contra el server (la API con X-API-Key y CSV sí se probó).
 
