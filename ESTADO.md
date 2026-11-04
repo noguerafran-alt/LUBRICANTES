@@ -32,6 +32,7 @@ Actualizado 2026-11-04 (carga de Grok). Remoto privado `noguerafran-alt/LUBRICAN
 - Corrección de lub-test: en 375 px la pestaña Cargar tenía scroll horizontal por el `<code>` del encabezado; ahora `.nota` y `.nota code` parten líneas (`overflow-wrap:anywhere`) y textarea/input llevan `max-width:100%`. No revisado en navegador.
 - No verificado: la pestaña Cargar y las etiquetas "Grok · host" se revisaron solo por sintaxis JS y por el HTML servido, no en un navegador; la Contents API real (GitHub) nunca se llamó; el prompt de la Task es una reconstrucción, no el texto exacto que ya tiene el usuario.
 - Pendiente del usuario: cargar `LUB_CARGA_CLAVE` y `GH_CARGA_TOKEN` en Render (`GH_CARGA_TOKEN` = fine-grained PAT solo de LUBRICANTES, Contents: read and write). Sin token las cargas quedan en el disco efímero.
+- 2026-11-04: la primera carga real de Grok rebotó con 400 en las 33 filas: mandó `fuente` `helix_combos` y después `grok_helixturno`; la única válida para www.helixturno.com.ar es `grok_helix`. Ahora el error de fuente dice cuál usar (`...: usar grok_helix`), assert en `server.py test`.
 - Cada commit de carga redeploya Render. Las cargas de un día no cuentan si otra carga las pisa por completo (tope de 10 por día contra abuso, no contabilidad).
 
 ## Falta

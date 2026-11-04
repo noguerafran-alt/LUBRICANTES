@@ -284,8 +284,12 @@ def pos(s):
 
 def error_fila(r, hoy, sitios):
     e = []
+    host = urlsplit(r["url"]).hostname or ""
+    # el error nombra la fuente correcta: sin eso Grok prueba nombres a ciegas (helix_combos, grok_helixturno)
+    esperada = next((f for f, h in sitios.items() if h == host), None)
+    usar = f": usar {esperada}" if esperada else ""
     if not RX_FUENTE.fullmatch(r["fuente"]):
-        e.append("fuente inválida (grok_<sitio>)")
+        e.append(f"fuente inválida (grok_<sitio>){usar}")
     if not RX_FECHA.fullmatch(r["fecha"]):
         e.append("fecha inválida (AAAA-MM-DD)")
     else:
@@ -294,13 +298,12 @@ def error_fila(r, hoy, sitios):
                 e.append("fecha a más de 3 días de hoy")
         except ValueError:
             e.append("fecha inexistente")
-    host = urlsplit(r["url"]).hostname or ""
     if not r["url"].startswith("https://") or not host:
         e.append("url tiene que ser https")
     elif host not in sitios.values():
         e.append(f"host {host} fuera de la lista blanca (seed/grok_sitios.csv)")
     elif sitios.get(r["fuente"]) != host:
-        e.append(f"la fuente {r['fuente']} no corresponde al host {host}")
+        e.append(f"la fuente {r['fuente']} no corresponde al host {host}{usar}")
     if pos(r["precio"]) is None:
         e.append("precio tiene que ser un número > 0")
     for c in ("precio_lista", "litros", "unidades"):
@@ -700,6 +703,7 @@ def demo():
     f_, e_, fatal = validar_csv(csv_de(*malas, fila()), hoy_d, sit)
     assert not fatal and len(f_) == 1 and [x["fila"] for x in e_] == list(range(1, 12)), e_
     assert "lista blanca" in e_[0]["error"] and "no corresponde" in e_[1]["error"] and "precio" in e_[2]["error"]
+    assert "usar grok_helix" in e_[1]["error"] and "usar grok_helix" in e_[9]["error"], e_   # el error dice qué fuente va
     assert "3 días" in e_[5]["error"]
     assert validar_csv(csv_de(fila(fecha=(hoy_d - timedelta(days=3)).isoformat())), hoy_d, sit)[0]
     assert validar_csv(csv_de(fila()).replace("84999", "84999,5"), hoy_d, sit)[1][0]["fila"] == 1  # coma sin comillas: columnas de más
