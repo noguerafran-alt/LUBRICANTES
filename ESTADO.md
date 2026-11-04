@@ -16,7 +16,7 @@ Actualizado 2026-11-03. Sin remoto todavía: todo es local en la rama `main`.
 
 ## Falta
 - Deploy en Render (Web Service free, ver README). Nunca se desplegó.
-- ML con token: crear app en DevCenter y cargar secrets; la parte con token no está probada.
+- ML con token: app "Lubricantes AR precios" armada en DevCenter el 2026-11-03 (lectura de publicaciones, redirect provisorio `https://biblioteca-b8mb.onrender.com/ml-callback`); la crea el usuario (T&C + captcha). Después: `python ml.py autorizar` en la PC (pide credenciales sin mostrarlas, guarda `.ml_local`, prueba endpoints) y `python recolectar.py --solo ml`. Para la Action: secrets ML_CLIENT_ID/ML_CLIENT_SECRET/ML_REFRESH_TOKEN/GH_PAT. Con token no está probado.
 - Action en GitHub: no hay remoto, el workflow nunca corrió; falta repo, secrets y primer run.
 - Cola `sin_match` (~100 avisos): revisar y ampliar `seed/alias.csv`. "Quartz Ineo 5W-30" sin variante queda sin match a propósito.
 - El snippet de pandas del README no se ejecutó contra el server (la API con X-API-Key y CSV sí se probó).

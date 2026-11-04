@@ -19,6 +19,10 @@ UA = "LUBRICANTES/1.0 (relevamiento diario de precios de lubricantes, 1 req/s)"
 CATEGORIAS = ["MLA375007", "MLA456128", "MLA438870", "MLA432538"]
 # El refresh nuevo va a este archivo y nunca a stdout: la Action lo sube con gh secret set.
 ARCHIVO_REFRESH = os.environ.get("ML_REFRESH_ARCHIVO", ".ml_refresh_nuevo")
+# Credenciales de la PC (las deja `python ml.py autorizar`); en .gitignore.
+ARCHIVO_LOCAL = os.environ.get("ML_LOCAL", ".ml_local")
+# Provisorio: dominio propio en Render hasta que LUBRICANTES tenga el suyo (cambiarlo también en DevCenter).
+REDIRECT = "https://biblioteca-b8mb.onrender.com/ml-callback"
 BUSQUEDAS = ["elaion", "shell helix", "castrol", "mobil", "total quartz", "petronas", "motul", "gulf"]
 
 _ultimo = {}  # host → hora del último request
@@ -67,19 +71,74 @@ def categorias(fecha):
     return http, filas, ""
 
 
+def _local():
+    try:
+        with open(ARCHIVO_LOCAL, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def _guardar_local(d):
+    with open(ARCHIVO_LOCAL, "w", encoding="utf-8") as f:
+        json.dump(d, f)
+
+
 def token():
-    """Canjea el refresh token. → (access_token o None, error)."""
+    """Canjea el refresh token. → (access_token o None, error).
+    Credenciales: secrets de la Action (env) o, en la PC, el .ml_local que deja `autorizar`."""
     cid, sec, ref = (os.environ.get(k, "") for k in ("ML_CLIENT_ID", "ML_CLIENT_SECRET", "ML_REFRESH_TOKEN"))
+    local = {} if (cid and sec and ref) else _local()
+    if local:
+        cid, sec, ref = local.get("client_id", ""), local.get("client_secret", ""), local.get("refresh_token", "")
     if not (cid and sec and ref):
         return None, "sin token"
     http, d = pedir("/oauth/token", data=dict(grant_type="refresh_token", client_id=cid,
                                               client_secret=sec, refresh_token=ref))
     if not d or "access_token" not in d:
         return None, f"oauth HTTP {http}"
-    if d.get("refresh_token"):
-        with open(ARCHIVO_REFRESH, "w", encoding="utf-8") as f:
-            f.write(d["refresh_token"])
+    if d.get("refresh_token"):  # rota: solo vale el último
+        if local:
+            _guardar_local(dict(local, refresh_token=d["refresh_token"]))
+        else:
+            with open(ARCHIVO_REFRESH, "w", encoding="utf-8") as f:
+                f.write(d["refresh_token"])
     return d["access_token"], ""
+
+
+def autorizar():
+    """Alta inicial en la PC del usuario: pide credenciales sin mostrarlas, canjea el code
+    y prueba los endpoints. Imprime solo códigos HTTP, nunca tokens."""
+    import getpass
+    import webbrowser
+    cid = input("Client ID (App ID): ").strip()
+    sec = getpass.getpass("Client Secret (no se muestra): ").strip()
+    redirect = input(f"Redirect URI [{REDIRECT}]: ").strip() or REDIRECT
+    url = "https://auth.mercadolibre.com.ar/authorization?" + urllib.parse.urlencode(
+        dict(response_type="code", client_id=cid, redirect_uri=redirect))
+    print("\nSe abre el navegador. Autorizá la app y copiá la dirección completa a la que te manda\n"
+          "(la página puede dar error o 404: no importa, lo que sirve es el ?code=... de la barra).\n")
+    webbrowser.open(url)
+    pegado = input("Pegá la dirección completa (o solo el code): ").strip()
+    code = urllib.parse.parse_qs(urllib.parse.urlsplit(pegado).query).get("code", [pegado])[0]
+    http, d = pedir("/oauth/token", data=dict(grant_type="authorization_code", client_id=cid,
+                                              client_secret=sec, code=code, redirect_uri=redirect))
+    if not d or "refresh_token" not in d:
+        sys.exit(f"No se pudo canjear el code (HTTP {http}). El code dura minutos y sirve una sola vez: repetí.")
+    _guardar_local(dict(client_id=cid, client_secret=sec, refresh_token=d["refresh_token"]))
+    tok = d["access_token"]
+    print(f"\nOK: credenciales guardadas en {ARCHIVO_LOCAL} (está en .gitignore).\nPruebas:")
+    http_cc, _ = pedir("/oauth/token", data=dict(grant_type="client_credentials", client_id=cid, client_secret=sec))
+    print(f"  client_credentials ............ HTTP {http_cc}")
+    http, s = pedir("/products/search?" + urllib.parse.urlencode(dict(status="active", site_id="MLA", q="elaion")), tok)
+    print(f"  products/search?q=elaion ...... HTTP {http}, {len((s or {}).get('results', []))} productos")
+    pid = ((s or {}).get("results") or [{}])[0].get("id")
+    if pid:
+        http, it = pedir(f"/products/{pid}/items", tok)
+        print(f"  products/{pid}/items ... HTTP {http}, {len((it or {}).get('results', []))} publicaciones")
+    http, _ = highlights(tok)
+    print(f"  highlights MLA375007 .......... HTTP {http}")
+    print("\nSiguiente: `python recolectar.py --solo ml` usa estas credenciales desde la PC.")
 
 
 def highlights(tok, cat="MLA375007"):
@@ -126,13 +185,20 @@ def avisos():
 
 
 def demo():
+    global ARCHIVO_LOCAL
     for k in ("ML_CLIENT_ID", "ML_CLIENT_SECRET", "ML_REFRESH_TOKEN"):
         os.environ.pop(k, None)
-    assert avisos() == ("", [], "sin token")
-    assert token() == (None, "sin token")
+    real, ARCHIVO_LOCAL = ARCHIVO_LOCAL, os.path.join("tmp", "ml_local_inexistente")
+    try:
+        assert avisos() == ("", [], "sin token")
+        assert token() == (None, "sin token")
+    finally:
+        ARCHIVO_LOCAL = real
     print("OK")
 
 
 if __name__ == "__main__":
     if sys.argv[1:] == ["test"]:
         demo()
+    elif sys.argv[1:] == ["autorizar"]:
+        autorizar()
