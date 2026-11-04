@@ -93,6 +93,21 @@ def renormalizar():
             w.writeheader()
             w.writerows(filas)
         print(nombre, len(filas), "filas renormalizadas")
+    # Grok: solo producto_id/match (litros y unidades los manda la carga); mismo encabezado que trae el archivo.
+    carpeta = os.path.join(DATA, "grok")
+    for nombre in sorted(os.listdir(carpeta)) if os.path.isdir(carpeta) else []:
+        ruta = os.path.join(carpeta, nombre)
+        with open(ruta, encoding="utf-8", newline="") as fh:
+            lector = csv.DictReader(fh)
+            campos, filas = lector.fieldnames, list(lector)
+        for f in filas:
+            n = normalizar(f["titulo"], f["marca"], "", url=f["url"])
+            f.update(producto_id=n["producto_id"], match=n["match"])
+        with open(ruta, "w", encoding="utf-8", newline="") as fh:
+            w = csv.DictWriter(fh, campos, lineterminator=chr(10))
+            w.writeheader()
+            w.writerows(filas)
+        print("grok", nombre, len(filas), "filas renormalizadas")
 
 
 def vtex(fuente):

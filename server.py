@@ -109,11 +109,16 @@ def integrar_grok(d):
         for r in d["grok"] if r["tipo"] == "producto"]
 
 
+def clave_grok(r):
+    """Una fila Grok es la misma solo si coincide también `detalle`: combos de una URL que cambian solo por filtro o vehículo son filas distintas."""
+    return r["fuente"], r["fecha"], r["url"], r["titulo"], r["detalle"]
+
+
 def servicios(grok):
     ult = {}
     for r in sorted(grok, key=lambda r: r["fecha"]):
         if r["tipo"] == "servicio":
-            ult[(r["fuente"], r["url"], r["titulo"])] = r
+            ult[clave_grok(r)[:1] + clave_grok(r)[2:]] = r
     return sorted(ult.values(), key=lambda r: (r["fuente"], r["titulo"]))
 
 
@@ -405,8 +410,8 @@ def commitear(ruta, contenido, mensaje, token, repo):
 
 
 def fusionar(existentes, nuevas):
-    """Idempotente: una fila nueva reemplaza a la de misma fuente+fecha+url+titulo."""
-    k = lambda r: (r["fuente"], r["fecha"], r["url"], r["titulo"])
+    """Idempotente: una fila nueva reemplaza a la de igual clave_grok."""
+    k = clave_grok
     pisadas = {k(r) for r in nuevas}
     return sorted([r for r in existentes if k(r) not in pisadas] + nuevas, key=k)
 
@@ -430,7 +435,11 @@ def procesar_carga(d, raiz, texto, hoy=None, ahora=None):
     filas, errores, fatal = validar_csv(texto, hoy, sitios)
     if fatal or not filas:
         return 400, {"error": fatal or "ninguna fila válida", "errores": errores}
-    por_clave = {(r["fuente"], r["fecha"], r["url"], r["titulo"]): r for r in filas}  # duplicados dentro de la carga: gana la última
+    por_clave, duplicadas = {}, []
+    for r in filas:  # duplicado exacto dentro de la carga: gana la última, pero se informa (nunca se descarta en silencio)
+        if clave_grok(r) in por_clave:
+            duplicadas.append({"fila": por_clave[clave_grok(r)]["_fila"], "reemplazada_por": r["_fila"], "titulo": r["titulo"]})
+        por_clave[clave_grok(r)] = r
     paginas, resultado = {}, []
     for r in por_clave.values():
         if r["url"] not in paginas:
@@ -463,7 +472,7 @@ def procesar_carga(d, raiz, texto, hoy=None, ahora=None):
                 fallo = f"no se pudo comitear ({e}): quedó en memoria y se pierde si el server reinicia; reenviá la carga"
     integrar_grok(d)
     ver = sum(x["verificado"] for x in resultado)
-    resp = {"ok": len(resultado), "verificadas": ver, "no_verificadas": len(resultado) - ver, "errores": errores,
+    resp = {"ok": len(resultado), "verificadas": ver, "no_verificadas": len(resultado) - ver, "errores": errores, "duplicadas": duplicadas,
             "filas": sorted(resultado, key=lambda x: x["fila"]), "commit": commits if token else "solo local"}
     if fallo:
         resp["error"] = fallo
@@ -752,7 +761,15 @@ def demo():
         # una carga posterior de la misma fila la pisa, no la duplica
         cod, rsp = procesar_carga(d2, raiz, csv_de(fila(precio="90000")), hoy=hoy_d)
         assert len(d2["grok"]) == 3 and [r["precio"] for r in d2["grok"] if r["titulo"] == "Combo Helix HX7 10W-40 4L"] == ["90000"]
-        assert rsp["no_verificadas"] == 1
+        assert rsp["no_verificadas"] == 1 and rsp["duplicadas"] == []
+        # combos de una URL que difieren solo en detalle (filtro/vehículo) son filas distintas; un duplicado exacto se informa
+        sv = dict(tipo="servicio", titulo="Combo HX7 X 4L")
+        cod, rsp = procesar_carga(d2, raiz, csv_de(fila(detalle="filtro aire", **sv), fila(detalle="filtro aire;filtro aceite", precio="99000", **sv),
+                                                   fila(detalle="filtro aire", precio="85000", **sv)), hoy=hoy_d)
+        assert cod == 200 and rsp["ok"] == 2 and rsp["duplicadas"] == [{"fila": 1, "reemplazada_por": 3, "titulo": "Combo HX7 X 4L"}], rsp
+        combos = sorted((r["detalle"], r["precio"]) for r in d2["grok"] if r["titulo"] == "Combo HX7 X 4L")
+        assert combos == [("filtro aire", "85000"), ("filtro aire;filtro aceite", "99000")], combos
+        assert sum(r["titulo"] == "Combo HX7 X 4L" for r in calcular(d2)["servicios"]) == 2  # /api/servicios tampoco los colapsa
         # tope de 10 cargas por día
         for i in range(12):
             cod, _ = procesar_carga(d2, raiz, csv_de(fila(titulo=f"Combo HX7 n{i}", fecha="2030-01-01")), hoy=date(2030, 1, 1),
