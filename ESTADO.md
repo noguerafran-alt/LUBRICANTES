@@ -24,7 +24,7 @@ Actualizado 2026-11-04 (carga de Grok). Remoto privado `noguerafran-alt/LUBRICAN
 - Tiendanube: `robots.txt` de LS Palermo y Casa González no bloquea `/productos/` ni los sitemaps (se chequea en código en cada corrida). Rotación: tope 150 páginas por tienda/día; LS Palermo (229 URLs de aceite) se lee en dos mitades alternadas por `sha1(url)`, cada URL cada 2 días (`ultimo` en la API ya muestra la fecha de cada precio). Si el sitemap crece, k crece solo. Se loguea "cortadas N" y el tiempo en el log de la Action. Si sobra tiempo, subir `TOPE_PAGINAS` (250 cubre todo y suma ~2 min).
 - Seed: 5 productos nuevos (Magnatec Stop-Start 5W-40 A3/B4, 5W-30 C3, 5W-30 A5; Shell Helix Ultra 5W-30 y 0W-20) con EAN de Norauto o título explícito de D'Atri; `inferido`. Magnatec Stop-Start 5W-30 en Norauto no dice C3/A5 y queda sin match. Falta correr `python recolectar.py --renormalizar` para que el histórico use los alias nuevos.
 - **Coto: diferido.** Sus términos de uso no se leyeron; no se implementó (receta en el relevamiento).
-- Dudas de matcheo previas, no tocadas: "Edge Professional 0W-20" y "Edge Titan 5W-30" caen en `castrol-edge-c5-0w20` / `castrol-edge-5w30` por el alias genérico `edge`.
+- Duda de "Edge Professional 0W-20" / "Edge Titan 5W-30": resuelta en la tanda "Seed sin match" (abajo).
 
 ## Carga de Grok (2026-11-04)
 - `POST /api/cargar` (server.py), `seed/grok_sitios.csv`, `data/grok/AAAA-MM.csv`, `/api/servicios`, `/api/grok?mes=`, pestaña **Cargar** y sección "Servicios (combos)" en el visor, `docs/grok-task.md`. Contrato en `CLAUDE.md`.
@@ -34,6 +34,12 @@ Actualizado 2026-11-04 (carga de Grok). Remoto privado `noguerafran-alt/LUBRICAN
 - Pendiente del usuario: cargar `LUB_CARGA_CLAVE` y `GH_CARGA_TOKEN` en Render (`GH_CARGA_TOKEN` = fine-grained PAT solo de LUBRICANTES, Contents: read and write). Sin token las cargas quedan en el disco efímero.
 - 2026-11-04: la primera carga real de Grok rebotó con 400 en las 33 filas: mandó `fuente` `helix_combos` y después `grok_helixturno`; la única válida para www.helixturno.com.ar es `grok_helix`. Ahora el error de fuente dice cuál usar (`...: usar grok_helix`), assert en `server.py test`.
 - Cada commit de carga redeploya Render. Las cargas de un día no cuentan si otra carga las pisa por completo (tope de 10 por día contra abuso, no contabilidad).
+
+## Seed sin match (2026-11-04)
+- Cambió el seed: +57 productos en `seed/productos.csv` (`verificado=inferido`, specs solo si las dice el título) y +59 alias en `seed/alias.csv` (+73 líneas tocadas en el diff, 7 reemplazadas; el archivo pasó de 287 a 346 líneas). Prioridad por cantidad de avisos de ML: Petronas, Valvoline, Motul, Liqui Moly, Shell, Castrol. `normalizar.py`: el alias genérico `edge` ya no atrapa Professional ni Titan, y un aviso de ML con varios EAN se matchea por EAN si uno solo identifica.
+- Match antes -> después (con producto_id / filas, `data/obs/2026-11.csv` tras `recolectar.py --renormalizar`): ml 1067/2393 -> 2219/2393; sepa 196/222 -> 214/222; vtex_masonline 38/56 -> 38/56; vtex_carrefour 19/70 y vtex_easy 25/48 sin cambio. Total 1345/2789 -> 2515/2789. Precios intactos, solo cambia `producto_id`.
+- Sin match a propósito: "Quartz Ineo 5W-30" sin variante (no se toca); "Edge Professional 0W-20" y "Edge Titan 5W-30" (no hay producto propio en el seed); títulos con más de un candidato; cola de ML con pocos avisos por producto (174 avisos restantes).
+- Verificado: `normalizar.py test` con asserts de los casos nuevos (incluido Edge Professional/Titan) y los demás tests dan OK. No verificado: nada contra red ni ML con token; los alias son `inferida`, no salen de fichas.
 
 ## Falta
 - Deploy en Render: formulario armado en el workspace YPF (`lubricantes-ypf`, free, /salud); falta que el usuario cargue LUB_CLAVE y despliegue.
