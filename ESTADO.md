@@ -1,6 +1,6 @@
 # ESTADO
 
-Actualizado 2026-11-04 (tiendas con precio). Remoto privado `noguerafran-alt/LUBRICANTES`; la Action corre a diario.
+Actualizado 2026-11-04 (carga de Grok). Remoto privado `noguerafran-alt/LUBRICANTES`; la Action corre a diario.
 
 ## Qué hay
 - Recolección: `recolectar.py` (YPF GraphQL, VTEX Carrefour/Mas/Easy/Jumbo/Norauto, ML categorías), `tiendas.py` (Shopify D'Atri, Tiendanube LS Palermo y Casa González), `sepa.py` (Precios Claros), `ml.py` (ML con token activo: products/search + products/{id}/items).
@@ -25,6 +25,14 @@ Actualizado 2026-11-04 (tiendas con precio). Remoto privado `noguerafran-alt/LUB
 - Seed: 5 productos nuevos (Magnatec Stop-Start 5W-40 A3/B4, 5W-30 C3, 5W-30 A5; Shell Helix Ultra 5W-30 y 0W-20) con EAN de Norauto o título explícito de D'Atri; `inferido`. Magnatec Stop-Start 5W-30 en Norauto no dice C3/A5 y queda sin match. Falta correr `python recolectar.py --renormalizar` para que el histórico use los alias nuevos.
 - **Coto: diferido.** Sus términos de uso no se leyeron; no se implementó (receta en el relevamiento).
 - Dudas de matcheo previas, no tocadas: "Edge Professional 0W-20" y "Edge Titan 5W-30" caen en `castrol-edge-c5-0w20` / `castrol-edge-5w30` por el alias genérico `edge`.
+
+## Carga de Grok (2026-11-04)
+- `POST /api/cargar` (server.py), `seed/grok_sitios.csv`, `data/grok/AAAA-MM.csv`, `/api/servicios`, `/api/grok?mes=`, pestaña **Cargar** y sección "Servicios (combos)" en el visor, `docs/grok-task.md`. Contrato en `CLAUDE.md`.
+- Verificado: `python server.py test` da OK (validación, variantes del precio, idempotencia, servicio vs producto, verificado=0 fuera del índice, auth, commit con fake de la Contents API; todo sin red). Punta a punta local en 127.0.0.1:8791: POST de un CSV de ejemplo → respuesta, `data/grok/2026-11.csv`, `/api/servicios` y `/api/fuentes`; datos de prueba borrados. Con la página real de helixturno (SPA) el precio no está en el HTML: sale `verificado=0`, como se esperaba.
+- Corrección de lub-test: en 375 px la pestaña Cargar tenía scroll horizontal por el `<code>` del encabezado; ahora `.nota` y `.nota code` parten líneas (`overflow-wrap:anywhere`) y textarea/input llevan `max-width:100%`. No revisado en navegador.
+- No verificado: la pestaña Cargar y las etiquetas "Grok · host" se revisaron solo por sintaxis JS y por el HTML servido, no en un navegador; la Contents API real (GitHub) nunca se llamó; el prompt de la Task es una reconstrucción, no el texto exacto que ya tiene el usuario.
+- Pendiente del usuario: cargar `LUB_CARGA_CLAVE` y `GH_CARGA_TOKEN` en Render (`GH_CARGA_TOKEN` = fine-grained PAT solo de LUBRICANTES, Contents: read and write). Sin token las cargas quedan en el disco efímero.
+- Cada commit de carga redeploya Render. Las cargas de un día no cuentan si otra carga las pisa por completo (tope de 10 por día contra abuso, no contabilidad).
 
 ## Falta
 - Deploy en Render: formulario armado en el workspace YPF (`lubricantes-ypf`, free, /salud); falta que el usuario cargue LUB_CLAVE y despliegue.

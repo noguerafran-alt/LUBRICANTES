@@ -18,10 +18,13 @@ ultimo = pd.read_csv(f"{base}/api/ultimo?formato=csv", storage_options=H)
 ```
 La clave va siempre en el header, nunca en la URL. Rutas en `CLAUDE.md`. `/api/indice` excluye las fuentes mayoristas (D'Atri); `?mayoristas=1` las incluye.
 
+## Carga de relevamientos de Grok
+Una Task diaria de SuperGrok devuelve un CSV que se pega en la pestaña **Cargar** del visor (`POST /api/cargar`). Prompt, formato y clave de carga: [docs/grok-task.md](docs/grok-task.md).
+
 ## Render (Web Service free)
 - Start command: `python server.py` (Build: nada que instalar).
 - Health check path: `/salud`.
-- Env: `LUB_CLAVE` (obligatoria: sin ella el server no arranca) y `PYTHON_VERSION=3.12.10`.
+- Env: `LUB_CLAVE` (obligatoria: sin ella el server no arranca) y `PYTHON_VERSION=3.12.10`. Para la carga de Grok: `LUB_CARGA_CLAVE` y `GH_CARGA_TOKEN` (fine-grained PAT solo de este repo, Contents: read and write); `GH_REPO` opcional.
 - Cada push de `data/` redeploya.
 
 ## Activar Mercado Libre
