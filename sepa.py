@@ -23,7 +23,6 @@ RAIZ = Path(__file__).parent
 CKAN = "https://datos.produccion.gob.ar/api/3/action/package_show?id=sepa-precios"
 UA = "LUBRICANTES/1.0 (relevamiento de precios de lubricantes; github actions)"
 OBS_F = "fecha,fuente,url,ean,titulo,marca,precio,precio_lista,stock,vendedor,sucursal,litros,unidades,producto_id,match".split(",")
-FUE_F = "fecha,fuente,http,n_items,n_con_precio,n_sin_stock,n_sin_match,error".split(",")
 
 YPF_EAN = "779096891"  # el prefijo YPF también trae líquido de frenos: lo saca NO
 ACEITE = re.compile(r"\b(aceite|lubri\w*)\b")
@@ -146,13 +145,8 @@ def escribir_obs(fecha, filas):
 
 
 def escribir_fuente(fila):
-    p = RAIZ / "data" / "fuentes.csv"
-    nuevo = not p.exists()
-    with open(p, "a", encoding="utf-8", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=FUE_F, lineterminator="\n")
-        if nuevo:
-            w.writeheader()
-        w.writerow(fila)
+    from recolectar import escribir_fuentes  # misma regla que las demás fuentes: una fila por (fecha, fuente), sin duplicar
+    escribir_fuentes(str(RAIZ / "data" / "fuentes.csv"), [{k: str(v) for k, v in fila.items()}])
 
 
 def correr():
