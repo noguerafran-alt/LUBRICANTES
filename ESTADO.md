@@ -1,9 +1,9 @@
 # ESTADO
 
-Actualizado 2026-11-04. Remoto privado `noguerafran-alt/LUBRICANTES`; la Action corre a diario.
+Actualizado 2026-11-04 (tiendas con precio). Remoto privado `noguerafran-alt/LUBRICANTES`; la Action corre a diario.
 
 ## Qué hay
-- Recolección: `recolectar.py` (YPF GraphQL, VTEX Carrefour/Mas/Easy/Jumbo, ML categorías), `sepa.py` (Precios Claros), `ml.py` (ML con token activo: products/search + products/{id}/items).
+- Recolección: `recolectar.py` (YPF GraphQL, VTEX Carrefour/Mas/Easy/Jumbo/Norauto, ML categorías), `tiendas.py` (Shopify D'Atri, Tiendanube LS Palermo y Casa González), `sepa.py` (Precios Claros), `ml.py` (ML con token activo: products/search + products/{id}/items).
 - `normalizar.py` + `seed/` (productos, alias, equivalencias). `python recolectar.py --renormalizar` recalcula el matcheo de `data/obs/` sin tocar precios (usarlo cada vez que cambie el seed).
 - `server.py` + `site/index.html`: visor (Comparador, Evolución, Índice, Fuentes) y API con clave.
 - `.github/workflows/recolectar.yml`: corrida diaria (recolectar, luego sepa).
@@ -16,6 +16,15 @@ Actualizado 2026-11-04. Remoto privado `noguerafran-alt/LUBRICANTES`; la Action 
 
 - ML con token (corrida real 2026-11-04, desde la PC con `.ml_local`): 24 búsquedas, 816 productos de aceite (22 búsquedas cortadas en el tope de 50), 2393 avisos con precio, 14 min 14 s (el job de Actions admite hasta ~15: si se acerca, bajar `TOPE_PRODUCTOS` en `ml.py`). Match: 1067/2393 con producto_id (52 por EAN, 1015 por texto); el resto es catálogo que no está en `seed/` (Petronas 546, Castrol 201, Valvoline 112, Liqui Moly 89, Motul 69...), no se tocó `alias.csv`. `stock` va vacío (la API no lo da). `/items/bulk`, `/items` y `/sites/MLA/search` no sirven con este token.
 - Highlights (top 20 por categoría) no se guardan: devuelven ids de producto ML y `obs` no los conserva, no hay forma de unirlos.
+
+## Tiendas con precio (relevamiento 2026-11-04, `docs/relevamiento/tiendas-con-precio.md`)
+- Corrida real 2026-11-04 desde la PC (ítems / con precio / con producto_id / duración): `vtex_norauto` 100 / 100 / 49 (49 %) / 6 s; `shopify_datri` 298 / 295 / 23 (8 %, el resto es industrial y Castrol sin alias) / 7 s; `tn_spch` 63 / 61 / 22 (36 %) / 65 s; `tn_lspalermo` 115 de 229 URLs / 113 / 22 (19 %: 30 son Valvoline, Puma, Mannol, etc. sin seed) / 119 s. Las cuatro juntas: ~3,3 min; ML ya usa ~14 de los 30 min del job.
+- Norauto: `ListPrice` = `Price` en los 100 (no inflado), se guarda. `AvailableQuantity=99999` → `stock` vacío.
+- D'Atri es **mayorista**: `/api/indice` lo excluye (`?mayoristas=1` lo suma) y el visor lo rotula. IVA sin verificar. Los títulos casi no dicen "Castrol": la marca sale de EDGE/GTX/MAGNATEC/VECTON (`normalizar.MARCAS`); el resto queda sin marca ni match, a propósito. Cajas con variante en quarts (1QT) → `litros` vacío. `agents.md` de la tienda pide identificarse con Web Bot Auth al tráfico "de agentes" server-to-server; `robots.txt` permite `/products.json` y mandamos el User-Agent honesto de siempre. Revisar si D'Atri se queja.
+- Tiendanube: `robots.txt` de LS Palermo y Casa González no bloquea `/productos/` ni los sitemaps (se chequea en código en cada corrida). Rotación: tope 150 páginas por tienda/día; LS Palermo (229 URLs de aceite) se lee en dos mitades alternadas por `sha1(url)`, cada URL cada 2 días (`ultimo` en la API ya muestra la fecha de cada precio). Si el sitemap crece, k crece solo. Se loguea "cortadas N" y el tiempo en el log de la Action. Si sobra tiempo, subir `TOPE_PAGINAS` (250 cubre todo y suma ~2 min).
+- Seed: 5 productos nuevos (Magnatec Stop-Start 5W-40 A3/B4, 5W-30 C3, 5W-30 A5; Shell Helix Ultra 5W-30 y 0W-20) con EAN de Norauto o título explícito de D'Atri; `inferido`. Magnatec Stop-Start 5W-30 en Norauto no dice C3/A5 y queda sin match. Falta correr `python recolectar.py --renormalizar` para que el histórico use los alias nuevos.
+- **Coto: diferido.** Sus términos de uso no se leyeron; no se implementó (receta en el relevamiento).
+- Dudas de matcheo previas, no tocadas: "Edge Professional 0W-20" y "Edge Titan 5W-30" caen en `castrol-edge-c5-0w20` / `castrol-edge-5w30` por el alias genérico `edge`.
 
 ## Falta
 - Deploy en Render: formulario armado en el workspace YPF (`lubricantes-ypf`, free, /salud); falta que el usuario cargue LUB_CLAVE y despliegue.
