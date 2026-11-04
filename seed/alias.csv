@@ -278,3 +278,10 @@ pennzoil-premium-outboard-tcw3,ean,7791460301891
 pennzoil-premium-outboard-tcw3,texto,\boutboard\b
 pennzoil-2-cycle,ean,71611941303
 pennzoil-2-cycle,texto,\b2\s*-?\s*cycle\b
+castrol-magnatec-stop-start-5w40,ean,7794866013436
+castrol-magnatec-stop-start-5w40,ean,7794866013429
+castrol-magnatec-stop-start-5w40,texto,\bmagnatec\b.*\bstop\s*-?\s*start\b
+castrol-magnatec-stop-start-c3-5w30,texto,\bmagnatec\b.*\bstop\s*-?\s*start\b.*\bc3\b
+castrol-magnatec-stop-start-a5-5w30,texto,\bmagnatec\b.*\bstop\s*-?\s*start\b.*\ba5\b
+shell-helix-ultra-5w30,ean,5011987078512
+shell-helix-ultra-0w20,ean,5011987134805

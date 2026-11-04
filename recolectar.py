@@ -1,4 +1,4 @@
-"""Una corrida diaria: YPF GraphQL + 4 VTEX + ML categorías (+ ML con token si hay secrets).
+"""Una corrida diaria: YPF GraphQL + 5 VTEX + Shopify D'Atri + 2 Tiendanube + ML categorías (+ ML con token si hay secrets).
 
 python recolectar.py [--solo <fuente>] [--fecha AAAA-MM-DD]
 python recolectar.py --renormalizar   # recalcula el matcheo de data/obs/ sin tocar precios
@@ -13,6 +13,7 @@ import traceback
 from datetime import datetime, timedelta, timezone
 
 import ml
+import tiendas
 from normalizar import normalizar
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
@@ -27,6 +28,9 @@ VTEX = {
     "vtex_masonline": ("www.masonline.com.ar", "C:/1000039/2000174/3000496/"),
     "vtex_easy": ("www.easy.com.ar", "C:/9/68/321/"),
     "vtex_jumbo": ("www.jumbo.com.ar", "C:/16/126/412/"),
+    # C:/3/20/ = aceites sueltos. NO C:/4/24/: son combos de cambio con colocación (precio de servicio).
+    # AvailableQuantity=99999 es relleno ("hay stock"), no cantidad.
+    "vtex_norauto": ("www.norauto.com.ar", "C:/3/20/"),
 }
 CENCOSUD = {"vtex_jumbo"}  # ListPrice inflado ~82 veces: no se guarda
 
@@ -69,7 +73,8 @@ def a_obs(fuente, fecha, avisos):
         filas.append(dict(fecha=fecha, fuente=fuente, url=a["url"], ean=a.get("ean", ""), titulo=a["titulo"],
                           marca=n["marca"], precio=num(a["precio"]), precio_lista=num(a.get("precio_lista")),
                           stock="" if stock is None else int(stock), vendedor=a.get("vendedor", ""),
-                          sucursal="", litros=num(n["litros"]), unidades=n["unidades"],
+                          sucursal="", litros=num(a["litros"] if "litros" in a else n["litros"]),
+                          unidades=a.get("unidades") or n["unidades"],  # caja/tambor mayorista: el aviso manda
                           producto_id=n["producto_id"], match=n["match"]))
     return filas, sin_stock, sum(1 for f in filas if not f["producto_id"])
 
@@ -109,7 +114,8 @@ def vtex(fuente):
                                    titulo=it.get("nameComplete") or p.get("productName", ""),
                                    marca_cruda=p.get("brand", ""), precio=o.get("Price") or 0,
                                    precio_lista="" if fuente in CENCOSUD else o.get("ListPrice"),
-                                   stock=o.get("AvailableQuantity", 0), vendedor=s.get("sellerName", "") if s else ""))
+                                   stock=None if o.get("AvailableQuantity") == 99999 else o.get("AvailableQuantity", 0),
+                                   vendedor=s.get("sellerName", "") if s else ""))
         if len(d) < 50:
             break
     return http, avisos, ""
@@ -149,7 +155,14 @@ def correr(fuente, fecha):
             reemplazar(os.path.join(DATA, "ml_oferta.csv"), OFERTA, oferta, lambda f: (f["fecha"], f["categoria_id"]))
         obs = None
     else:
-        fila["http"], avisos, fila["error"] = vtex(fuente) if fuente in VTEX else ml.avisos()
+        if fuente in VTEX:
+            fila["http"], avisos, fila["error"] = vtex(fuente)
+        elif fuente in tiendas.SHOPIFY:
+            fila["http"], avisos, fila["error"] = tiendas.shopify(fuente)
+        elif fuente in tiendas.TIENDANUBE:
+            fila["http"], avisos, fila["error"] = tiendas.tiendanube(fuente, fecha)
+        else:
+            fila["http"], avisos, fila["error"] = ml.avisos()
         fila["n_items"] = len(avisos)
         obs = None
         if not fila["error"]:
@@ -164,7 +177,7 @@ def main(args):
     if "--renormalizar" in args:
         return renormalizar()
     fecha = datetime.now(timezone(timedelta(hours=-3))).date().isoformat()
-    fuentes = ["ypf_gql", *VTEX, "ml_cat", "ml"]
+    fuentes = ["ypf_gql", *VTEX, *tiendas.SHOPIFY, *tiendas.TIENDANUBE, "ml_cat", "ml"]
     if "--fecha" in args:
         fecha = args[args.index("--fecha") + 1]
     if "--solo" in args:

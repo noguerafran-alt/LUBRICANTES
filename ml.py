@@ -33,12 +33,13 @@ TOPE_ITEMS = 100     # publicaciones por producto
 _ultimo = {}  # host → hora del último request
 
 
-def pedir(ruta, token=None, data=None):
+def pedir(ruta, token=None, data=None, texto=False):
     """→ (http, json o None). 1 req/s por host, timeout 30 s, un reintento ante red/5xx/429.
-    `data` dict va como formulario; bytes, como JSON. Lo usa también recolectar.py."""
+    `data` dict va como formulario; bytes, como JSON. `texto=True` devuelve el cuerpo como str
+    (HTML, XML, robots.txt). Lo usan también recolectar.py y tiendas.py."""
     url = ruta if ruta.startswith("http") else API + ruta
     host = urllib.parse.urlsplit(url).netloc
-    h = {"User-Agent": UA, "Accept": "application/json"}
+    h = {"User-Agent": UA, "Accept": "*/*" if texto else "application/json"}
     if token:
         h["Authorization"] = "Bearer " + token
     if isinstance(data, dict):
@@ -51,6 +52,8 @@ def pedir(ruta, token=None, data=None):
         _ultimo[host] = time.time()
         try:
             with urllib.request.urlopen(urllib.request.Request(url, data=data, headers=h), timeout=30) as r:
+                if texto:
+                    return r.status, r.read().decode("utf-8", "replace")
                 try:
                     return r.status, json.loads(r.read())
                 except ValueError:  # 200 con HTML (p. ej. challenge de Cloudflare)

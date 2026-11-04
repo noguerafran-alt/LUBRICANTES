@@ -20,6 +20,8 @@ from pathlib import Path
 from statistics import median
 from urllib.parse import parse_qs, urlsplit
 
+from tiendas import MAYORISTAS  # fuentes de precio mayorista: fuera del índice salvo ?mayoristas=1
+
 RAIZ = Path(__file__).resolve().parent
 INDEX = RAIZ / "site" / "index.html"
 
@@ -40,6 +42,7 @@ CAMPOS = {
     "sin_match": ["fuente", "titulo", "ean", "marca", "precio", "litros", "unidades", "url", "primera", "ultima", "veces"],
     "oferta_ml": OFERTA_F,
 }
+CAMPOS["indice_con_mayoristas"] = CAMPOS["indice"]
 
 
 def leer_csv(path):
@@ -113,10 +116,12 @@ def serie(obs, pid):
             for (f, fu), v in sorted(grupos.items())]
 
 
-def indice(d):
+def indice(d, mayoristas=False):
     prod = {p["producto_id"]: p for p in d["productos"]}
     grupos = defaultdict(list)
     for r in d["obs"]:
+        if r["fuente"] in MAYORISTAS and not mayoristas:
+            continue
         p, pl = prod.get(r["producto_id"]), precio_litro(r)
         if p and pl is not None:
             grupos[(r["fecha"], p["segmento"], p["sae"], p["marca"])].append(pl)
@@ -169,6 +174,7 @@ def calcular(d, hoy=None):
         "equivalencias": equivalencias(d),
         "ultimo": ultimo(d["obs"]),
         "indice": indice(d),
+        "indice_con_mayoristas": indice(d, mayoristas=True),
         "fuentes": fuentes(d, hoy or date.today()),
         "sin_match": sin_match(d["obs"]),
         "oferta_ml": d["oferta_ml"],
@@ -239,7 +245,9 @@ class Handler(BaseHTTPRequestHandler):
         if not u.path.startswith("/api/"):
             return self.json(404, {"error": "no existe"})
         nombre = u.path[5:]
-        if nombre in self.calc:
+        if nombre == "indice" and q.get("mayoristas") == "1":
+            filas = self.calc["indice_con_mayoristas"]
+        elif nombre in self.calc:
             filas = self.calc[nombre]
         elif nombre == "obs":
             meses = sorted(self.datos["meses"])
@@ -293,6 +301,7 @@ def demo():
         ("2026-11-02", "sepa", "3000", "1", "1", "gulf-c-15w40"),  # sin YPF en 15W-40
         ("2026-11-02", "vtex_easy", "9999", "1", "1", ""),
         ("2026-11-03", "vtex_easy", "9999", "1", "1", ""),
+        ("2026-11-02", "shopify_datri", "2000", "1", "12", "ypf-a-10w40"),  # mayorista: caja 12x1 L = 166,67 $/L
     ]
     with open(raiz / "data" / "obs" / "2026-11.csv", "w", encoding="utf-8", newline="") as f:
         w = csv.DictWriter(f, OBS_F, restval="")
@@ -315,17 +324,19 @@ def demo():
     assert u[("ypf-a-10w40", "sepa", 1.0)]["precio_litro"] == 4400
     assert u[("ypf-a-10w40", "sepa", 4.0)]["precio_litro"] == 4000
     assert u[("shell-b-10w40", "sepa", 1.0)]["fecha"] == "2026-11-01"  # no se arrastra al día siguiente
-    assert len(c["ultimo"]) == 5
+    assert len(c["ultimo"]) == 6 and u[("ypf-a-10w40", "shopify_datri", 1.0)]["precio_litro"] == round(2000 / 12, 2)
 
     i = {(r["fecha"], r["sae"], r["marca"]): r for r in c["indice"]}
     assert i[("2026-11-01", "10W-40", "YPF")]["indice"] == 100
     assert i[("2026-11-01", "10W-40", "Shell")]["indice"] == round(5000 / 4200 * 100, 1)
-    assert i[("2026-11-02", "10W-40", "YPF")]["mediana_litro"] == 4200  # mediana de 4400 y 4000
+    assert i[("2026-11-02", "10W-40", "YPF")]["mediana_litro"] == 4200  # mediana de 4400 y 4000; el mayorista no entra
+    im = {(r["fecha"], r["sae"], r["marca"]): r for r in c["indice_con_mayoristas"]}
+    assert im[("2026-11-02", "10W-40", "YPF")]["mediana_litro"] == 4000  # con mayorista: mediana de 4400, 4000 y 166,67
     assert i[("2026-11-02", "10W-40", "Shell")]["indice"] == round(6000 / 4200 * 100, 1)
     assert i[("2026-11-02", "15W-40", "Gulf")]["indice"] is None  # sin YPF → vacío
 
     s = serie(d["obs"], "ypf-a-10w40")
-    assert [(r["fecha"], r["precio_litro"]) for r in s] == [("2026-11-01", 4200), ("2026-11-02", 4200)]
+    assert [(r["fecha"], r["precio_litro"]) for r in s if r["fuente"] == "sepa"] == [("2026-11-01", 4200), ("2026-11-02", 4200)]
 
     f = {r["fuente"]: r for r in c["fuentes"]}
     assert f["vtex_carrefour"]["error"] == "HTTP 403" and f["vtex_carrefour"]["ultimo_ok"] == "2026-11-02"
@@ -365,6 +376,8 @@ def demo():
     assert get("/api/ultimo", {"X-API-Key": "s3cr3t"})[0] == 200
     assert get("/api/ultimo", b("x:s3cr3t"))[0] == 200
     assert get("/api/obs?mes=2026-11&formato=csv", {"X-API-Key": "s3cr3t"})[1].startswith(b"fecha,fuente,url")
+    k = {"X-API-Key": "s3cr3t"}
+    assert json.loads(get("/api/indice", k)[1]) == c["indice"] and json.loads(get("/api/indice?mayoristas=1", k)[1]) == c["indice_con_mayoristas"]
     assert get("/api/obs", {"X-API-Key": "s3cr3t"})[0] == 400
     assert get("/api/serie?p=nada", {"X-API-Key": "s3cr3t"})[0] == 404
     assert get("/../server.py", {"X-API-Key": "s3cr3t"})[0] == 404

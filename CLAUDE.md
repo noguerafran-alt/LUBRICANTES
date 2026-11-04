@@ -34,7 +34,8 @@ El relevamiento que fundamenta todo esto está en `docs/relevamiento/`
 ## Archivos
 
 ```
-recolectar.py      # (--renormalizar: recalcula el matcheo de data/obs/ sin tocar precios) una corrida: YPF GraphQL + VTEX + ML categorías (+ ML con token si hay secrets)
+recolectar.py      # (--renormalizar: recalcula el matcheo de data/obs/ sin tocar precios) una corrida: YPF GraphQL + VTEX + Shopify + Tiendanube + ML categorías (+ ML con token si hay secrets)
+tiendas.py         # lectores Shopify (D'Atri) y Tiendanube (LS Palermo, Casa González), litros de caja/tambor, robots.txt
 ml.py              # cliente ML: categorías sin token, OAuth refresh, products/items con token
 sepa.py            # Precios Claros (SEPA): zip diario en streaming, filtra lubricantes
 normalizar.py      # aviso → (marca, sae, litros, unidades, producto_id, match)
@@ -83,6 +84,11 @@ data/catalogo_ypf.json # foto del catálogo oficial YPF (el diff de git avisa al
 - `match`: `ean|texto|none`.
 - Si `stock == 0` o `precio <= 0`, no se escribe fila (se cuenta en `fuentes.csv`).
 - Cencosud (Jumbo/Disco/Vea): `ListPrice` viene inflado, va vacío en `precio_lista`.
+- **Fuentes mayoristas** (hoy `shopify_datri`, lista `MAYORISTAS` en `tiendas.py`): el precio es por caja o tambor
+  y no se verificó si incluye IVA. `litros` es por unidad y `unidades` las de la caja (CAJA 12X1L → 1 y 12;
+  TAMBOR 205L → 205 y 1; si el título habla en litros y la variante en quarts, `litros` vacío), así que
+  `precio_litro` sigue siendo `precio / (litros × unidades)`. `/api/indice` las **excluye** por defecto y las suma con
+  `?mayoristas=1`; el visor las rotula "(mayorista)" en Comparador, Evolución y Fuentes.
 - Una corrida no duplica: si ya hay filas de esa `fuente` y `fecha`, se reemplazan.
 
 **data/fuentes.csv** —
@@ -103,11 +109,16 @@ data/catalogo_ypf.json # foto del catálogo oficial YPF (el diff de git avisa al
 | `vtex_easy` | `https://www.easy.com.ar/...` `fq=C:/9/68/321/` |
 | `vtex_jumbo` | `https://www.jumbo.com.ar/...` `fq=C:/16/126/412/` — precio solo con `AvailableQuantity>0` |
 | `sepa` | CKAN `package_show?id=sepa-precios` → zip del día |
+| `vtex_norauto` | `https://www.norauto.com.ar/...` `fq=C:/3/20/` (aceites sueltos; NO `C:/4/24/`: combos con colocación). `AvailableQuantity=99999` es relleno: `stock` queda vacío. `ListPrice` = `Price` (verificado 2026-11-04), se guarda |
+| `shopify_datri` | `https://tiendadatri.com.ar/products.json?limit=250&page=N` hasta página vacía; `product_type` LUBRICANTES, SINTÉTICO, SEMISINTÉTICO, MINERAL, MULTIGRADO, MONOGRADO. **Mayorista.** Marca solo si el título la dice (`vendor` es D'ATRI) |
+| `tn_lspalermo`, `tn_spch` | Tiendanube: `sitemap.xml` → URLs `/productos/` cuyo slug pasa `aceite\|lubric\|elaion\|helix\|castrol\|quartz\|mobil` y no es filtro/kit/aerosol/etc. → en cada HTML, `LS.variants[].price_number` del producto principal (el JSON-LD `Product` es de los relacionados: no se usa). Páginas con más de una variante no se leen. Tope 150 páginas por tienda y día (`TOPE_PAGINAS`); si el sitemap tiene más, se rota por `sha1(url)` en k = ceil(n/150) grupos, hoy toca el `ordinal del día % k`: cada URL se lee cada k días |
 | `ml_cat` | `https://api.mercadolibre.com/categories/{id}` sin token (MLA375007 y hermanas) |
 | `ml` | con token: `/products/search` + `/products/{id}/items` (un aviso por publicación nueva; atributos del producto: BRAND, GTIN, VISCOSITY_GRADE, NET_VOLUME, UNITS_PER_PACK). `/items/bulk` da `[{}]`, `/items?ids=` 403, `/sites/MLA/search` 403: no se usan. `/highlights` (top 20 por categoría, ids de producto) queda fuera: no hay forma de unirlos a `obs` |
 
 VTEX pagina de a 50 (`_from`/`_to`, máximo 2500). 1 request/s por host,
-`User-Agent` honesto, timeout 30 s, un reintento.
+`User-Agent` honesto, timeout 30 s, un reintento. Las tiendas Shopify/Tiendanube consultan antes el `robots.txt` del host
+(`tiendas.permitido`, `urllib.robotparser`): si no se puede leer, la fuente no corre. Coto está **diferido**: no se leyeron
+sus términos de uso, no se implementa hasta leerlos.
 
 ## Mercado Libre con token
 
@@ -129,7 +140,7 @@ contraseña `LUB_CLAVE`). Respuestas JSON; `?formato=csv` devuelve CSV.
 | `/api/ultimo` | último precio por (producto_id, fuente, litros) con `precio_litro` y fecha |
 | `/api/obs?mes=AAAA-MM` | observaciones crudas del mes (insumo del análisis interno) |
 | `/api/serie?p=<producto_id>` | serie diaria: mediana de $/L por fuente |
-| `/api/indice` | índice $/L por fecha, segmento, SAE y marca (YPF = 100) |
+| `/api/indice` | índice $/L por fecha, segmento, SAE y marca (YPF = 100). Excluye fuentes mayoristas; `?mayoristas=1` las incluye |
 | `/api/fuentes` | último estado de cada fuente + días sin datos |
 | `/api/sin_match` | avisos sin `producto_id` (cola de revisión) |
 | `/api/oferta_ml` | `data/ml_oferta.csv` |
