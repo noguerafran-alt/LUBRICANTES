@@ -65,6 +65,10 @@ Actualizado 2026-11-04 (carga de Grok). Remoto privado `noguerafran-alt/LUBRICAN
 - Pedido del usuario: dividir por litros el precio de los combos que son solo aceite. Ningún combo de helixturno es aceite pelado: todos traen colocación/mano de obra. Regla: aceite + colocación → `precio_litro` (rotulado "con colocación" en el visor); con filtros u otro repuesto (lista negra `RX_EXTRA` en server.py) o sin litros → vacío. Sigue fuera del comparador y del índice: la mano de obra infla el litro frente al bidón.
 - Con los datos reales: 8 combos HX5/HX7 con $/L (HX5 4 L $19.247,50; HX7 de $24.247,50 a $25.665); los 9 sintéticos (Ultra, HX8) traen filtros y quedan sin $/L. Asserts en `server.py test`.
 
+## Comparador en el celular (2026-11-04)
+- La página nunca desbordaba (scrollWidth = 375 en las 5 pestañas), pero el Comparador arma una tabla de ~650 px por producto: en el celular cada una había que deslizarla de costado. Ahora, a 640 px o menos, cada tabla se muestra como tarjeta (una línea por fuente con su nombre a la izquierda, `data-l`); en escritorio la tabla queda igual.
+- Verificado en el navegador con datos reales: a 375 px, 116 tarjetas y ninguna desborda; a 1280 px, tabla con encabezado; consola sin errores.
+
 ## Visor y README verificados (2026-11-04, sin cambios de código)
 - lub-test en navegador: a 375 px las pestañas Cargar, Fuentes e Índice entran en el viewport (las tablas scrollean dentro de su contenedor); la etiqueta "Grok · www.helixturno.com.ar" aparece en Fuentes y en el aviso de fuentes con problemas, con "sin cargas" explicado. Consola sin errores propios del visor. Comparador y Evolución a 375 px no se recorrieron.
 - Snippet de pandas del README ejecutado contra server.py local (pandas + requests): `/api/obs?mes=2026-11` 2789x15, `/api/ultimo?formato=csv` 190x9. Correcto, no se tocó.
