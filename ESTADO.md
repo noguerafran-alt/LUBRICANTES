@@ -4,7 +4,7 @@ Actualizado 2026-11-04 (carga de Grok). Remoto privado `noguerafran-alt/LUBRICAN
 
 ## Qué hay
 - Recolección: `recolectar.py` (YPF GraphQL, VTEX Carrefour/Mas/Easy/Jumbo/Norauto, ML categorías), `tiendas.py` (Shopify D'Atri, Tiendanube LS Palermo y Casa González), `sepa.py` (Precios Claros), `ml.py` (ML con token activo: products/search + products/{id}/items).
-- `normalizar.py` + `seed/` (productos, alias, equivalencias). `python recolectar.py --renormalizar` recalcula el matcheo de `data/obs/` sin tocar precios (usarlo cada vez que cambie el seed).
+- `normalizar.py` + `seed/` (productos, alias, equivalencias). `python recolectar.py --renormalizar` recalcula el matcheo de `data/obs/` y `data/grok/` sin tocar precios (usarlo cada vez que cambie el seed).
 - `server.py` + `site/index.html`: visor (Comparador, Evolución, Índice, Fuentes) y API con clave.
 - `.github/workflows/recolectar.yml`: corrida diaria (recolectar, luego sepa).
 
@@ -46,6 +46,12 @@ Actualizado 2026-11-04 (carga de Grok). Remoto privado `noguerafran-alt/LUBRICAN
 - La corrida 2026-11-03 de Actions dio "HTTP 200 sin data"; desde la PC `--solo ypf_gql` trae 69 productos. La causa no se pudo probar fuera de Actions. Cambio en `recolectar.py`: cuando ypf_gql falla, el error de `data/fuentes.csv` lleva un extracto saneado del cuerpo (mensaje de `errors` de GraphQL o primeros 120 caracteres), para que la próxima corrida diaria diga la causa. Assert en `demo()`; `python recolectar.py test` da OK.
 - Efecto lateral: el pedido de ypf_gql pasa por `ml.pedir(..., texto=True)`, que manda `Accept: */*` en vez de `application/json`. Hoy sigue trayendo 69 productos; si la Action empezara a fallar distinto, mirar esto primero.
 - No verificado: la causa real, ni la Action.
+
+## Primera carga real de Grok (2026-11-04)
+- Con `fuente=grok_helix` entró: 200, 17 filas (todas `verificado=0`: helixturno es SPA), commit 7d9ec1a. Grok mandó 33: **16 se perdieron sin aviso** porque la clave de idempotencia era `fuente+fecha+url+titulo` y los combos de una misma URL que cambian solo por filtro comparten título (dentro de la carga ganaba la última; `/api/servicios` también los colapsaba).
+- Acción correctiva: `clave_grok` = `fuente+fecha+url+titulo+detalle` en la fusión, en la carga y en `servicios()`; un duplicado exacto se informa en `duplicadas`. Asserts en `server.py test`.
+- "HELIX ULTRA HX8 5W-40" entraba como `shell-helix-ultra-5w40` por el alias genérico de Helix Ultra. Un título que mezcla Ultra y HXn es ambiguo: los alias genéricos de Helix Ultra excluyen `hx\s*\d` y queda sin match (assert en `normalizar.py test`). `--renormalizar` ahora también recorre `data/grok/` (solo `producto_id`/`match`). Diff contra main: obs sin cambios; grok solo la fila HX8 pasa a sin match.
+- Pendiente: Grok reenvía las 33 filas (idempotente: las 17 guardadas se pisan, las 16 faltantes entran).
 
 ## Visor y README verificados (2026-11-04, sin cambios de código)
 - lub-test en navegador: a 375 px las pestañas Cargar, Fuentes e Índice entran en el viewport (las tablas scrollean dentro de su contenedor); la etiqueta "Grok · www.helixturno.com.ar" aparece en Fuentes y en el aviso de fuentes con problemas, con "sin cargas" explicado. Consola sin errores propios del visor. Comparador y Evolución a 375 px no se recorrieron.
