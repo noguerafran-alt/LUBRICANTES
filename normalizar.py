@@ -32,12 +32,13 @@ MARCAS = [  # (canónica, regex sobre texto normalizado). El orden importa: gana
 SAE_MULTI = re.compile(r"\b(0|5|10|15|20|25)\s*w\s*[-/ ]?\s*(20|30|40|50|60)(?!\d\d)")
 SAE_GEAR = re.compile(r"\b(75|80|85)\s*w\s*-?\s*(90|140)\b")
 SAE_MONO = re.compile(r"\bsae\s*(30|40|50|90|140)\b")
-LITROS = re.compile(r"(?<![\d.,])(\d+(?:[.,]\d+)?)\s*(l|lt|lts|litro|litros)\b")
-ML = re.compile(r"(?<![\d.,])(\d+(?:[.,]\d+)?)\s*(ml|cc|c\.c\.)(?!\w)")
+# Pegado a una letra no es volumen ("Rimula R3 L" no son 3 litros), salvo la x de "X4lt".
+LITROS = re.compile(r"(?<![\d.,a-wyz])(\d+(?:[.,]\d+)?)\s*(l|lt|lts|litro|litros)\b")
+ML = re.compile(r"(?<![\d.,a-wyz])(\d+(?:[.,]\d+)?)\s*(ml|cc|c\.c\.)(?!\w)")
 X_FINAL = re.compile(r"\bx\s*(\d+)\s*$")
 LINEA_YPF = re.compile(r"\b(mi|ts|fs|tf)\s*\d{3,4}\b")  # códigos Elaion/Extravida: MI 1540, TS 1040, FS 540
 GRUPO = {"Elf": "TotalEnergies"}  # Elf es marca de TotalEnergies: compatibles al matchear, sin fusionar en productos.csv
-UNIDADES = re.compile(r"x\s*(\d+)\s*unidades")
+UNIDADES = re.compile(r"x\s*(\d+)\s*(?:unidades|bidones)")
 
 
 def texto(s):
@@ -139,6 +140,10 @@ def normalizar(titulo, marca_vtex="", ean="", reglas=None, url=""):
             m = X_FINAL.search(resto)
             if m:
                 litros = float(m[1])
+    # ML: vendedores que cargan el volumen en UNITS_PER_PACK ("5 L x 5 unidades" es un bidón de 5 L).
+    # ponytail: un pack real de 4 × 4 L queda contado como 4 L; el techo de sanidad de /api/vitrina lo saca.
+    if unidades > 1 and litros == unidades:
+        unidades = 1
     if match != "none" and url_contradice(t, sae, litros, url):
         pid, match = "", "none"
     return dict(marca=marca, sae=sae, litros=litros, unidades=unidades, producto_id=pid, match=match)
@@ -211,6 +216,13 @@ def demo():
     assert n("Grasa multiuso Salkor x 4")["litros"] is None
     assert n("Aceite Elaion 15w40 x 4 lt  f10")["litros"] == 4.0
     # Unidades.
+    assert n("Aceite De Motor Shell Rimula R3 L 15w40 20 Litros 15W-40")["litros"] == 20.0
+    assert n("Rimula R4 X 15w40 x 4")["litros"] == 4.0 and n("Aceite X4lt 10w40")["litros"] == 4.0
+    r = n("Aceite Motul 8100 Xcess 5w40 X5l 5W-40 5 L x 5 unidades")
+    assert (r["litros"], r["unidades"]) == (5.0, 1), r
+    assert n("Elaion F30 10w-40 4 lts x 2 unidades")["unidades"] == 2
+    r = n("Aceite Total Quartz 7000 10w40 Caja x6 Bidones 4L Semisintetico 10W-40")
+    assert (r["litros"], r["unidades"]) == (4.0, 6), r
     assert n("Aceite Quartz 9000 5w40 x 12 unidades 1 l")["unidades"] == 12
     # Acentos rotos de YPF GraphQL y marca VTEX compuesta.
     assert texto("Sint�tico Lubricación") == "sinttico lubricacion"

@@ -16,7 +16,7 @@ base = "http://127.0.0.1:8000"
 obs = pd.DataFrame(requests.get(f"{base}/api/obs?mes=2026-11", headers=H).json())
 ultimo = pd.read_csv(f"{base}/api/ultimo?formato=csv", storage_options=H)
 ```
-La clave va siempre en el header, nunca en la URL. Rutas en `CLAUDE.md`. `/api/indice` excluye las fuentes mayoristas (D'Atri); `?mayoristas=1` las incluye.
+La clave va siempre en el header, nunca en la URL. Rutas en `CLAUDE.md`. `/api/indice` excluye las fuentes mayoristas (D'Atri); `?mayoristas=1` las incluye. `/api/vitrina` compara cada producto YPF con sus equivalentes (precio por litro promedio, más barato, foto). Solo se recolecta lo relacionado con YPF (sus productos y los equivalentes del seed): `/api/sin_match` queda vacía por diseño.
 
 ## Carga de relevamientos de Grok
 Una Task diaria de SuperGrok devuelve un CSV que se pega en la pestaña **Cargar** del visor (`POST /api/cargar`). Prompt, formato y clave de carga: [docs/grok-task.md](docs/grok-task.md).
