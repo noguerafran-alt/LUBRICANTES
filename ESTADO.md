@@ -61,6 +61,10 @@ Actualizado 2026-11-04 (carga de Grok). Remoto privado `noguerafran-alt/LUBRICAN
 - **Vuelta a servicio (2026-11-04, run 41878301945):** GH_PAT nuevo con Secrets: Read and write y reautorización en la PC (`ml.py autorizar`, refresh subido a `ML_REFRESH_TOKEN`). Chequear GH_PAT, Recolectar y Rotar dieron success: `ml` 2378 avisos con precio (190 sin match) y `ML_REFRESH_TOKEN` actualizado a las 17:50:09 UTC. `fuentes.csv` sin filas duplicadas. Desde acá el token es SOLO de la Action: la PC no corre `--solo ml` (su `.ml_local` ya no vale).
 - Para volver a servicio (usuario): (1) GH_PAT con permiso **Secrets: Read and write** sobre LUBRICANTES (fine-grained) y recargarlo; (2) `python ml.py autorizar` en la PC; (3) subir el refresh nuevo de `.ml_local` a `ML_REFRESH_TOKEN`; (4) desde ahí la PC no corre `--solo ml`.
 
+## $/L de los combos de Grok (2026-11-04)
+- Pedido del usuario: dividir por litros el precio de los combos que son solo aceite. Ningún combo de helixturno es aceite pelado: todos traen colocación/mano de obra. Regla: aceite + colocación → `precio_litro` (rotulado "con colocación" en el visor); con filtros u otro repuesto (lista negra `RX_EXTRA` en server.py) o sin litros → vacío. Sigue fuera del comparador y del índice: la mano de obra infla el litro frente al bidón.
+- Con los datos reales: 8 combos HX5/HX7 con $/L (HX5 4 L $19.247,50; HX7 de $24.247,50 a $25.665); los 9 sintéticos (Ultra, HX8) traen filtros y quedan sin $/L. Asserts en `server.py test`.
+
 ## Visor y README verificados (2026-11-04, sin cambios de código)
 - lub-test en navegador: a 375 px las pestañas Cargar, Fuentes e Índice entran en el viewport (las tablas scrollean dentro de su contenedor); la etiqueta "Grok · www.helixturno.com.ar" aparece en Fuentes y en el aviso de fuentes con problemas, con "sin cargas" explicado. Consola sin errores propios del visor. Comparador y Evolución a 375 px no se recorrieron.
 - Snippet de pandas del README ejecutado contra server.py local (pandas + requests): `/api/obs?mes=2026-11` 2789x15, `/api/ultimo?formato=csv` 190x9. Correcto, no se tocó.
