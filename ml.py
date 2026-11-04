@@ -23,14 +23,28 @@ ARCHIVO_REFRESH = os.environ.get("ML_REFRESH_ARCHIVO", ".ml_refresh_nuevo")
 ARCHIVO_LOCAL = os.environ.get("ML_LOCAL", ".ml_local")
 # Provisorio: dominio propio en Render hasta que LUBRICANTES tenga el suyo (cambiarlo también en DevCenter).
 REDIRECT = "https://biblioteca-b8mb.onrender.com/ml-callback"
-BUSQUEDAS = ["elaion", "extravida", "rod ypf", "ypf aceite", "shell helix", "shell rimula", "castrol edge",
-             "castrol magnatec", "castrol gtx", "castrol vecton", "mobil super", "mobil 1", "mobil delvac",
-             "total quartz", "total rubia", "elf evolution", "petronas syntium", "motul", "gulf",
-             "valvoline", "bardahl", "puma lubricantes", "liqui moly", "pennzoil"]
+# Líneas YPF; las de la competencia salen de los equivalentes del seed (`busquedas()`).
+BUSQUEDAS_YPF = ["elaion", "extravida", "rod ypf", "ypf aceite"]
 TOPE_PRODUCTOS = 50  # por búsqueda; se loguea cuántas búsquedas se cortan
 TOPE_ITEMS = 100     # publicaciones por producto
 
 _ultimo = {}  # host → hora del último request
+
+
+def https(u, base=""):
+    """URL absoluta https o None (las fotos solo se guardan si son https)."""
+    u = urllib.parse.urljoin(base, u.strip()) if u and u.strip() else ""
+    return u if u.startswith("https://") else None
+
+
+def busquedas(raiz=None):
+    """Búsquedas de ML: líneas YPF + "marca línea" de cada competidor que figura en seed/equivalencias.csv."""
+    import csv
+    raiz = raiz or os.path.dirname(os.path.abspath(__file__))
+    leer = lambda n: list(csv.DictReader(open(os.path.join(raiz, "seed", n), encoding="utf-8", newline="")))
+    prod = {p["producto_id"]: p for p in leer("productos.csv")}
+    comp = {f"{prod[e['comp_id']]['marca']} {prod[e['comp_id']]['linea']}".lower() for e in leer("equivalencias.csv") if e["comp_id"] in prod}
+    return BUSQUEDAS_YPF + sorted(comp)
 
 
 def pedir(ruta, token=None, data=None, texto=False):
@@ -171,10 +185,11 @@ def aviso(prod, it):
     t = " ".join([t] + [e for e in extra if e and e.lower() not in t.lower()])
     num = it["item_id"].removeprefix("MLA")
     tienda = it.get("official_store_id")
+    foto = https(((prod.get("pictures") or [{}])[0]).get("url"))
     return dict(url=f"https://articulo.mercadolibre.com.ar/MLA-{num}", ean=at.get("GTIN", ""), titulo=t,
                 marca_cruda=at.get("BRAND", ""), precio=it.get("price") or 0,
                 precio_lista=it.get("original_price") or "", stock=None,
-                vendedor=str(it.get("seller_id", "")) + (f" tienda:{tienda}" if tienda else ""))
+                vendedor=str(it.get("seller_id", "")) + (f" tienda:{tienda}" if tienda else ""), imagen=foto)
 
 
 def _paginar(ruta, tope, token):
@@ -193,25 +208,32 @@ def _paginar(ruta, tope, token):
     return http, out, True
 
 
-def avisos():
+def avisos(filtro=None):
     """→ (http, avisos, error). Cada aviso con las columnas crudas de obs.
+    `filtro(aviso)`: si da False el producto no se baja (no se piden sus publicaciones): ahorra el grueso del tiempo.
     /items/bulk e /items dan vacío/403 con este token: el aviso sale de products/{id}/items + atributos."""
     tok, err = token()
     if not tok:
         return "", [], err
-    prods, cortadas, http = {}, 0, 0
-    for q in BUSQUEDAS:
+    prods, cortadas, http, ajenos = {}, 0, 0, 0
+    qs = busquedas()
+    for q in qs:
         http, rs, cortado = _paginar("/products/search?" + urllib.parse.urlencode(
             dict(status="active", site_id="MLA", q=q)), TOPE_PRODUCTOS, tok)
         if not rs and http != 200:
             return http, [], f"products/search HTTP {http}"
         cortadas += cortado
-        prods.update({p["id"]: p for p in rs if aceite(p)})
+        for p in rs:
+            if aceite(p):
+                if filtro is None or filtro(aviso(p, dict(item_id="MLA0", price=1))):
+                    prods[p["id"]] = p
+                else:
+                    ajenos += 1
     out = []
     for pid, p in prods.items():
         _, rs, _ = _paginar(f"/products/{pid}/items", TOPE_ITEMS, tok)  # 404 = sin publicaciones, no es caída
         out += [aviso(p, r) for r in rs if r.get("item_id") and r.get("condition", "new") == "new"]
-    print(f"ml: {len(BUSQUEDAS)} búsquedas, {len(prods)} productos de aceite, {cortadas} búsquedas cortadas "
+    print(f"ml: {len(qs)} búsquedas, {len(prods)} productos relacionados con YPF ({ajenos} de aceite descartados), {cortadas} búsquedas cortadas "
           f"en {TOPE_PRODUCTOS}, {len(out)} avisos", flush=True)
     if not out:
         return http, [], f"token válido pero 0 publicaciones ({len(prods)} productos encontrados)"
@@ -219,7 +241,7 @@ def avisos():
 
 
 def demo():
-    global ARCHIVO_LOCAL
+    global ARCHIVO_LOCAL, pedir, token
     for k in ("ML_CLIENT_ID", "ML_CLIENT_SECRET", "ML_REFRESH_TOKEN"):
         os.environ.pop(k, None)
     real, ARCHIVO_LOCAL = ARCHIVO_LOCAL, os.path.join("tmp", "ml_local_inexistente")
@@ -235,6 +257,25 @@ def demo():
         assert aceite(dict(domain_id="MLA-ENGINE_OILS")) and not aceite(dict(domain_id="MLA-SNEAKERS"))
         assert aviso(dict(name="Aceite 5W-30 4 L"), dict(item_id="MLA1", price=1, seller_id=2))["titulo"] == "Aceite 5W-30 4 L"
         assert token() == (None, "sin token")
+        assert https("//x.com/a.jpg", "https://t.com/") == "https://x.com/a.jpg" and https("http://x.com/a.jpg") is None and https("") is None
+        assert aviso(dict(name="A", pictures=[dict(url="https://http2.mlstatic.com/x.jpg")]), dict(item_id="MLA1", price=1))["imagen"].endswith("x.jpg")
+        assert aviso(dict(name="A"), dict(item_id="MLA1", price=1))["imagen"] is None
+        # el filtro corta antes de pedir publicaciones: el producto ajeno no genera request de /items
+        pedir0, token0, pedidos = pedir, token, []
+        def pedir(ruta, tok=None, **k):
+            pedidos.append(ruta)
+            if ruta.startswith("/products/search"):
+                return 200, dict(paging=dict(total=2), results=[dict(id="A", domain_id="MLA-ENGINE_OILS", name="Elaion F 50"),
+                                                                dict(id="B", domain_id="MLA-ENGINE_OILS", name="Aceite Zeta")])
+            return 200, dict(results=[dict(item_id="MLA5", price=10)])
+        token = lambda: ("t", "")
+        try:
+            r = avisos(filtro=lambda a: "Elaion" in a["titulo"])
+        finally:
+            pedir, token = pedir0, token0
+        assert len(r[1]) == 1 and r[1][0]["titulo"] == "Elaion F 50" and not any("/products/B" in x for x in pedidos), (r, pedidos)
+        q = busquedas()
+        assert q[:4] == BUSQUEDAS_YPF and "castrol edge" in q and "shell helix" in q and len(q) == len(set(q)) and "bardahl" not in q
     finally:
         ARCHIVO_LOCAL = real
     print("OK")

@@ -2,6 +2,22 @@
 
 Actualizado 2026-11-04 (carga de Grok). Remoto privado `noguerafran-alt/LUBRICANTES`; la Action corre a diario.
 
+## Vitrina YPF vs competencia y recolección acotada (2026-11-04, rama feat/vitrina-ypf)
+- **Solo lo relacionado con YPF**: `recolectar.a_obs` escribe una observación únicamente si su `producto_id` es YPF o un `comp_id` de `seed/equivalencias.csv`; el resto se cuenta en `n_descartados` (columna nueva al final de `data/fuentes.csv`, filas viejas vacías = 0). Ya no hay `sin_match` en `data/obs/`: `/api/sin_match` queda vacía por diseño (el visor lo tiene que explicar). `n_con_precio == 0` ya no significa "sin precios con stock": hay que mirar también `n_descartados` (el visor actual lo sigue leyendo así).
+- **`python recolectar.py --podar`** (corrido): `data/obs/2026-11.csv` 6022 -> 2641 filas (184 producto_id relacionados). Es idempotente.
+- Corrida real 2026-11-04 (fuente: sin stock / guardadas / descartadas): vtex_carrefour 115 / 10 / 60; masonline 5 / 36 / 20; easy 0 / 14 / 34; jumbo 224 / 0 / 0; norauto 0 / 47 / 53; shopify_datri (mayorista) 3 / 22 / 273; tn_lspalermo 2 / 26 / 87; tn_spch 4 / 27 / 32. Tiempo total sin ML ni SEPA: 3 min 45 s (Tiendanube 121 + 65 s).
+- **Mercado Libre**: `BUSQUEDAS` pasó a `ml.busquedas()` = 4 líneas YPF + "marca línea" de cada competidor del seed (21 búsquedas), y `ml.avisos(filtro)` no pide las publicaciones de un producto que no matchea con uno relacionado (antes ~1 request/s por cada uno de los 816 productos de aceite). **No medido ni corrido contra ML real**: esta PC no tiene token (`sin token`; el refresh es solo de la Action). Verificado solo con un test con `pedir` falso. Mirar el tiempo y el log `ml: ... productos relacionados con YPF (N de aceite descartados)` en la primera corrida de la Action; la fila buena de ML del día en `fuentes.csv` no se pisó. El campo `pictures` de `/products/search` tampoco se vio con datos reales.
+- **Fotos** (`data/imagenes.csv`: 31 oficiales YPF + 34 de tiendas = 65; 32 de 116 productos YPF y 43 de 82 equivalentes): la oficial es `props.imagen` del GraphQL (ahora también en `data/catalogo_ypf.json`), unida al seed por título y solo si hay un candidato (31 de 69 ítems del catálogo; los de nombre genérico quedan sin foto oficial). Prioridad: oficial > VTEX > Shopify > Tiendanube > ML, por orden de llegada; una foto de tienda no pisa a otra.
+- **`/api/vitrina`** (contrato en `CLAUDE.md`): 116 productos YPF, 24 con precio hoy, 19 con `dif_pct`. Asserts en `server.py test` (promedio/min/max/mediana, más barato, mayoristas, Grok no verificado, no_equivalente fuera del promedio, null sin datos, orden, ventana de 3 días, CSV, HTTP).
+- **Sanidad del $/L** (rechazo del inspector: Rimula R3 L a 80570 $/L, dif +295 %). Causas y arreglos:
+  - `normalizar.LITROS`/`ML`: un número pegado a una letra ya no es volumen ("R3 L" daba 3 L sobre "20 Litros"); la `x` de "X4lt" sigue valiendo.
+  - ML con `UNITS_PER_PACK` igual al volumen ("5 L x 5 unidades": Motul 8100, Castrol GTX): `unidades = 1`. "Caja x6 Bidones 4L" (Quartz 7000) → 6 unidades.
+  - `--renormalizar` pisaba litros/unidades de D'Atri (caja/tambor salen de la variante, que no está en el título) y de Tiendanube: ahora deja los mayoristas como están y a `tn_*` les aplica `tiendas.envase(titulo)`, igual que al recolectar. Las 13 filas de D'Atri del 2026-11-04 se restauraron desde HEAD.
+  - `/api/vitrina`: un aviso a más de 2,5× (o menos de 1/2,5) de la mediana de su producto no cuenta (`SANIDAD`), y un equivalente cuya mediana está a más de 3× de la del YPF queda `en_promedio: false` con `excluido: "fuera_de_rango"` (`RANGO_EQ`; campo nuevo `excluido`: `null|no_equivalente|fuera_de_rango`). Umbrales fijos a ojo.
+  - Resultado: Rimula R3 L 12086 $/L (xv100 dif +15,8), Castrol GTX 19374, Motul 8100 24594 (auro-fr-540 -38,0); Valvoline Synpower 2T (60875, títulos "1 L") queda fuera de rango; rod-2t queda +111,6 contra Castrol Go 2T (1 aviso, 30000 $/L, dentro del rango).
+  - Abierto: Tiendanube con "12x1L" en el título (HX8 Prof AV a 35184, Mobil Super Moto 24X1L a 2040) parece precio por botella, no por caja; hoy se toma como caja y la sanidad lo saca. No verificado en la página.
+- Pendiente: `sepa.py` y Grok todavía escriben sin filtrar (el próximo `--podar` los limpia); el visor (`site/index.html`), su carrusel y el aviso de cola vacía los hace otro agente.
+
 ## Qué hay
 - Recolección: `recolectar.py` (YPF GraphQL, VTEX Carrefour/Mas/Easy/Jumbo/Norauto, ML categorías), `tiendas.py` (Shopify D'Atri, Tiendanube LS Palermo y Casa González), `sepa.py` (Precios Claros), `ml.py` (ML con token activo: products/search + products/{id}/items).
 - `normalizar.py` + `seed/` (productos, alias, equivalencias). `python recolectar.py --renormalizar` recalcula el matcheo de `data/obs/` y `data/grok/` sin tocar precios (usarlo cada vez que cambie el seed).
@@ -82,6 +98,12 @@ Actualizado 2026-11-04 (carga de Grok). Remoto privado `noguerafran-alt/LUBRICAN
 - No hay API pública: el front lee el catálogo de Constructor.io (ac.cnstrc.com) con la clave de cliente de Coto embebida en el bundle, con precio por sucursal. No es un endpoint ofrecido a terceros: no se usa.
 - Conclusión: ambiguo con riesgo. No se implementa sin autorización escrita de Coto (o un dictamen de Legales de YPF).
 
+## Cierre de la Vitrina YPF (2026-11-04)
+- `sepa.py` y `POST /api/cargar` ahora filtran con la misma `recolectar.relacionados()` (no se duplicó). SEPA: `agregar(fecha, grupos, rel)` descarta lo ajeno y lo cuenta en `n_descartados` de `fuentes.csv` (`n_sin_match` = 0). Grok: un `tipo=producto` cuyo `producto_id` no es YPF ni `comp_id` sale en `errores` con `"no relacionado con YPF"` (y no se baja su URL); si todas las filas son ajenas, 400. Los `tipo=servicio` se aceptan siempre (combos Shell/competencia sin `producto_id`): van a `/api/servicios`, nunca al $/L. Asserts en `sepa.py test` y `server.py test`.
+- Visor: Fuentes y el banner muestran "n guardados · m descartados (no relacionados con YPF)" cuando hay descartados; "sin precios con stock" solo si `n_sin_stock == n_items`. La cola `sin_match` vacía se explica como diseño.
+- Vitrina: por defecto solo YPF con precio hoy (24 de 116 con los datos de hoy); botón `Ver todos (n)` (`aria-pressed`) suma los demás con su vacío explicado; el buscador mira todos y, si elige uno sin precio, activa el botón. CSS mínimo del botón, con las variables existentes (no se invocó la skill frontend-design).
+- Probado en Chrome headless (127.0.0.1:8791): 24 slides por defecto, 116 con el botón; buscar "Aceites de corte netos" lo activa y salta a ese producto; sin desborde a 375 px en claro y oscuro.
+
 ## Falta
 - Deploy en Render: formulario armado en el workspace YPF (`lubricantes-ypf`, free, /salud); falta que el usuario cargue LUB_CLAVE y despliegue.
 - ML con token: app "Lubricantes AR precios" armada en DevCenter el 2026-11-03 (lectura de publicaciones, redirect provisorio `https://biblioteca-b8mb.onrender.com/ml-callback`); la crea el usuario (T&C + captcha). Autorizada y probada en la PC. Para la Action faltan cargar los secrets ML_CLIENT_ID/ML_CLIENT_SECRET/ML_REFRESH_TOKEN/GH_PAT (la Action necesita ML_REFRESH_TOKEN además de los dos ya cargados).
@@ -91,3 +113,8 @@ Actualizado 2026-11-04 (carga de Grok). Remoto privado `noguerafran-alt/LUBRICAN
 
 ## Cómo retomar
 `python <modulo> test` en cada módulo; `LUB_CLAVE=x python server.py` y abrir http://127.0.0.1:8000; `python recolectar.py --solo <fuente>` para una fuente.
+
+## Sitios Grok (2026-11-04)
+- Lista blanca `seed/grok_sitios.csv`: helix + 15 sitios revisados (robots.txt y términos).
+- No habilitados: enausa (términos), mejorescompras (republica ML), fiatturin/motoracing/performance-lube y donagro (robots bloquea bots de IA), lubritodo/autodo/maxkar (términos prohíben copia o extracción), sodimac (Cloudflare), ceridono (solo aceites de refrigeración).
+- Visor 2026-11-04: el Comparador en escritorio tenía columnas de ~57 px y los textos se pisaban; ahora cada fuente tiene 118 px fijos (encabezados en dos líneas) y la tabla scrollea dentro de su recuadro. El banner junta en una línea los sitios Grok habilitados que todavía no tuvieron carga.

@@ -63,8 +63,12 @@ svg .eje { stroke: var(--borde); }
 pre { background: var(--panel); border: 1px solid var(--borde); border-radius: 8px; padding: 10px; overflow-x: auto; font-size: 13px; }
 h2 { font-size: 17px; margin: 18px 0 6px; }
 /* misma grilla en todas las tablas del comparador, aunque sean una por producto */
-table.comp { table-layout: fixed; min-width: 640px; }
-table.comp th:nth-child(1) { width: 26%; } table.comp th:nth-child(2) { width: 17%; }
+/* fixed + anchos en px: con 9 fuentes el % dejaba ~57 px por columna y los textos se pisaban; si no entra, scrollea .tabla */
+table.comp { table-layout: fixed; width: max(100%, calc(230px + 160px + var(--nf, 6) * 118px)); }
+table.comp th:nth-child(1) { width: 230px; } table.comp th:nth-child(2) { width: 160px; }
+table.comp th:nth-child(n+3) { width: 118px; white-space: normal; line-height: 1.25; overflow-wrap: anywhere; }
+table.comp td { overflow-wrap: anywhere; }
+table.comp td .vacio { display: block; line-height: 1.3; }
 /* en el celular la tabla de cada producto pasa a tarjeta: una fila por producto, una línea por fuente (data-l = nombre de la fuente) */
 @media (max-width: 640px) {
   table.comp { min-width: 0; table-layout: auto; }
@@ -77,12 +81,112 @@ table.comp th:nth-child(1) { width: 26%; } table.comp th:nth-child(2) { width: 1
   table.comp td[data-l] { display: flex; justify-content: space-between; gap: 12px; text-align: right; white-space: normal; }
   table.comp td[data-l]::before { content: attr(data-l); color: var(--mut); font-size: 12px; font-weight: 400; text-align: left; flex: 0 1 45%; }
 }
+
+/* ---------- Vitrina ---------- */
+/* Bahnschrift es DIN (Windows); sin CDN no hay fuentes web, así que la pila busca otras DIN/condensadas instaladas */
+:root {
+  --f-cifra: Bahnschrift, "DIN Alternate", "DIN Next", "Roboto Condensed", "Arial Narrow", system-ui, sans-serif;
+  --ypf: #0b5cad; --comp: #8f5a00; --vt-foto: #e8ecf0; --vt-piso: rgba(27, 31, 36, .16);
+}
+@media (prefers-color-scheme: dark) {
+  /* el pedestal sigue claro: las fotos de las tiendas traen fondo blanco y se funden con multiply */
+  :root { --ypf: #6cb0f5; --comp: #f0b44c; --vt-foto: #d3d9df; --vt-piso: rgba(0, 0, 0, .28); }
+}
+::selection { background: color-mix(in srgb, var(--acento) 30%, transparent); }
+:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.vt-cab { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; margin: 10px 0 14px; }
+.vt-titulo { font: 600 clamp(26px, 5vw, 36px)/1.05 var(--f-cifra); font-stretch: condensed; letter-spacing: -0.01em; margin: 0 0 4px; }
+.vt-cab .nota { margin: 0; }
+.vt-buscar { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--mut); flex: 0 1 320px; }
+.vt-buscar input { width: 100%; padding: 9px 10px; }
+.vt-buscar output { min-height: 1.2em; }
+.vt-filtro { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; flex: 1 1 auto; justify-content: flex-end; }
+.vt-toggle { font: inherit; font-size: 13px; color: var(--tx); background: var(--panel); border: 1px solid var(--borde); border-radius: 999px; padding: 10px 14px; min-height: 44px; cursor: pointer; }
+.vt-toggle:hover { border-color: var(--acento); }
+.vt-toggle[aria-pressed="true"] { background: var(--acento); border-color: var(--acento); color: var(--panel); font-weight: 600; }
+.vt-pista { position: relative; display: flex; gap: 16px; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none; padding: 2px 0 6px; }
+.vt-pista::-webkit-scrollbar { display: none; }
+.vt-slide { flex: 0 0 min(86%, 1000px); scroll-snap-align: center; scroll-snap-stop: always; display: grid; grid-template-columns: minmax(220px, 36%) 1fr;
+  background: var(--panel); border: 1px solid var(--borde); border-radius: 16px; overflow: hidden; transition: opacity .45s cubic-bezier(.16, 1, .3, 1); }
+.vt-slide:not(.actual) { opacity: .4; }
+.vt-foto { margin: 0; position: relative; background: var(--vt-foto); display: grid; place-items: center; padding: 28px 20px 40px; min-height: 320px; }
+.vt-foto::after { content: ""; position: absolute; left: 22%; right: 22%; bottom: 30px; height: 14px; border-radius: 50%; background: var(--vt-piso); filter: blur(7px); }
+.vt-foto img, .vt-foto svg { position: relative; z-index: 1; width: 100%; max-width: 260px; height: 270px; object-fit: contain; mix-blend-mode: multiply; }
+.vt-foto figcaption { position: absolute; left: 14px; bottom: 9px; font-size: 11px; color: #4f5964; z-index: 1; }
+.vt-datos { padding: 20px 24px 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.vt-nombre { font: 600 clamp(23px, 3.2vw, 31px)/1.08 var(--f-cifra); font-stretch: condensed; margin: 0; text-wrap: balance; }
+.vt-specs { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.vt-specs li { font-size: 12px; padding: 3px 8px; border-radius: 4px; background: color-mix(in srgb, var(--tx) 7%, transparent); }
+.vt-specs li.sae { background: var(--ypf); color: var(--panel); font: 600 13px/1.25 var(--f-cifra); }
+/* la varilla: rango min–max de cada lado y una marca en el promedio, en la misma escala */
+.vr { display: grid; grid-template-columns: auto 1fr; gap: 7px 10px; align-items: center; font-size: 12px; color: var(--mut); }
+.vr-pista { position: relative; height: 10px; border-radius: 5px; background: color-mix(in srgb, var(--tx) 7%, transparent); }
+.vr-rango { position: absolute; top: 0; bottom: 0; border-radius: 5px; opacity: .32; min-width: 4px; }
+.vr-prom { position: absolute; top: -4px; width: 4px; height: 18px; margin-left: -2px; border-radius: 2px; }
+.vr .ypf .vr-rango, .vr .ypf .vr-prom { background: var(--ypf); }
+.vr .comp .vr-rango, .vr .comp .vr-prom { background: var(--comp); }
+.vr-sin { font-style: italic; }
+.vr-escala { grid-column: 2; display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; font-size: 11px; }
+.vt-bloques { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--borde); }
+.vt-bloque { padding: 14px 18px 0 0; min-width: 0; }
+.vt-bloque + .vt-bloque { border-left: 1px solid var(--borde); padding: 14px 0 0 18px; }
+.vt-bloque h4 { font-size: 13px; font-weight: 600; color: var(--mut); margin: 0 0 6px; display: flex; align-items: center; gap: 7px; }
+.vt-bloque h4::before { content: ""; width: 10px; height: 10px; border-radius: 2px; background: var(--ypf); }
+.vt-bloque.comp h4::before { background: var(--comp); }
+.vt-precio { font: 600 clamp(32px, 4.4vw, 44px)/1 var(--f-cifra); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; margin: 0; }
+.vt-precio small { font-size: 15px; font-weight: 400; color: var(--mut); margin-left: 3px; letter-spacing: 0; }
+.vt-rango { font-size: 13px; color: var(--mut); margin: 6px 0 0; font-variant-numeric: tabular-nums; }
+.vt-dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font-size: 13px; margin: 10px 0 0; }
+.vt-dl dt { color: var(--mut); } .vt-dl dd { margin: 0; font-variant-numeric: tabular-nums; }
+.vt-barato { font-size: 13px; margin: 10px 0 0; }
+.vt-bloque details { font-size: 12px; color: var(--mut); margin-top: 8px; }
+.vt-bloque summary { cursor: pointer; }
+.vt-bloque details ul { margin: 4px 0 0; padding-left: 16px; font-variant-numeric: tabular-nums; }
+.vt-dif { display: inline-block; margin: 8px 0 0; font-weight: 600; font-size: 13px; padding: 3px 8px; border-radius: 4px; background: color-mix(in srgb, currentColor 12%, transparent); }
+.vt-vacio { color: var(--mut); font-size: 14px; font-style: italic; margin: 4px 0 0; }
+.vt-eqs { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 8px; }
+.vt-eq { display: grid; grid-template-columns: 40px 1fr auto; gap: 10px; align-items: center; font-size: 13px; line-height: 1.3; }
+.vt-eq .mut { display: block; }
+.vt-eq .n { text-align: right; white-space: nowrap; font-weight: 600; font-variant-numeric: tabular-nums; }
+.vt-eqs.fuera .vt-eq { opacity: .75; }
+.vt-sub { font-size: 12px; color: var(--mut); margin: 12px 0 0; }
+.mini { width: 40px; height: 40px; border-radius: 6px; background: var(--vt-foto); display: grid; place-items: center; overflow: hidden; flex: none; }
+.mini img, .mini svg { width: 100%; height: 100%; object-fit: contain; mix-blend-mode: multiply; }
+.vt-ctrl { display: flex; align-items: center; gap: 10px; margin: 12px 0 6px; }
+.vt-btn { width: 44px; height: 44px; flex: none; border-radius: 50%; border: 1px solid var(--borde); background: var(--panel); color: var(--tx); display: grid; place-items: center; cursor: pointer; padding: 0; }
+.vt-btn:hover { border-color: var(--acento); color: var(--acento); }
+.vt-btn svg { width: 20px; height: 20px; }
+.vt-pos { font: 500 15px/1 var(--f-cifra); font-variant-numeric: tabular-nums; min-width: 4.8em; text-align: center; }
+.vt-avance { flex: 1; height: 3px; border-radius: 2px; background: var(--borde); overflow: hidden; }
+.vt-avance i { display: block; height: 100%; background: var(--acento); transition: width .35s cubic-bezier(.16, 1, .3, 1); }
+.vt-minis { position: relative; display: flex; gap: 6px; overflow-x: auto; padding: 4px 2px 10px; scrollbar-width: thin; scrollbar-color: var(--borde) transparent; }
+.vt-mini { flex: 0 0 78px; display: flex; flex-direction: column; align-items: center; gap: 5px; background: none; border: 1px solid transparent; border-radius: 10px;
+  padding: 6px 4px; cursor: pointer; color: var(--mut); font: inherit; font-size: 11px; line-height: 1.2; text-align: center; }
+.vt-mini .mini { width: 56px; height: 56px; }
+.vt-mini span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.vt-mini:hover { color: var(--tx); }
+.vt-mini[aria-current="true"] { border-color: var(--acento); color: var(--tx); background: var(--panel); }
+@media (max-width: 820px) {
+  .vt-bloques { grid-template-columns: 1fr; }
+  .vt-bloque { padding-right: 0; }
+  .vt-bloque + .vt-bloque { border-left: 0; border-top: 1px solid var(--borde); padding-left: 0; margin-top: 14px; }
+}
+@media (max-width: 640px) {
+  .vt-pista { gap: 10px; }
+  .vt-slide { flex-basis: calc(100% - 40px); grid-template-columns: 1fr; }
+  .vt-foto { min-height: 200px; padding: 14px 16px 34px; }
+  .vt-foto img, .vt-foto svg { height: 160px; }
+  .vt-datos { padding: 16px; }
+}
+@media (prefers-reduced-motion: reduce) { .vt-slide, .vt-avance i { transition: none; } }
 </style>
 </head>
 <body>
 <header>
   <h1>Lubricantes: YPF vs competencia</h1>
   <nav role="tablist">
+    <button role="tab" data-tab="vitrina">Vitrina YPF</button>
     <button role="tab" data-tab="comparador">Comparador</button>
     <button role="tab" data-tab="evolucion">Evolución</button>
     <button role="tab" data-tab="indice">Índice</button>
@@ -92,6 +196,24 @@ table.comp th:nth-child(1) { width: 26%; } table.comp th:nth-child(2) { width: 1
 </header>
 <main>
   <div id="banner"></div>
+
+  <section id="vitrina" hidden>
+    <div class="vt-cab">
+      <div>
+        <h2 class="vt-titulo">Vitrina YPF</h2>
+        <p class="nota" id="vt-fecha"></p>
+      </div>
+      <div class="vt-filtro">
+        <button type="button" class="vt-toggle" id="vt-todos" aria-pressed="false" hidden></button>
+        <label class="vt-buscar">Ir a un producto
+          <input id="vt-q" type="search" list="vt-lista" placeholder="nombre, línea o SAE" autocomplete="off" enterkeyhint="go">
+          <output id="vt-q-msg" aria-live="polite"></output>
+        </label>
+      </div>
+      <datalist id="vt-lista"></datalist>
+    </div>
+    <div id="vt-out">Cargando…</div>
+  </section>
 
   <section id="comparador" hidden>
     <div class="filtros">
@@ -202,14 +324,21 @@ function caidas() {
 // Fuente que responde bien pero toda su oferta está sin stock (Jumbo): no es una caída HTTP.
 // ypf_gql y ml_cat son catálogo/conteo y nunca traen precio, no cuentan.
 function sinPrecios(f) {
-  return !f.error && +f.n_items > 0 && +f.n_con_precio === 0 && !["ypf_gql", "ml_cat"].includes(f.fuente);
+  return !f.error && +f.n_items > 0 && +f.n_sin_stock === +f.n_items && !["ypf_gql", "ml_cat"].includes(f.fuente);
 }
+// Fuente que sí trajo precios pero ninguno es de un producto relacionado con YPF: se descartaron, no está vacía ni caída.
+const nDesc = f => +f.n_descartados || 0;
+const soloDescartados = f => !f.error && +f.n_con_precio === 0 && nDesc(f) > 0 && !["ypf_gql", "ml_cat"].includes(f.fuente);
+const TXT_GUARDADOS = f => `${entero.format(+f.n_con_precio)} guardados · ${entero.format(nDesc(f))} descartados (no relacionados con YPF)`;
 const TXT_SIN_PRECIOS = f => `${nf(f.fuente)}: sin precios con stock (${f.n_items} ítems publicados, todos sin stock; la fuente responde bien)`;
 
 function banner() {
-  const c = caidas(), sp = D.fuentes.filter(sinPrecios);
-  if (!c.length && !sp.length) return;
-  $("#banner").innerHTML = (c.length ? "<strong>Fuentes con problemas</strong><ul>" : "<ul>") + sp.map(f => "<li>" + esc(TXT_SIN_PRECIOS(f)) + "</li>").join("") + c.map(f => "<li>" +
+  // Un sitio Grok recién habilitado que todavía no tuvo carga no es una caída: va en una sola línea, no uno por renglón.
+  const todas = caidas(), gNueva = todas.filter(f => esGrok(f.fuente) && !f.ultimo_ok);
+  const c = todas.filter(f => !gNueva.includes(f)), sp = D.fuentes.filter(sinPrecios), sd = D.fuentes.filter(soloDescartados);
+  const lGrok = gNueva.length ? `<li>${esc(`Grok: ${gNueva.length} ${gNueva.length === 1 ? "sitio habilitado todavía no tuvo" : "sitios habilitados todavía no tuvieron"} su primera carga (detalle en Fuentes)`)}</li>` : "";
+  if (!c.length && !sp.length && !sd.length && !lGrok) return;
+  $("#banner").innerHTML = (c.length ? "<strong>Fuentes con problemas</strong><ul>" : "<ul>") + sp.map(f => "<li>" + esc(TXT_SIN_PRECIOS(f)) + "</li>").join("") + sd.map(f => "<li>" + esc(nf(f.fuente) + ": " + TXT_GUARDADOS(f)) + "</li>").join("") + lGrok + c.map(f => "<li>" +
     esc(f.ultimo_ok ? `${nf(f.fuente)}: sin datos desde ${fechaAR(f.ultimo_ok)}${f.error ? ", " + f.error : ""}`
                     : `${nf(f.fuente)}: nunca trajo datos${f.error ? " (" + f.error + ")" : ""}`) + "</li>").join("") + "</ul>";
 }
@@ -275,7 +404,7 @@ function comparador() {
         <td data-l="Equivalencia"><span><span class="badge">${esc(TIPO[e.tipo] || e.tipo)}</span><span class="badge ${esc(e.evidencia)}">${esc(e.evidencia)}</span></span></td>
         ${fuentes.map(f => celda(e.comp_id, f, p.producto_id)).join("")}</tr>`;
     }).join("") : `<tr><td colspan="${fuentes.length + 2}" class="vacio">Sin equivalencias cargadas en seed/equivalencias.csv</td></tr>`;
-    return `<div class="tabla"><table class="comp">${cab}
+    return `<div class="tabla"><table class="comp" style="--nf:${fuentes.length}">${cab}
       <tr class="ypf"><td>YPF ${esc(p.linea)} ${esc(p.nombre)} <span class="mut">${esc(p.sae)} · ${esc(SEGMENTO[p.segmento] || p.segmento)}</span><br>
         <button class="link" data-evo="${esc(p.producto_id)}">ver evolución</button></td><td></td>
         ${fuentes.map(f => celda(p.producto_id, f)).join("")}</tr>${filasEq}</table></div>`;
@@ -386,12 +515,12 @@ function fuentes() {
   $("#fue-out").innerHTML = !D.fuentes.length ? `<div class="explica">Todavía no corrió ninguna recolección (<code>data/fuentes.csv</code> vacío).</div>` :
     `<div class="tabla"><table><tr><th>Fuente</th><th>Última corrida</th><th>HTTP</th><th>Ítems</th><th>Con precio</th><th>Sin stock</th><th>Sin match</th><th>Último OK</th><th>Días sin datos</th><th>Error</th></tr>
     ${D.fuentes.map(f => `<tr><td>${nfh(f.fuente)}<br><span class="mut">${esc(f.fuente)}</span></td><td>${fechaAR(f.fecha) || '<span class="vacio">sin cargas</span>'}</td><td>${esGrok(f.fuente) ? '<span class="mut">carga de Grok</span>' : esc(f.http) || '<span class="vacio">sin respuesta</span>'}</td>
-      <td class="n">${esc(f.n_items)}</td><td class="n">${sinPrecios(f) ? '<span class="vacio" title="La fuente responde bien pero todos sus ítems están sin stock">sin precios con stock</span>' : esc(f.n_con_precio)}</td><td class="n">${esc(f.n_sin_stock)}</td><td class="n">${esc(f.n_sin_match)}</td>
+      <td class="n">${esc(f.n_items)}</td><td class="n">${sinPrecios(f) ? '<span class="vacio" title="La fuente responde bien pero todos sus ítems están sin stock">sin precios con stock</span>' : nDesc(f) ? esc(TXT_GUARDADOS(f)) : esc(f.n_con_precio)}</td><td class="n">${esc(f.n_sin_stock)}</td><td class="n">${esc(f.n_sin_match)}</td>
       <td>${f.ultimo_ok ? fechaAR(f.ultimo_ok) : '<span class="vacio">nunca</span>'}</td>
       <td class="n${f.dias_sin_datos > 1 || f.dias_sin_datos === null ? " caro" : ""}">${f.dias_sin_datos ?? '<span class="vacio">nunca trajo datos</span>'}</td>
       <td>${f.error ? `<span class="caro">${esc(f.error)}</span>` : '<span class="mut">sin error</span>'}</td></tr>`).join("")}</table></div>`;
   const sm = D.sin_match, max = 300;
-  $("#sm-out").innerHTML = !sm.length ? `<div class="explica">No hay avisos sin producto: todos matchearon con exactamente un candidato.</div>` :
+  $("#sm-out").innerHTML = !sm.length ? `<div class="explica">No hay avisos sin producto. Es así por diseño: desde que la recolección guarda solo lo relacionado con YPF, los avisos sin match o de otros productos se descartan y se cuentan en la columna "Con precio" de cada fuente (<code>n_descartados</code>), en vez de acumularse acá.</div>` :
     `<p class="nota">${entero.format(sm.length)} avisos distintos${sm.length > max ? `, se muestran los ${max} más recientes (todos en <code>/api/sin_match?formato=csv</code>)` : ""}.</p>
     <div class="tabla"><table><tr><th>Fuente</th><th>Título</th><th>Marca</th><th>EAN</th><th>Precio</th><th>Litros</th><th>Última vez</th><th>Veces</th></tr>
     ${sm.slice(0, max).map(r => `<tr><td>${esc(nf(r.fuente))}</td><td>${/^https?:\/\//.test(r.url) ? `<a href="${esc(r.url)}" rel="noreferrer noopener" target="_blank">${esc(r.titulo)}</a>` : esc(r.titulo)}</td>
@@ -445,14 +574,264 @@ async function enviar() {
   if (j.ok) { await cargarDatos(); mesCargado(); }
 }
 
+// ---------- Vitrina ----------
+const VT = { lista: [], pos: 0, K: 0, timer: null, pausa: false, quieto: false, pista: null, t: 0 };
+const reducido = matchMedia("(prefers-reduced-motion: reduce)");
+const BASE = { mineral: "Mineral", semisintetico: "Semisintético", sintetico: "Sintético" };
+const FUENTE_FOTO = { ypf_oficial: "YPF oficial", ml: "Mercado Libre" };
+const nfFoto = f => FUENTE_FOTO[f] || NOMBRE_FUENTE[f] || f;
+const porL = v => `${pesos.format(v)}<small>/L</small>`;
+const litrosTxt = l => dec1.format(l) + " L";
+const vendedorTxt = v => v && !/^\d+$/.test(String(v).split(" ")[0]) ? ` (${esc(v)})` : ""; // ML da seller_id numérico: no dice nada
+const ICONO = { prev: '<path d="M15 5l-7 7 7 7"/>', next: '<path d="M9 5l7 7-7 7"/>', pausa: '<path d="M8 5v14M16 5v14"/>', play: '<path d="M7 5l12 7-12 7z"/>' };
+const icono = k => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONO[k]}</svg>`;
+
+function nombreVt(p) { return `${p.linea} ${p.nombre}`.trim(); }
+
+// sin foto (o foto rota): un bidón dibujado con el nombre, nunca la foto de otro producto
+function bidon(nombre, conTexto) {
+  const palabras = String(nombre).split(/\s+/), ls = [];
+  for (const w of palabras) { const l = ls.length ? ls[ls.length - 1] + " " + w : w; if (ls.length && l.length > 13) ls.push(w); else ls[ls.length ? ls.length - 1 : 0] = l; }
+  const txt = conTexto ? ls.slice(0, 3).map((l, i) => `<text x="60" y="${96 + i * 12 - (Math.min(ls.length, 3) - 1) * 6}" text-anchor="middle" font-size="9.5" fill="#4f5964" font-family="Bahnschrift, Arial Narrow, sans-serif">${esc(l)}</text>`).join("") : "";
+  return `<svg viewBox="0 0 120 160" role="img" aria-label="Sin foto de ${esc(nombre)}"><rect x="47" y="8" width="26" height="14" rx="3" fill="#aab3bc"/>
+    <path d="M42 22h36v9l16 13v100a8 8 0 0 1-8 8H34a8 8 0 0 1-8-8V44l16-13z" fill="#f5f7f9" stroke="#9aa4ae" stroke-width="2"/>
+    <rect x="34" y="66" width="52" height="58" rx="4" fill="none" stroke="#c3cad1" stroke-width="1.5"/>${txt}</svg>`;
+}
+const fotoOk = u => typeof u === "string" && /^https:\/\//.test(u);
+const foto = (url, nombre, conTexto) => fotoOk(url)
+  ? `<img src="${esc(url)}" alt="Foto de ${esc(nombre)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-ph="${esc(nombre)}"${conTexto ? " data-txt" : ""}>`
+  : bidon(nombre, conTexto);
+// una foto que no carga se reemplaza por el bidón; el error no burbujea, por eso la captura
+document.addEventListener("error", e => {
+  const img = e.target;
+  if (!(img instanceof HTMLImageElement) || !img.dataset.ph) return;
+  const cap = img.closest("figure")?.querySelector("figcaption");
+  if (cap) cap.textContent = "Foto no disponible";
+  img.outerHTML = bidon(img.dataset.ph, "txt" in img.dataset);
+}, true);
+
+function varilla(p) {
+  const y = p.ypf || {}, c = p.competencia || {};
+  const vals = [y.min_litro, y.max_litro, y.promedio_litro, c.min_litro, c.max_litro, c.promedio_litro].filter(v => typeof v === "number");
+  if (!vals.length) return "";
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  const pad = (hi - lo) * 0.06 || hi * 0.05 || 1; lo -= pad; hi += pad;
+  const X = v => ((v - lo) / (hi - lo) * 100).toFixed(2) + "%";
+  const fila = (lado, clase, d) => `<span>${lado}</span>` + (typeof d.promedio_litro !== "number"
+    ? `<span class="vr-sin">sin precio hoy</span>`
+    : `<div class="vr-pista ${clase}" role="img" aria-label="${lado}: de ${pesos.format(d.min_litro ?? d.promedio_litro)} a ${pesos.format(d.max_litro ?? d.promedio_litro)} por litro, promedio ${pesos.format(d.promedio_litro)}">
+        <span class="vr-rango" style="left:${X(d.min_litro ?? d.promedio_litro)};width:calc(${X(d.max_litro ?? d.promedio_litro)} - ${X(d.min_litro ?? d.promedio_litro)})"></span>
+        <span class="vr-prom" style="left:${X(d.promedio_litro)}"></span></div>`);
+  return `<div class="vr">${fila("YPF", "ypf", y)}${fila("Comp.", "comp", c)}<div class="vr-escala" aria-hidden="true"><span>${pesos.format(lo)}/L</span><span>${pesos.format(hi)}/L</span></div></div>`;
+}
+
+function bloqueYpf(y) {
+  if (!y || typeof y.promedio_litro !== "number") return `<div class="vt-bloque ypf"><h4>Precio YPF en la web</h4>
+    <p class="vt-vacio">Sin precio YPF en tiendas online hoy${y?.n ? "" : ": ninguna fuente lo publicó con stock en los últimos 3 días"}.</p></div>`;
+  const mb = y.mas_barato;
+  return `<div class="vt-bloque ypf"><h4>Precio YPF en la web</h4>
+    <p class="vt-precio">${porL(y.promedio_litro)}</p>
+    <p class="vt-rango">Promedio por litro. De ${pesos.format(y.min_litro)} a ${pesos.format(y.max_litro)}${typeof y.mediana_litro === "number" ? `, mediana ${pesos.format(y.mediana_litro)}` : ""}.</p>
+    <dl class="vt-dl">
+      ${y.presentacion_comun_l ? `<dt>Presentación común</dt><dd>${litrosTxt(y.presentacion_comun_l)}${typeof y.promedio_presentacion === "number" ? `, ${pesos.format(y.promedio_presentacion)} en promedio` : ""}</dd>` : ""}
+      <dt>Observaciones</dt><dd>${entero.format(y.n)}${y.por_fuente?.length ? ` en ${y.por_fuente.length} ${y.por_fuente.length === 1 ? "fuente" : "fuentes"}` : ""}</dd>
+    </dl>
+    ${mb ? `<p class="vt-barato">Más barato en ${linkUrl(mb.url, nf(mb.fuente))}${vendedorTxt(mb.vendedor)}: ${pesos.format(mb.precio)} por ${litrosTxt(mb.litros)} (${pesos.format(mb.precio_litro)}/L)</p>` : ""}
+    ${y.por_fuente?.length > 1 ? `<details><summary>Por fuente</summary><ul>${y.por_fuente.map(f => `<li>${esc(nf(f.fuente))}: ${pesos.format(f.promedio_litro)}/L (${entero.format(f.n)})</li>`).join("")}</ul></details>` : ""}
+  </div>`;
+}
+
+function filaEq(e) {
+  const nom = `${e.marca} ${e.nombre}`;
+  const precio = typeof e.promedio_litro === "number"
+    ? (e.mas_barato?.url ? `<a href="${esc(e.mas_barato.url)}" rel="noreferrer noopener" target="_blank" title="Más barato: ${esc(nf(e.mas_barato.fuente))}, ${pesos.format(e.mas_barato.precio)} por ${litrosTxt(e.mas_barato.litros)}">${pesos.format(e.promedio_litro)}/L</a>` : `${pesos.format(e.promedio_litro)}/L`)
+      + `<span class="mut">${entero.format(e.n)} obs.</span>`
+    : `<span class="vacio">sin precio hoy</span>`;
+  return `<li class="vt-eq"><span class="mini">${foto(e.imagen, nom, false)}</span>
+    <span>${esc(nom)}<span class="mut">${esc(TIPO[e.tipo] || e.tipo)}, evidencia ${esc(e.evidencia)}</span></span><span class="n">${precio}</span></li>`;
+}
+
+function bloqueComp(p) {
+  const c = p.competencia || {}, eqs = c.equivalentes || [];
+  const dentro = eqs.filter(e => e.tipo !== "no_equivalente"), fuera = eqs.filter(e => e.tipo === "no_equivalente");
+  let cab;
+  if (!dentro.length) cab = `<p class="vt-vacio">Sin equivalentes cargados para este producto.</p>`;
+  else if (typeof c.promedio_litro !== "number") cab = `<p class="vt-vacio">Sin precio de competencia hoy: ningún equivalente apareció con stock en los últimos 3 días.</p>`;
+  else {
+    const d = p.dif_pct;
+    const dif = typeof d !== "number"
+      ? `<p class="vt-vacio">Sin diferencia: falta el precio YPF de hoy.</p>`
+      : Math.abs(d) < 0.05 ? `<p class="vt-dif">Mismo precio por litro que YPF</p>`
+      : `<p class="vt-dif ${d > 0 ? "barato" : "caro"}">${d > 0 ? `YPF ${dec1.format(d)} % más barato` : `YPF ${dec1.format(-d)} % más caro`}</p>`;
+    cab = `<p class="vt-precio">${porL(c.promedio_litro)}</p>
+      <p class="vt-rango">Promedio por litro de ${entero.format(c.n)} observaciones. De ${pesos.format(c.min_litro)} a ${pesos.format(c.max_litro)}.</p>${dif}`;
+  }
+  return `<div class="vt-bloque comp"><h4>Competencia equivalente</h4>${cab}
+    ${dentro.length ? `<ul class="vt-eqs">${dentro.map(filaEq).join("")}</ul>` : ""}
+    ${fuera.length ? `<p class="vt-sub">No equivalentes, fuera del promedio</p><ul class="vt-eqs fuera">${fuera.map(filaEq).join("")}</ul>` : ""}
+  </div>`;
+}
+
+function slideVt(p, i, n, clon) {
+  const nom = nombreVt(p);
+  const specs = [p.sae && `<li class="sae">${esc(p.sae)}</li>`, BASE[p.base] && `<li>${BASE[p.base]}</li>`, p.segmento && `<li>${esc(SEGMENTO[p.segmento] || p.segmento)}</li>`].filter(Boolean).join("");
+  return `<article class="vt-slide" data-i="${i}" role="group" aria-roledescription="producto" aria-label="${i + 1} de ${n}: ${esc(nom)}"${clon ? ' aria-hidden="true" inert' : ""}>
+    <figure class="vt-foto">${foto(p.imagen, nom, true)}<figcaption>${fotoOk(p.imagen) && p.imagen_fuente ? "Foto: " + esc(nfFoto(p.imagen_fuente)) : "Sin foto"}</figcaption></figure>
+    <div class="vt-datos">
+      <div><h3 class="vt-nombre">${esc(nom)}</h3>${specs ? `<ul class="vt-specs" aria-label="Especificación">${specs}</ul>` : ""}</div>
+      ${varilla(p)}
+      <div class="vt-bloques">${bloqueYpf(p.ypf)}${bloqueComp(p)}</div>
+    </div></article>`;
+}
+
+async function cargarVitrina() {
+  const out = $("#vt-out");
+  let r;
+  try { r = await api("vitrina"); }
+  catch (e) { out.innerHTML = `<div class="explica">No se pudo leer la vitrina (${esc(e.message)}). El resto de las pestañas sigue funcionando.</div>`; return; }
+  VT.todos = r.productos || [];
+  VT.ver = false;
+  $("#vt-fecha").textContent = r.fecha ? `Precios en tiendas online del ${fechaAR(r.fecha)}, último día de cada fuente. Sin mayoristas.` : "";
+  // buscador: elegir una opción del datalist salta directo; Enter salta a la primera coincidencia. Busca en todos los productos
+  const texto = p => [p.linea, p.nombre, p.sae, p.segmento && SEGMENTO[p.segmento], p.producto_id].join(" ").toLowerCase();
+  const etiqueta = p => `${nombreVt(p)}${p.sae ? " " + p.sae : ""}`;
+  $("#vt-lista").innerHTML = VT.todos.map(p => `<option value="${esc(etiqueta(p))}"></option>`).join("");
+  const buscar = exacto => {
+    const q = $("#vt-q").value.trim().toLowerCase();
+    if (!q) return $("#vt-q-msg").textContent = "";
+    let p = VT.todos.find(p => etiqueta(p).toLowerCase() === q);
+    if (!p && !exacto) { const ts = q.split(/\s+/); p = VT.todos.find(p => ts.every(t => texto(p).includes(t))); }
+    if (!p) return $("#vt-q-msg").textContent = exacto ? "" : `Ningún producto YPF coincide con «${$("#vt-q").value.trim()}».`;
+    $("#vt-q-msg").textContent = "";
+    VT.pausa = true;
+    if (!VT.ver && !(p.ypf?.n > 0)) { VT.ver = true; pintarVt(p.producto_id); }  // sin precio hoy: aparece solo con «Ver todos»
+    else vtIr(VT.lista.indexOf(p) + VT.K);
+    vtAuto();
+  };
+  $("#vt-q").oninput = () => buscar(true);
+  $("#vt-q").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); buscar(false); } };
+  $("#vt-todos").onclick = () => { VT.ver = !VT.ver; pintarVt(); };
+  pintarVt();
+}
+
+// por defecto solo los YPF con precio hoy; «Ver todos» suma los demás (cada uno explica su vacío)
+function pintarVt(irA) {
+  const out = $("#vt-out"), todos = VT.todos;
+  const ps = VT.ver ? todos : todos.filter(p => p.ypf?.n > 0);
+  const bt = $("#vt-todos");
+  bt.hidden = !todos.length;
+  bt.setAttribute("aria-pressed", VT.ver);
+  bt.textContent = `Ver todos (${todos.length})`;
+  bt.title = VT.ver ? "Mostrando también los productos sin precio hoy; tocá para dejar solo los que tienen precio" : `Ahora solo los ${ps.length} con precio hoy; tocá para sumar los ${todos.length - ps.length} sin precio`;
+  VT.lista = ps; VT.pista = null; clearInterval(VT.timer);
+  if (!ps.length) { out.innerHTML = `<div class="explica">${todos.length ? "Ningún producto YPF tiene precio hoy en las fuentes. Con «Ver todos» se listan los demás y se explica por qué no hay precio." : "Todavía no hay productos YPF en el catálogo."}</div>`; return; }
+  const n = ps.length, K = VT.K = n > 1 ? Math.min(2, n) : 0;
+  const idx = j => ((j % n) + n) % n;
+  const antes = Array.from({ length: K }, (_, j) => idx(j - K)), despues = Array.from({ length: K }, (_, j) => idx(j));
+  out.innerHTML = `<div class="vt-car" role="region" aria-roledescription="carrusel" aria-label="Productos YPF">
+      <div class="vt-pista">${antes.map(i => slideVt(ps[i], i, n, true)).join("")}${ps.map((p, i) => slideVt(p, i, n, false)).join("")}${despues.map(i => slideVt(ps[i], i, n, true)).join("")}</div>
+      <div class="vt-ctrl">
+        <button class="vt-btn" data-paso="-1" aria-label="Producto anterior"${n < 2 ? " disabled" : ""}>${icono("prev")}</button>
+        <span class="vt-pos" aria-hidden="true"></span>
+        <div class="vt-avance" aria-hidden="true"><i></i></div>
+        <button class="vt-btn" id="vt-play" aria-label="Pausar el pase automático">${icono("pausa")}</button>
+        <button class="vt-btn" data-paso="1" aria-label="Producto siguiente"${n < 2 ? " disabled" : ""}>${icono("next")}</button>
+      </div>
+      <p class="sr" id="vt-vivo" aria-live="polite" aria-atomic="true"></p>
+      <div class="vt-minis" aria-label="Todos los productos">${ps.map((p, i) => `<button class="vt-mini" data-i="${i}" aria-label="${esc(nombreVt(p))}"><span class="mini">${foto(p.imagen, nombreVt(p), false)}</span><span aria-hidden="true">${esc(p.nombre || p.linea)}</span></button>`).join("")}</div>
+    </div>`;
+  VT.pista = out.querySelector(".vt-pista");
+  const car = out.querySelector(".vt-car");
+  const manual = () => { if (!VT.pausa) { VT.pausa = true; vtAuto(); } };
+  out.querySelectorAll("[data-paso]").forEach(b => b.onclick = () => { manual(); vtPaso(Number(b.dataset.paso)); });
+  out.querySelectorAll(".vt-mini").forEach(b => b.onclick = () => { manual(); vtIr(Number(b.dataset.i) + K); });
+  $("#vt-play").onclick = () => { VT.pausa = !VT.pausa; vtAuto(); };
+  VT.pista.addEventListener("scroll", () => { clearTimeout(VT.t); VT.t = setTimeout(vtAsentar, 110); }, { passive: true });
+  VT.pista.addEventListener("pointerdown", manual);
+  VT.pista.addEventListener("wheel", e => { if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) manual(); }, { passive: true });
+  car.addEventListener("keydown", e => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault(); manual(); vtPaso(e.key === "ArrowRight" ? 1 : -1);
+  });
+  car.addEventListener("mouseenter", () => { VT.quieto = true; vtAuto(); });
+  car.addEventListener("mouseleave", () => { VT.quieto = car.contains(document.activeElement); vtAuto(); });
+  car.addEventListener("focusin", () => { VT.quieto = true; vtAuto(); });
+  car.addEventListener("focusout", e => { if (!car.contains(e.relatedTarget)) { VT.quieto = car.matches(":hover"); vtAuto(); } });
+
+  VT.pos = K;
+  VT.pausa = VT.pausa || !!irA;
+  const i0 = Math.max(0, ps.findIndex(p => p.producto_id === irA));
+  requestAnimationFrame(() => { vtIr(K + i0, false); vtAuto(); });
+}
+
+function vtIr(pos, suave = true) {
+  const els = VT.pista?.children;
+  if (!els?.length) return;
+  VT.pos = Math.max(0, Math.min(els.length - 1, pos));
+  const el = els[VT.pos];
+  VT.pista.scrollTo({ left: el.offsetLeft - (VT.pista.clientWidth - el.offsetWidth) / 2, behavior: suave && !reducido.matches ? "smooth" : "auto" });
+  vtMarcar(Number(el.dataset.i));
+}
+
+// pasar del último al primero (o al revés): salto sin animación al clon gemelo del slide actual y desde ahí animo hasta el real,
+// así nunca se depende de que llegue el evento scroll para salir de un clon
+function vtPaso(d) {
+  const n = VT.lista.length, real = ((VT.pos - VT.K) % n + n) % n, dest = real + d;
+  if (dest >= n) vtIr(real - n + VT.K, false);
+  else if (dest < 0) vtIr(real + n + VT.K, false);
+  vtIr(((dest % n) + n) % n + VT.K);
+}
+
+// al terminar el desplazamiento: si quedó sobre un clon, salto sin animación al original (así el loop no tiene fin)
+function vtAsentar() {
+  const p = VT.pista; if (!p || !p.clientWidth) return;
+  const centro = p.scrollLeft + p.clientWidth / 2;
+  let mejor = 0, dist = Infinity;
+  [...p.children].forEach((el, k) => { const d = Math.abs(el.offsetLeft + el.offsetWidth / 2 - centro); if (d < dist) { dist = d; mejor = k; } });
+  const n = VT.lista.length, real = ((mejor - VT.K) % n + n) % n;
+  if (mejor !== real + VT.K) vtIr(real + VT.K, false);
+  else { VT.pos = mejor; vtMarcar(real); }
+}
+
+function vtMarcar(i) {
+  const n = VT.lista.length, out = $("#vt-out");
+  out.querySelectorAll(".vt-slide").forEach((s, k) => s.classList.toggle("actual", k === VT.pos));
+  out.querySelector(".vt-pos").textContent = `${i + 1} de ${n}`;
+  out.querySelector(".vt-avance i").style.width = ((i + 1) / n * 100) + "%";
+  out.querySelectorAll(".vt-mini").forEach(b => b.setAttribute("aria-current", Number(b.dataset.i) === i));
+  const m = out.querySelector(`.vt-mini[data-i="${i}"]`), tira = out.querySelector(".vt-minis");
+  if (m && tira.scrollWidth > tira.clientWidth) tira.scrollTo({ left: m.offsetLeft - (tira.clientWidth - m.offsetWidth) / 2, behavior: reducido.matches ? "auto" : "smooth" });
+  const vivo = $("#vt-vivo"), txt = `${i + 1} de ${n}: ${nombreVt(VT.lista[i])}`;
+  if (vivo.textContent !== txt) vivo.textContent = txt;
+}
+
+// pase automático: nunca con movimiento reducido, ni con la pestaña oculta, ni mientras el mouse o el foco están encima
+function vtAuto() {
+  clearInterval(VT.timer); VT.timer = null;
+  const b = $("#vt-play");
+  if (!VT.pista || !b) return;
+  const corre = !VT.pausa && !VT.quieto && !reducido.matches && !$("#vitrina").hidden && !document.hidden && VT.lista.length > 1;
+  if (corre) VT.timer = setInterval(() => vtPaso(1), 7000);
+  b.hidden = reducido.matches || VT.lista.length < 2;
+  b.innerHTML = icono(VT.pausa ? "play" : "pausa");
+  b.setAttribute("aria-label", VT.pausa ? "Reanudar el pase automático" : "Pausar el pase automático");
+  $("#vt-vivo").setAttribute("aria-live", corre ? "off" : "polite");
+}
+document.addEventListener("visibilitychange", vtAuto);
+reducido.addEventListener("change", vtAuto);
+addEventListener("resize", () => { if (VT.pista && !$("#vitrina").hidden) vtIr(VT.pos, false); });
+
 // ---------- pestañas ----------
-const vistas = { comparador: () => {}, evolucion, indice: () => {}, fuentes: () => {}, cargar: mesCargado };
+// la vitrina se carga sola (su propia ruta): no depende de que lleguen los demás datos
+const vistas = { vitrina: () => { if (VT.pista) vtIr(VT.pos, false); }, comparador: () => {}, evolucion, indice: () => {}, fuentes: () => {}, cargar: mesCargado };
 function ir(tab) {
-  if (!vistas[tab]) tab = "comparador";
+  if (!vistas[tab]) tab = "vitrina";
   document.querySelectorAll("nav button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === tab));
   document.querySelectorAll("main section").forEach(s => s.hidden = s.id !== tab);
   if (location.hash !== "#" + tab) history.replaceState(null, "", "#" + tab);
-  if (D.productos) vistas[tab]();
+  if (tab === "vitrina") vistas.vitrina();
+  else if (D.productos) vistas[tab]();
+  vtAuto();
 }
 document.querySelectorAll("nav button").forEach(b => b.onclick = () => ir(b.dataset.tab));
 addEventListener("hashchange", () => ir(location.hash.slice(1)));
@@ -466,7 +845,7 @@ async function cargarDatos() {
     nombres.forEach((n, i) => D[n] = r[i]);
   } catch (e) {
     $("#banner").textContent = "No se pudieron leer los datos: " + e.message;
-    document.querySelectorAll("main section > div[id$=out]").forEach(d => { if (d.id !== "c-out") d.textContent = ""; });
+    document.querySelectorAll("main section > div[id$=out]").forEach(d => { if (d.id !== "c-out" && d.id !== "vt-out") d.textContent = ""; });
     return false;
   }
   for (const k in series) delete series[k];
@@ -479,6 +858,7 @@ async function cargarDatos() {
 
 (async () => {
   ir(location.hash.slice(1));
+  cargarVitrina();
   if (await cargarDatos()) ir(location.hash.slice(1));
 })();
 </script>

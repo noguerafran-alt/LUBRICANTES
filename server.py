@@ -27,6 +27,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import normalizar
 from ml import UA
+from recolectar import relacionados  # mismo filtro "solo lo relacionado con YPF" que el recolector
 from tiendas import MAYORISTAS  # fuentes de precio mayorista: fuera del índice salvo ?mayoristas=1
 
 RAIZ = Path(__file__).resolve().parent
@@ -35,11 +36,20 @@ INDEX = RAIZ / "site" / "index.html"
 PRODUCTOS_F = "producto_id,marca,linea,nombre,segmento,sae,base,api,acea,ilsac,jaso,oem,fuente_specs,verificado".split(",")
 EQUIV_F = "eq_id,ypf_id,comp_id,tipo,criterio,evidencia,fuente".split(",")
 OBS_F = "fecha,fuente,url,ean,titulo,marca,precio,precio_lista,stock,vendedor,sucursal,litros,unidades,producto_id,match".split(",")
-FUENTES_F = "fecha,fuente,http,n_items,n_con_precio,n_sin_stock,n_sin_match,error".split(",")
+FUENTES_F = "fecha,fuente,http,n_items,n_con_precio,n_sin_stock,n_sin_match,error,n_descartados".split(",")
 OFERTA_F = "fecha,categoria_id,categoria,total_items".split(",")
 GROK_F = "fecha,fuente,url,titulo,marca,precio,precio_lista,litros,unidades,tipo,detalle".split(",")  # lo que devuelve la Task de Grok
 GROK_ALM_F = GROK_F + ["verificado", "producto_id", "match", "cargado"]  # lo que se guarda en data/grok/
 SITIOS_F = ["fuente", "host", "descripcion"]
+VITRINA_F = ("fecha,producto_id,nombre,linea,segmento,sae,base,imagen,imagen_fuente,ypf_n,ypf_promedio_litro,ypf_min_litro,"
+             "ypf_max_litro,ypf_mediana_litro,presentacion_comun_l,promedio_presentacion,ypf_mas_barato_fuente,"
+             "ypf_mas_barato_vendedor,ypf_mas_barato_precio_litro,ypf_mas_barato_url,comp_n,comp_promedio_litro,comp_min_litro,"
+             "comp_max_litro,n_equivalentes,dif_pct").split(",")
+# Sanidad del $/L en la vitrina: un aviso a más de SANIDAD veces la mediana de su producto es un envase mal leído (caja
+# como bidón, "R3" como 3 L), y un equivalente cuya mediana está a más de RANGO_EQ veces la del YPF no promedia.
+# ponytail: umbrales fijos a ojo sobre noviembre 2026; si aparecen premium reales a más de 3x, revisar RANGO_EQ.
+SANIDAD, RANGO_EQ = 2.5, 3
+VENTANA_DIAS = 3  # vitrina: solo avisos vistos en los últimos 3 días (el último día con datos y los 2 anteriores)
 SERVICIOS_F = [c for c in GROK_ALM_F if c not in ("tipo", "producto_id", "match")] + ["solo_aceite", "precio_litro"]
 # Un combo con cualquiera de estos ítems en `detalle` no es "aceite + colocación": su precio no se divide por litro.
 # ponytail: lista negra de palabras; un repuesto que no esté acá se dividiría. Sumarlo si aparece.
@@ -62,6 +72,7 @@ CAMPOS = {
     "fuentes": FUENTES_F + ["ultimo_ok", "dias_sin_datos"],
     "sin_match": ["fuente", "titulo", "ean", "marca", "precio", "litros", "unidades", "url", "primera", "ultima", "veces"],
     "oferta_ml": OFERTA_F,
+    "vitrina": VITRINA_F,
 }
 CAMPOS["indice_con_mayoristas"] = CAMPOS["indice"]
 
@@ -100,6 +111,7 @@ def cargar(raiz):
         "oferta_ml": leer_csv(raiz / "data" / "ml_oferta.csv"),
         "grok_meses": {p.stem: leer_csv(p) for p in sorted((raiz / "data" / "grok").glob("*.csv"))},
         "grok_sitios": leer_csv(raiz / "seed" / "grok_sitios.csv"),
+        "imagenes": leer_csv(raiz / "data" / "imagenes.csv"),
     }
     integrar_grok(d)
     return d
@@ -220,7 +232,7 @@ def fuentes_grok(d, hoy):
     for f in sorted({s["fuente"] for s in d["grok_sitios"]} | set(por)):
         filas = por.get(f, [])
         base = {"fecha": "", "fuente": f, "http": "", "n_items": 0, "n_con_precio": 0, "n_sin_stock": 0, "n_sin_match": 0,
-                "error": "sin cargas todavía", "ultimo_ok": None, "dias_sin_datos": None}
+                "n_descartados": 0, "error": "sin cargas todavía", "ultimo_ok": None, "dias_sin_datos": None}
         if filas:
             ult = max(r["fecha"] for r in filas)
             n = [r for r in filas if r["fecha"] == ult]
@@ -228,6 +240,109 @@ def fuentes_grok(d, hoy):
                         n_sin_match=sum(not r["producto_id"] for r in n), ultimo_ok=ult,
                         dias_sin_datos=(hoy - date.fromisoformat(ult)).days)
         out.append(base)
+    return out
+
+
+def _stats(xs):
+    """xs: [(precio_litro, aviso)] → n, promedio, min, max y mediana por litro; None si no hay datos (nunca 0)."""
+    if not xs:
+        return dict(n=0, promedio_litro=None, min_litro=None, max_litro=None, mediana_litro=None)
+    v = [x[0] for x in xs]
+    return dict(n=len(v), promedio_litro=round(sum(v) / len(v), 2), min_litro=round(min(v), 2), max_litro=round(max(v), 2),
+                mediana_litro=round(median(v), 2))
+
+
+def _litros(r):
+    return round(num(r["litros"]) * (num(r["unidades"]) or 1), 3)  # del envase completo: caja 12x1 L = 12
+
+
+def _barato(xs):
+    if not xs:
+        return None
+    pl, r = min(xs, key=lambda x: x[0])
+    return {"fuente": r["fuente"], "vendedor": r["vendedor"] or None, "precio": num(r["precio"]),
+            "litros": _litros(r), "precio_litro": round(pl, 2), "url": r["url"] or None}
+
+
+def vitrina(d, mayoristas=False):
+    """YPF vs competencia por producto: precios por litro del último relevamiento de cada aviso (ver CLAUDE.md, /api/vitrina).
+    Cada aviso (fuente+url+ean+titulo+vendedor+envase) cuenta una vez, con su observación más reciente de los últimos
+    VENTANA_DIAS días contados desde el último día con datos. Sin mayoristas (salvo flag), sin Grok sin verificar."""
+    validas = [(r, pl) for r in d["obs"] if r["producto_id"] and (mayoristas or r["fuente"] not in MAYORISTAS)
+               and r.get("verificado") != "0" and (pl := precio_litro(r)) is not None]
+    ult, vivas = None, {}
+    if validas:
+        ult = max(r["fecha"] for r, _ in validas)
+        desde = (date.fromisoformat(ult) - timedelta(days=VENTANA_DIAS - 1)).isoformat()
+        for r, pl in sorted(validas, key=lambda x: x[0]["fecha"]):  # la última pisa a las anteriores
+            if r["fecha"] >= desde:
+                vivas[(r["fuente"], r["url"], r["ean"], r["titulo"], r["vendedor"], r["litros"], r["unidades"])] = (pl, r)
+    por_pid = defaultdict(list)
+    for x in vivas.values():
+        por_pid[x[1]["producto_id"]].append(x)
+    for pid, xs in por_pid.items():
+        m = median(pl for pl, _ in xs)
+        por_pid[pid] = [x for x in xs if m / SANIDAD <= x[0] <= m * SANIDAD]
+    prod = {p["producto_id"]: p for p in d["productos"]}
+    foto = {f["producto_id"]: f for f in d.get("imagenes", [])}
+
+    def datos_ypf(xs):
+        out = {**_stats(xs), "presentacion_comun_l": None, "promedio_presentacion": None, "mas_barato": _barato(xs), "por_fuente": []}
+        pres = Counter(_litros(r) for _, r in xs)
+        if pres:
+            l = min(pres, key=lambda k: (-pres[k], k))  # la más frecuente; empate: la más chica
+            ps = [num(r["precio"]) for _, r in xs if _litros(r) == l]
+            out.update(presentacion_comun_l=l, promedio_presentacion=round(sum(ps) / len(ps), 2))
+        for f in sorted({r["fuente"] for _, r in xs}):
+            s = _stats([x for x in xs if x[1]["fuente"] == f])
+            out["por_fuente"].append({"fuente": f, "n": s["n"], "promedio_litro": s["promedio_litro"]})
+        return out
+
+    eq = defaultdict(dict)
+    for e in d["equivalencias"]:
+        eq[e["ypf_id"]].setdefault(e["comp_id"], e)
+    productos = []
+    for p in d["productos"]:
+        if p["marca"] != "YPF":
+            continue
+        pid, ypf = p["producto_id"], datos_ypf(por_pid.get(p["producto_id"], []))
+        eqs, en_prom = [], []
+        for cid, e in eq.get(pid, {}).items():
+            c, xs = prod.get(cid, {}), por_pid.get(cid, [])
+            s = _stats(xs)
+            excluido = "no_equivalente" if e["tipo"] == "no_equivalente" else None  # se listan pero no promedian
+            if not excluido and s["mediana_litro"] and ypf["mediana_litro"] and                     not 1 / RANGO_EQ <= s["mediana_litro"] / ypf["mediana_litro"] <= RANGO_EQ:
+                excluido = "fuera_de_rango"
+            entra = excluido is None
+            if entra:
+                en_prom += xs
+            eqs.append({"producto_id": cid, "marca": c.get("marca", ""), "nombre": c.get("nombre", ""), "tipo": e["tipo"],
+                        "evidencia": e["evidencia"], "en_promedio": entra, "excluido": excluido, "imagen": (foto.get(cid) or {}).get("url"),
+                        "n": s["n"], "promedio_litro": s["promedio_litro"], "min_litro": s["min_litro"], "mas_barato": _barato(xs)})
+        eqs.sort(key=lambda x: (not x["en_promedio"], -x["n"], x["producto_id"]))
+        comp = _stats(en_prom)
+        productos.append({
+            "producto_id": pid, "nombre": p["nombre"], "linea": p["linea"], "segmento": p["segmento"], "sae": p["sae"], "base": p["base"],
+            "imagen": (foto.get(pid) or {}).get("url"), "imagen_fuente": (foto.get(pid) or {}).get("fuente"),
+            "ypf": ypf, "competencia": {**{k: comp[k] for k in ("n", "promedio_litro", "min_litro", "max_litro")}, "equivalentes": eqs},
+            "dif_pct": round((comp["promedio_litro"] / ypf["promedio_litro"] - 1) * 100, 1)
+            if comp["promedio_litro"] and ypf["promedio_litro"] else None})
+    productos.sort(key=lambda x: (x["ypf"]["n"] == 0, -x["ypf"]["n"], x["linea"], x["nombre"]))
+    return {"fecha": ult, "productos": productos}
+
+
+def aplanar_vitrina(v):
+    """/api/vitrina?formato=csv: una fila por producto YPF, sin las listas anidadas."""
+    out = []
+    for p in v["productos"]:
+        y, c, b = p["ypf"], p["competencia"], p["ypf"]["mas_barato"] or {}
+        out.append({"fecha": v["fecha"], **{k: p[k] for k in ("producto_id", "nombre", "linea", "segmento", "sae", "base", "imagen", "imagen_fuente", "dif_pct")},
+                    "ypf_n": y["n"], "ypf_promedio_litro": y["promedio_litro"], "ypf_min_litro": y["min_litro"], "ypf_max_litro": y["max_litro"],
+                    "ypf_mediana_litro": y["mediana_litro"], "presentacion_comun_l": y["presentacion_comun_l"],
+                    "promedio_presentacion": y["promedio_presentacion"], "ypf_mas_barato_fuente": b.get("fuente"),
+                    "ypf_mas_barato_vendedor": b.get("vendedor"), "ypf_mas_barato_precio_litro": b.get("precio_litro"),
+                    "ypf_mas_barato_url": b.get("url"), "comp_n": c["n"], "comp_promedio_litro": c["promedio_litro"],
+                    "comp_min_litro": c["min_litro"], "comp_max_litro": c["max_litro"], "n_equivalentes": len(c["equivalentes"])})
     return out
 
 
@@ -261,6 +376,8 @@ def calcular(d, hoy=None):
         "oferta_ml": d["oferta_ml"],
         "servicios": servicios(d["grok"]),
         "grok_sitios": d["grok_sitios"],
+        "vitrina": vitrina(d),
+        "vitrina_con_mayoristas": vitrina(d, mayoristas=True),
     }
 
 
@@ -456,13 +573,18 @@ def procesar_carga(d, raiz, texto, hoy=None, ahora=None):
         if clave_grok(r) in por_clave:
             duplicadas.append({"fila": por_clave[clave_grok(r)]["_fila"], "reemplazada_por": r["_fila"], "titulo": r["titulo"]})
         por_clave[clave_grok(r)] = r
-    paginas, resultado = {}, []
-    for r in por_clave.values():
+    paginas, resultado, rel = {}, [], relacionados(raiz)
+    for k, r in list(por_clave.items()):
+        n = normalizar.normalizar(r["titulo"], r["marca"], "", url=r["url"])
+        # los servicios (combos Shell/competencia sin producto_id) van a /api/servicios y nunca al $/L: pasan igual
+        if r["tipo"] == "producto" and n["producto_id"] not in rel:
+            errores.append({"fila": r["_fila"], "titulo": r["titulo"], "error": "no relacionado con YPF"})
+            del por_clave[k]
+            continue
         if r["url"] not in paginas:
             paginas[r["url"]] = BAJAR(r["url"])
         pag = paginas[r["url"]]
         r["verificado"] = "1" if pag and precio_en_texto(float(r["precio"]), pag) else "0"
-        n = normalizar.normalizar(r["titulo"], r["marca"], "", url=r["url"])
         r["producto_id"], r["match"], r["cargado"] = n["producto_id"], n["match"], sello
         r["marca"] = r["marca"] or n["marca"] or ""
         if not r["litros"] and n["litros"]:
@@ -471,6 +593,8 @@ def procesar_carga(d, raiz, texto, hoy=None, ahora=None):
             r["unidades"] = str(n["unidades"])
         resultado.append({"fila": r.pop("_fila"), "titulo": r["titulo"], "tipo": r["tipo"], "verificado": r["verificado"] == "1",
                           "producto_id": r["producto_id"]})
+    if not por_clave:
+        return 400, {"error": "ninguna fila relacionada con YPF", "errores": errores}
     token, repo = os.environ.get("GH_CARGA_TOKEN", ""), os.environ.get("GH_REPO") or "noguerafran-alt/LUBRICANTES"
     commits, fallo = [], ""
     for mes in sorted({r["fecha"][:7] for r in por_clave.values()}):
@@ -537,6 +661,11 @@ class Handler(BaseHTTPRequestHandler):
         if not u.path.startswith("/api/"):
             return self.json(404, {"error": "no existe"})
         nombre = u.path[5:]
+        if nombre == "vitrina":
+            v = self.calc["vitrina_con_mayoristas" if q.get("mayoristas") == "1" else "vitrina"]
+            if q.get("formato") == "csv":
+                return self.enviar(200, a_csv("vitrina", aplanar_vitrina(v)), "text/csv; charset=utf-8")
+            return self.json(200, v)
         if nombre == "indice" and q.get("mayoristas") == "1":
             filas = self.calc["indice_con_mayoristas"]
         elif nombre in self.calc:
@@ -662,6 +791,62 @@ def demo():
     assert a_csv("indice", c["indice"]).decode().startswith("fecha,segmento,sae,marca,mediana_litro,n,indice\n")
     assert a_csv("ultimo", []).decode() == "producto_id,fuente,litros,fecha,precio,precio_litro,n,url,verificado\n"
 
+    # ---------- vitrina: YPF vs competencia (sin red ni archivos) ----------
+    P = lambda i, m, **k: {**dict.fromkeys(PRODUCTOS_F, ""), "producto_id": i, "marca": m, "linea": "L", "nombre": i, **k}
+    E = lambda c, t, y="ypf-a": {"ypf_id": y, "comp_id": c, "tipo": t, "evidencia": "inferida"}
+    O = lambda f, fu, pid, precio, litros="1", un="1", url="", **k: {**dict.fromkeys(OBS_F, ""), "fecha": f, "fuente": fu, "producto_id": pid,
+                                                                      "precio": precio, "litros": litros, "unidades": un, "url": url or f"u-{fu}-{pid}-{precio}", **k}
+    dv = {"productos": [P("ypf-a", "YPF"), P("ypf-b", "YPF"), P("ypf-c", "YPF"), P("shell-s", "Shell"), P("gulf-g", "Gulf"), P("motul-m", "Motul")],
+          "equivalencias": [E("shell-s", "match_total"), E("gulf-g", "no_equivalente"), E("motul-m", "match_parcial"), E("shell-s", "match_parcial", "ypf-c")],
+          "imagenes": [{"producto_id": "ypf-a", "url": "https://i/a.jpg", "fuente": "ypf_oficial", "fecha": "x"},
+                       {"producto_id": "shell-s", "url": "https://i/s.jpg", "fuente": "ml", "fecha": "x"}],
+          "obs": [O("2026-11-05", "sepa", "ypf-a", "4000", url="a1"), O("2026-11-05", "vtex_easy", "ypf-a", "20000", "4", url="a2", vendedor="Easy"),
+                  O("2026-11-04", "vtex_easy", "ypf-a", "99999", "4", url="a2", vendedor="Easy"),   # mismo aviso, más viejo: lo pisa el de hoy
+                  O("2026-11-05", "shopify_datri", "ypf-a", "36000", "1", "12", url="a3"),         # mayorista: caja 12x1 L = 3000 $/L
+                  O("2026-11-05", "ml", "ypf-a", "4000", "1", "12", url="a8"),                     # caja leída como 12 L: 333 $/L, fuera de sanidad
+                  O("2026-11-05", "grok_helix", "ypf-a", "1000", url="a4", verificado="0"),         # Grok sin verificar
+                  O("2026-11-01", "sepa", "ypf-a", "1", url="a5"),                                 # fuera de la ventana de 3 días
+                  O("2026-11-05", "sepa", "ypf-a", "", url="a6"),                                  # sin precio
+                  O("2026-11-05", "sepa", "ypf-a", "5000", litros="", url="a7"),                   # sin litros: no hay $/L
+                  O("2026-11-03", "tn_spch", "ypf-c", "8000", url="c1"),                           # Tiendanube rota: de hace 2 días entra
+                  O("2026-11-05", "ml", "shell-s", "6000", url="s1"), O("2026-11-05", "vtex_jumbo", "shell-s", "7000", url="s2"),
+                  O("2026-11-05", "ml", "gulf-g", "1000", url="g1"),
+                  O("2026-11-05", "ml", "motul-m", "80000", url="m1"),                             # 80000 $/L vs YPF 4500: fuera de rango
+                  O("2026-11-05", "ml", "", "10", url="x1")]}
+    vi = vitrina(dv)
+    pv = {p["producto_id"]: p for p in vi["productos"]}
+    assert vi["fecha"] == "2026-11-05" and [p["producto_id"] for p in vi["productos"]] == ["ypf-a", "ypf-c", "ypf-b"]  # con precio primero, por n
+    ya = pv["ypf-a"]["ypf"]
+    assert (ya["n"], ya["promedio_litro"], ya["min_litro"], ya["max_litro"], ya["mediana_litro"]) == (2, 4500, 4000, 5000, 4500), ya
+    assert ya["mas_barato"] == {"fuente": "sepa", "vendedor": None, "precio": 4000.0, "litros": 1.0, "precio_litro": 4000, "url": "a1"}, ya["mas_barato"]
+    assert (ya["presentacion_comun_l"], ya["promedio_presentacion"]) == (1.0, 4000)                 # empate 1 L / 4 L: gana la chica
+    assert ya["por_fuente"] == [{"fuente": "sepa", "n": 1, "promedio_litro": 4000}, {"fuente": "vtex_easy", "n": 1, "promedio_litro": 5000}]
+    ca = pv["ypf-a"]["competencia"]
+    assert (ca["n"], ca["promedio_litro"], ca["min_litro"], ca["max_litro"]) == (2, 6500, 6000, 7000)  # el no_equivalente (1000) no promedia
+    assert pv["ypf-a"]["dif_pct"] == round((6500 / 4500 - 1) * 100, 1) == 44.4
+    eqa = {e["producto_id"]: e for e in ca["equivalentes"]}
+    assert [e["producto_id"] for e in ca["equivalentes"]] == ["shell-s", "gulf-g", "motul-m"]     # los que no promedian, al final
+    assert eqa["gulf-g"]["en_promedio"] is False and eqa["gulf-g"]["n"] == 1 and eqa["gulf-g"]["promedio_litro"] == 1000
+    assert eqa["shell-s"]["imagen"] == "https://i/s.jpg" and eqa["shell-s"]["mas_barato"]["fuente"] == "ml" and eqa["gulf-g"]["imagen"] is None
+    assert eqa["motul-m"]["n"] == 1 and eqa["motul-m"]["en_promedio"] is False and eqa["motul-m"]["excluido"] == "fuera_de_rango"
+    assert eqa["gulf-g"]["excluido"] == "no_equivalente" and eqa["shell-s"]["excluido"] is None
+    assert vitrina({**dv, "obs": [o for o in dv["obs"] if o["url"] != "m1"]})["productos"][0]["competencia"]["equivalentes"][1]["mas_barato"] is None  # sin datos: null, no 0
+    assert (pv["ypf-a"]["imagen"], pv["ypf-a"]["imagen_fuente"], pv["ypf-b"]["imagen"], pv["ypf-b"]["imagen_fuente"]) == ("https://i/a.jpg", "ypf_oficial", None, None)
+    yb = pv["ypf-b"]
+    assert yb["ypf"]["n"] == 0 and yb["ypf"]["promedio_litro"] is None and yb["ypf"]["mas_barato"] is None and yb["ypf"]["por_fuente"] == []
+    assert yb["ypf"]["presentacion_comun_l"] is None and yb["competencia"]["n"] == 0 and yb["dif_pct"] is None and yb["competencia"]["equivalentes"] == []
+    assert pv["ypf-c"]["ypf"]["promedio_litro"] == 8000 and pv["ypf-c"]["competencia"]["promedio_litro"] == 6500  # el mismo Shell sirve a dos YPF
+    assert pv["ypf-c"]["dif_pct"] == round((6500 / 8000 - 1) * 100, 1) == -18.8
+    assert "shell-s" not in pv   # solo se listan productos YPF
+    vm = {p["producto_id"]: p for p in vitrina(dv, mayoristas=True)["productos"]}
+    assert vm["ypf-a"]["ypf"]["n"] == 3 and vm["ypf-a"]["ypf"]["min_litro"] == 3000 and vm["ypf-a"]["ypf"]["mas_barato"]["fuente"] == "shopify_datri"
+    assert vm["ypf-a"]["ypf"]["mas_barato"]["litros"] == 12.0 and vm["ypf-a"]["ypf"]["mas_barato"]["precio"] == 36000.0
+    vv = vitrina({**dv, "obs": []})
+    assert vv["fecha"] is None and len(vv["productos"]) == 3 and all(p["ypf"]["promedio_litro"] is None and p["dif_pct"] is None for p in vv["productos"])
+    fl = aplanar_vitrina(vi)
+    assert len(fl) == 3 and fl[0]["ypf_promedio_litro"] == 4500 and fl[0]["n_equivalentes"] == 3 and fl[2]["ypf_mas_barato_fuente"] is None
+    assert a_csv("vitrina", fl).decode().startswith("fecha,producto_id,nombre,linea,segmento,sae,base,imagen,imagen_fuente,ypf_n,")
+
     def b(s):
         return {"Authorization": "Basic " + base64.b64encode(s.encode()).decode()}
     assert autorizado({}, None) and autorizado({}, "")
@@ -692,6 +877,9 @@ def demo():
     assert get("/api/obs?mes=2026-11&formato=csv", {"X-API-Key": "s3cr3t"})[1].startswith(b"fecha,fuente,url")
     k = {"X-API-Key": "s3cr3t"}
     assert json.loads(get("/api/indice", k)[1]) == c["indice"] and json.loads(get("/api/indice?mayoristas=1", k)[1]) == c["indice_con_mayoristas"]
+    assert json.loads(get("/api/vitrina", k)[1]) == json.loads(json.dumps(c["vitrina"])) and c["vitrina"]["productos"][0]["producto_id"] == "ypf-a-10w40"
+    assert json.loads(get("/api/vitrina?mayoristas=1", k)[1]) == json.loads(json.dumps(c["vitrina_con_mayoristas"]))
+    assert get("/api/vitrina?formato=csv", k)[1].startswith(b"fecha,producto_id,nombre,") and get("/api/vitrina")[0] == 401
     assert get("/api/obs", {"X-API-Key": "s3cr3t"})[0] == 400
     assert get("/api/serie?p=nada", {"X-API-Key": "s3cr3t"})[0] == 404
     assert get("/../server.py", {"X-API-Key": "s3cr3t"})[0] == 404
@@ -748,8 +936,9 @@ def demo():
         return 201, {"commit": {"sha": "abc123"}}
     BAJAR, GH = (lambda url: "<html>Combo HX7 $ 84.999 con filtro</html>"), gh_fake
     norm_real = normalizar.normalizar
-    normalizar.normalizar = lambda t, m="", e="", reglas=None, url="": dict(
+    norm_fake = lambda t, m="", e="", reglas=None, url="": dict(
         marca="Shell", sae="10W-40", litros=4.0, unidades=1, producto_id="shell-b-10w40" if "HX7" in t else "", match="texto" if "HX7" in t else "none")
+    normalizar.normalizar = norm_fake
     token_ant = os.environ.pop("GH_CARGA_TOKEN", None)
     try:
         d2 = cargar(raiz)
@@ -825,6 +1014,7 @@ def demo():
     assert autorizado_carga({"X-Carga-Clave": "c4rga"}, "s3cr3t", "c4rga") and autorizado_carga({"X-API-Key": "s3cr3t"}, "s3cr3t", "c4rga")
     assert not autorizado_carga({"X-Carga-Clave": "c4rga"}, "s3cr3t", "") and not autorizado_carga({"X-Carga-Clave": "mala"}, "s3cr3t", "c4rga")
     Handler.datos, Handler.calc, Handler.raiz, Handler.clave_carga = cargar(raiz), c, raiz, "c4rga"
+    normalizar.normalizar = norm_fake
     GH = gh_fake
 
     def post(cuerpo, headers, tipo="text/csv"):
@@ -840,16 +1030,20 @@ def demo():
     assert post(csv_de(fila()), kc, "application/json")[0] == 415
     cod, rsp = post(csv_de(fila(), fila(precio="0")), kc, "text/plain")
     assert cod == 200 and rsp["ok"] == 1 and len(rsp["errores"]) == 1 and rsp["commit"] == "solo local"
-    cod, rsp = post("csv=" + urllib.parse.quote(csv_de(fila(titulo="otra"))), k, "application/x-www-form-urlencoded")  # la principal también carga
+    cod, rsp = post("csv=" + urllib.parse.quote(csv_de(fila(titulo="Combo HX7 otra"))), k, "application/x-www-form-urlencoded")  # la principal también carga
     assert cod == 200 and rsp["ok"] == 1
     assert post("basura", kc)[0] == 400
+    cod, rsp = post(csv_de(fila(titulo="Aceite Castrol GTX"), fila(titulo="Combo Castrol", tipo="servicio", precio="50000")), kc)
+    assert cod == 200 and rsp["ok"] == 1 and rsp["filas"][0]["tipo"] == "servicio" and rsp["errores"] == [
+        {"fila": 1, "titulo": "Aceite Castrol GTX", "error": "no relacionado con YPF"}], rsp   # producto ajeno rechazado; servicio pasa
+    assert post(csv_de(fila(titulo="Aceite Castrol GTX")), kc)[0] == 400
     mes = hoy_s[:7]
-    assert len(json.loads(get("/api/grok?mes=" + mes, k)[1])) == 2 and get("/api/grok?mes=1999-01", k)[0] == 404
-    assert json.loads(get("/api/servicios", k)[1]) == [] and get("/api/servicios?formato=csv", k)[1].startswith(b"fecha,fuente,url")
+    assert len(json.loads(get("/api/grok?mes=" + mes, k)[1])) == 3 and get("/api/grok?mes=1999-01", k)[0] == 404
+    assert [x["titulo"] for x in json.loads(get("/api/servicios", k)[1])] == ["Combo Castrol"] and get("/api/servicios?formato=csv", k)[1].startswith(b"fecha,fuente,url")
     assert json.loads(get("/api/grok_sitios", k)[1])[0]["fuente"] == "grok_helix"
     assert any(r["fuente"] == "grok_helix" for r in json.loads(get("/api/fuentes", k)[1]))
     shutil.rmtree(raiz / "data" / "grok")
-    BAJAR, GH = bajar, gh_api
+    BAJAR, GH, normalizar.normalizar = bajar, gh_api, norm_real
     srv.shutdown()
     print("OK")
 

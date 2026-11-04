@@ -82,7 +82,7 @@ def avisos_shopify(base, productos):
             titulo = p["title"] if len(vs) == 1 or v.get("title") == "Default Title" else f'{p["title"]} {v["title"]}'
             a = dict(url=f'{base}/products/{p["handle"]}', ean=v.get("barcode") or "", titulo=titulo, marca_cruda="",
                      precio=float(v.get("price") or 0), stock=None if v.get("available") else 0,
-                     vendedor=p.get("vendor", ""))
+                     vendedor=p.get("vendor", ""), imagen=ml.https(((p.get("images") or [{}])[0]).get("src")))
             e = envase(p["title"], v.get("title", ""))
             if e:
                 a["litros"], a["unidades"] = e
@@ -142,7 +142,8 @@ def parsear_tn(pagina, url):
     v = vs[0]
     stock = v.get("stock")
     a = dict(url=url, ean="", titulo=html.unescape(t[1]).strip(), marca_cruda="", precio=v.get("price_number") or 0,
-             stock=0 if v.get("available") is False else (stock if isinstance(stock, int) else None), vendedor="")
+             stock=0 if v.get("available") is False else (stock if isinstance(stock, int) else None), vendedor="",
+             imagen=ml.https((re.search(r'og:image"\s+content="([^"]+)', pagina) or [0, ""])[1], url))
     e = envase(a["titulo"])
     if e:
         a["litros"], a["unidades"] = e
@@ -204,7 +205,9 @@ def demo():
     assert len(a) == 2 and a[0]["precio"] == 480967.85 and a[0]["stock"] is None and a[0]["marca_cruda"] == ""
     assert (a[0]["litros"], a[0]["unidades"]) == (1.0, 12) and a[0]["url"] == "https://x.com/products/edge-prof-e"
     assert a[1]["stock"] == 0 and a[1]["litros"] == 205.0
-    # a_obs calcula litros×unidades desde el aviso, no desde el título
+    assert a[0]["imagen"] is None
+    assert avisos_shopify("https://x.com", [dict(ps[0], images=[dict(src="https://cdn.x.com/a.jpg")])])[0]["imagen"] == "https://cdn.x.com/a.jpg"
+    # a_obs calcula litros×unidades desde el aviso, no desde el título (sin filtro de relacionados)
     import recolectar
     f = recolectar.a_obs("shopify_datri", "2026-11-04", a)[0]
     assert (f[0]["litros"], f[0]["unidades"], f[0]["marca"]) == ("1", 12, "Castrol") and len(f) == 1
@@ -222,6 +225,8 @@ def demo():
     a = parsear_tn(pag, "https://t.com/productos/p/")
     assert (a["titulo"], a["precio"], a["stock"]) == ("SHELL Helix Ultra X 5W-30 4L", 123888, 2), a
     assert parsear_tn(pag.replace('"stock":2,"available":true', '"stock":null,"available":false'), "u")["stock"] == 0
+    assert a["imagen"] is None
+    assert parsear_tn('<meta property="og:image" content="//cdn.t.com/p.jpg">' + pag, "https://t.com/productos/p/")["imagen"] == "https://cdn.t.com/p.jpg"
     assert parsear_tn(pag.replace("}];", "},{}];"), "u") is None  # dos variantes: no se adivina
     assert parsear_tn("<html>sin variantes</html>", "u") is None
     # rotación determinística: todo el conjunto se cubre en k días, sin repetir dentro del ciclo
