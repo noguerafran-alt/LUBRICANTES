@@ -35,6 +35,11 @@ Actualizado 2026-11-04 (carga de Grok). Remoto privado `noguerafran-alt/LUBRICAN
 - 2026-11-04: la primera carga real de Grok rebotó con 400 en las 33 filas: mandó `fuente` `helix_combos` y después `grok_helixturno`; la única válida para www.helixturno.com.ar es `grok_helix`. Ahora el error de fuente dice cuál usar (`...: usar grok_helix`), assert en `server.py test`.
 - Cada commit de carga redeploya Render. Las cargas de un día no cuentan si otra carga las pisa por completo (tope de 10 por día contra abuso, no contabilidad).
 
+## ypf_gql: causa del "HTTP 200 sin data" (2026-11-04)
+- La corrida 2026-11-03 de Actions dio "HTTP 200 sin data"; desde la PC `--solo ypf_gql` trae 69 productos. La causa no se pudo probar fuera de Actions. Cambio en `recolectar.py`: cuando ypf_gql falla, el error de `data/fuentes.csv` lleva un extracto saneado del cuerpo (mensaje de `errors` de GraphQL o primeros 120 caracteres), para que la próxima corrida diaria diga la causa. Assert en `demo()`; `python recolectar.py test` da OK.
+- Efecto lateral: el pedido de ypf_gql pasa por `ml.pedir(..., texto=True)`, que manda `Accept: */*` en vez de `application/json`. Hoy sigue trayendo 69 productos; si la Action empezara a fallar distinto, mirar esto primero.
+- No verificado: la causa real, ni la Action.
+
 ## Falta
 - Deploy en Render: formulario armado en el workspace YPF (`lubricantes-ypf`, free, /salud); falta que el usuario cargue LUB_CLAVE y despliegue.
 - ML con token: app "Lubricantes AR precios" armada en DevCenter el 2026-11-03 (lectura de publicaciones, redirect provisorio `https://biblioteca-b8mb.onrender.com/ml-callback`); la crea el usuario (T&C + captcha). Autorizada y probada en la PC. Para la Action faltan cargar los secrets ML_CLIENT_ID/ML_CLIENT_SECRET/ML_REFRESH_TOKEN/GH_PAT (la Action necesita ML_REFRESH_TOKEN además de los dos ya cargados).
