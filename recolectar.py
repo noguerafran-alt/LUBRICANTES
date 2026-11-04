@@ -57,6 +57,14 @@ def reemplazar(ruta, campos, filas, clave, nuevas=None):
         w.writerows(viejas + filas)
 
 
+def escribir_fuentes(ruta, filas):
+    """Una fila por (fecha, fuente): la nueva reemplaza a la vieja, salvo que la nueva traiga error y la vieja no.
+    Una re-corrida fallida del mismo día no borra las obs buenas, así que tampoco puede pisar la fila que las describe."""
+    clave = lambda f: (f["fecha"], f["fuente"])
+    ok_previas = {clave(f) for f in leer(ruta) if not f["error"]} if os.path.exists(ruta) else set()
+    reemplazar(ruta, FUENTES, [f for f in filas if not (f["error"] and clave(f) in ok_previas)], clave)
+
+
 def num(x):
     return "" if x in (None, "") else f"{float(x):g}"
 
@@ -223,7 +231,7 @@ def main(args):
             obs += o
             corridas.add((fecha, fu))
     clave = lambda f: (f["fecha"], f["fuente"])
-    reemplazar(os.path.join(DATA, "fuentes.csv"), FUENTES, filas_f, clave)
+    escribir_fuentes(os.path.join(DATA, "fuentes.csv"), filas_f)
     if corridas:
         reemplazar(os.path.join(DATA, "obs", fecha[:7] + ".csv"), OBS, obs, clave, corridas)
 
@@ -248,6 +256,14 @@ def demo():
                            dict(fecha="d2", categoria_id="A", categoria="a", total_items=2)], lambda f: (f["fecha"], f["categoria_id"]))
     reemplazar(r, OFERTA, [dict(fecha="d2", categoria_id="A", categoria="a", total_items=3)], lambda f: (f["fecha"], f["categoria_id"]))
     assert [x["total_items"] for x in leer(r)] == ["1", "3"]
+    # fuentes.csv: una re-corrida con error no pisa la fila buena del día; una buena sí reemplaza; nunca duplica
+    fu = os.path.join(tempfile.mkdtemp(), "fuentes.csv")
+    f_ = lambda fu_, n, err="": dict(fecha="d", fuente=fu_, http="200" if not err else "", n_items=str(n), n_con_precio=str(n),
+                                     n_sin_stock="0", n_sin_match="0", error=err)
+    escribir_fuentes(fu, [f_("ml", 2385), f_("sepa", 111)])
+    escribir_fuentes(fu, [f_("ml", 0, "sin token"), f_("sepa", 114), f_("x", 0, "HTTP 403")])
+    escribir_fuentes(fu, [f_("x", 0, "HTTP 500")])
+    assert [(x["fuente"], x["n_items"], x["error"]) for x in leer(fu)] == [("ml", "2385", ""), ("sepa", "114", ""), ("x", "0", "HTTP 500")]
     print("OK")
 
 
