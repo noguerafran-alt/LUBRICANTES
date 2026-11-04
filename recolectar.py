@@ -121,12 +121,24 @@ def vtex(fuente):
     return http, avisos, ""
 
 
+def extracto(cuerpo, n=120):
+    """Resumen corto y sin saltos del cuerpo de una respuesta rara: mensajes de "errors" GraphQL o los primeros n caracteres."""
+    if isinstance(cuerpo, dict):
+        cuerpo = "; ".join(str(e.get("message", e)) if isinstance(e, dict) else str(e) for e in cuerpo.get("errors") or []) \
+            or json.dumps(cuerpo, ensure_ascii=False)
+    return " ".join((cuerpo or "(cuerpo vacío)").split())[:n]
+
+
 def ypf_gql():
     """Foto del catálogo oficial. Una línea por ítem, ordenado, para que el diff de git se lea."""
     q = json.dumps({"query": "{getMetadataGlobal(type:PRODUCTION){title structure data props}}"}).encode()
-    http, d = ml.pedir(YPF_GQL, data=q)
-    if not d or "data" not in d:
-        return http, 0, f"HTTP {http} sin data"
+    http, cuerpo = ml.pedir(YPF_GQL, data=q, texto=True)
+    try:
+        d = json.loads(cuerpo)
+    except (TypeError, ValueError):
+        d = None
+    if not isinstance(d, dict) or not d.get("data"):
+        return http, 0, f"HTTP {http} sin data: {extracto(d if isinstance(d, dict) else cuerpo)}"
     items = []
     for lista in d["data"]["getMetadataGlobal"]:
         if lista["title"] not in YPF_LISTAS:
@@ -210,6 +222,9 @@ def demo():
     assert sin_stock == 2 and len(filas) == 2, (sin_stock, filas)
     assert filas[0]["precio"] == "159999" and filas[0]["litros"] == "4" and filas[0]["stock"] == 1
     assert filas[1]["stock"] == "" and filas[1]["precio_lista"] == "10560" and filas[1]["marca"] == "Gulf"
+    assert extracto({"errors": [{"message": "x\ny"}, {"message": "z"}]}) == "x y; z"
+    assert extracto("<html>\n  <b>Just a moment</b>").startswith("<html> <b>Just") and len(extracto("a" * 300)) == 120
+    assert extracto(None) == "(cuerpo vacío)" and extracto({"data": None}) == '{"data": null}'
     import tempfile
     assert a_obs("x", "d", [dict(url="https://e.com/aceite-gulf-max-20w-50-4l/p", ean="", titulo="Aceite Gulf max 20w-50 x 1l",
                                  marca_cruda="Gulf", precio=1, stock=1)])[0][0]["litros"] == "1"  # el título manda en litros
