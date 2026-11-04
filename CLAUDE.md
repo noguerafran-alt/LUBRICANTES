@@ -8,7 +8,7 @@ visor y una API con clave para que YPF los analice internamente.
 `data/`. El push redeploya el Render Web Service free, que sirve visor y API
 leyendo esos archivos. No hay base de datos: git es el almacenamiento y el
 historial. Render free tiene disco efímero y su Postgres vence a los 30 días;
-por eso no se escribe nada en el server.
+por eso el server no guarda nada en su disco: la única escritura (`POST /api/cargar`, Grok) se persiste comiteando al repo.
 
 El relevamiento que fundamenta todo esto está en `docs/relevamiento/`
 (`sintesis.md` es el diseño; el resto, las pruebas HTTP de cada fuente).
@@ -44,8 +44,10 @@ site/index.html    # visor: Comparador, Evolución, Índice, Fuentes (JS vanilla
 seed/productos.csv     # catálogo normalizado YPF + competencia (a mano)
 seed/alias.csv         # EAN / regex de título → producto_id
 seed/equivalencias.csv # pares YPF ↔ competidor (a mano)
+seed/grok_sitios.csv   # lista blanca de sitios que puede cargar Grok: fuente,host,descripcion
 data/obs/AAAA-MM.csv   # observaciones de precio, append-only
 data/fuentes.csv       # una fila por fuente y corrida
+data/grok/AAAA-MM.csv  # relevamientos de Grok cargados por POST /api/cargar (los comitea el server)
 data/ml_oferta.csv     # total de publicaciones por categoría ML por día
 data/catalogo_ypf.json # foto del catálogo oficial YPF (el diff de git avisa altas/bajas)
 .github/workflows/recolectar.yml
@@ -90,6 +92,17 @@ data/catalogo_ypf.json # foto del catálogo oficial YPF (el diff de git avisa al
   `precio_litro` sigue siendo `precio / (litros × unidades)`. `/api/indice` las **excluye** por defecto y las suma con
   `?mayoristas=1`; el visor las rotula "(mayorista)" en Comparador, Evolución y Fuentes.
 - Una corrida no duplica: si ya hay filas de esa `fuente` y `fecha`, se reemplazan.
+
+**data/grok/AAAA-MM.csv** —
+`fecha,fuente,url,titulo,marca,precio,precio_lista,litros,unidades,tipo,detalle,verificado,producto_id,match,cargado`
+- Las 11 primeras son lo que devuelve la Task de Grok (`docs/grok-task.md`); `fuente = grok_<sitio>`, `tipo = producto|servicio`,
+  `detalle` separado por `;`. `verificado` (`1|0`): el server bajó la URL y el precio aparece en el texto (84999, 84.999, 84999,00,
+  84.999,00, $ 84.999); `0` si no aparece o la página no se pudo leer / es SPA. `cargado`: timestamp UTC de la carga.
+- `producto_id`/`match` salen de `normalizar.normalizar(titulo, marca, '', url)`; `litros`/`unidades` del CSV, si vienen vacíos los completa el normalizador.
+- Una carga reemplaza las filas de igual `fuente+fecha+url+titulo` (idempotente). Máx. 500 filas por carga y 10 cargas por día.
+- Entra a `obs` (y por lo tanto a comparador, `ultimo`, `serie`, `sin_match`) solo `tipo=producto`; `verificado=0` se muestra
+  (`ultimo` lleva `url` y `verificado`) pero **no entra al índice**; `tipo=servicio` nunca entra al $/L (va a `/api/servicios`).
+- Un sitio nuevo = una fila en `seed/grok_sitios.csv` (`fuente,host,descripcion`); la fuente de cada fila tiene que corresponder al host de su URL (https).
 
 **data/fuentes.csv** —
 `fecha,fuente,http,n_items,n_con_precio,n_sin_stock,n_sin_match,error`
@@ -144,7 +157,24 @@ contraseña `LUB_CLAVE`). Respuestas JSON; `?formato=csv` devuelve CSV.
 | `/api/fuentes` | último estado de cada fuente + días sin datos |
 | `/api/sin_match` | avisos sin `producto_id` (cola de revisión) |
 | `/api/oferta_ml` | `data/ml_oferta.csv` |
+| `/api/servicios` | último precio de cada servicio/combo cargado por Grok (`tipo=servicio`), con `verificado`; no es $/L |
+| `/api/grok?mes=AAAA-MM` | filas Grok crudas del mes (con `verificado`, `tipo`, `cargado`); van aparte de `/api/obs` |
+| `/api/grok_sitios` | `seed/grok_sitios.csv` |
+| `POST /api/cargar` | carga de un CSV de Grok (ver abajo) |
 | `/salud` | sin clave, `{"ok":true}` para el health check de Render |
+
+`/api/ultimo` suma `url` y `verificado` (vacío en las fuentes que no son Grok). `/api/fuentes` incluye una fila por cada `grok_*` de
+`seed/grok_sitios.csv` o de los datos: la "corrida" es la última carga, `ultimo_ok` la fecha del último dato.
+
+### Carga de Grok — `POST /api/cargar`
+Cuerpo = el CSV (`Content-Type: text/csv` o `text/plain`; o formulario con el campo `csv`). Auth: header `X-Carga-Clave` = env
+`LUB_CARGA_CLAVE` (solo sirve para cargar: el resto de la API da 401) o la clave principal. Nunca en la URL. Sin `LUB_CARGA_CLAVE`, solo la principal.
+Encabezado malo, más de 500 filas o ninguna fila válida → 400 sin guardar nada; filas con error se listan en `errores` (con `fila`) y las
+demás se guardan. Respuesta: `ok`, `verificadas`, `no_verificadas`, `errores`, `filas` (una por fila guardada) y `commit` (lista de sha) o
+`"solo local"`. Persistencia: escribe `data/grok/AAAA-MM.csv` y, con `GH_CARGA_TOKEN`, lo comitea por la GitHub Contents API
+(`grok: carga <fuente> <fecha> (<n> filas)`); si el commit falla responde 502 y los datos quedan solo en memoria (reenviar es idempotente).
+Envs: `LUB_CARGA_CLAVE`, `GH_CARGA_TOKEN` (fine-grained PAT, solo este repo, Contents: read and write), `GH_REPO` (default `noguerafran-alt/LUBRICANTES`).
+Verificación: 1 req/s, timeout 15 s, sin seguir redirecciones, `User-Agent` de `ml.py`.
 
 `precio_litro = precio / (litros × unidades)`. Índice: mediana de `precio_litro`
 del día por (segmento, SAE, marca) / mediana YPF del mismo grupo y día × 100.

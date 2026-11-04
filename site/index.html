@@ -47,7 +47,9 @@ tr.ypf td { font-weight: 600; background: color-mix(in srgb, var(--acento) 7%, t
 .badge { display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 10px; border: 1px solid var(--borde); color: var(--mut); white-space: nowrap; margin: 1px 2px 1px 0; }
 .badge.confirmada { border-color: var(--ok); color: var(--ok); }
 .caro { color: var(--caro); } .barato { color: var(--barato); }
-.nota { color: var(--mut); font-size: 13px; max-width: 70ch; }
+.nota { color: var(--mut); font-size: 13px; max-width: 70ch; overflow-wrap: anywhere; }
+.nota code { overflow-wrap: anywhere; word-break: break-all; }
+textarea, input { max-width: 100%; box-sizing: border-box; }
 .explica { background: var(--panel); border: 1px dashed var(--borde); border-radius: 8px; padding: 16px; color: var(--mut); }
 a { color: var(--acento); }
 button.link { background: none; border: 0; padding: 0; color: var(--acento); font: inherit; font-size: 12px; cursor: pointer; text-decoration: underline; }
@@ -73,6 +75,7 @@ table.comp th:nth-child(1) { width: 26%; } table.comp th:nth-child(2) { width: 1
     <button role="tab" data-tab="evolucion">Evolución</button>
     <button role="tab" data-tab="indice">Índice</button>
     <button role="tab" data-tab="fuentes">Fuentes</button>
+    <button role="tab" data-tab="cargar">Cargar</button>
   </nav>
 </header>
 <main>
@@ -87,6 +90,9 @@ table.comp th:nth-child(1) { width: 26%; } table.comp th:nth-child(2) { width: 1
     </div>
     <p class="nota">Último $/L por fuente para la presentación elegida. La diferencia compara contra el producto YPF en la misma fuente y presentación.</p>
     <div id="comp-out">Cargando…</div>
+    <h2>Servicios (combos)</h2>
+    <p class="nota">Precio de servicios cargados por Grok (cambio de aceite con mano de obra, etc.). No son $/L: no entran al comparador ni al índice.</p>
+    <div id="srv-out"></div>
   </section>
 
   <section id="evolucion" hidden>
@@ -100,6 +106,16 @@ table.comp th:nth-child(1) { width: 26%; } table.comp th:nth-child(2) { width: 1
     <div id="ind-out"></div>
   </section>
 
+  <section id="cargar" hidden>
+    <p class="nota">Pegá acá el CSV que devuelve la Task de Grok (encabezado <code>fecha,fuente,url,titulo,marca,precio,precio_lista,litros,unidades,tipo,detalle</code>). El server valida cada fila, comprueba el precio contra la página y lo guarda en el repo. Ver <code>docs/grok-task.md</code>.</p>
+    <div class="filtros"><label>Clave de carga <input id="c-clave" type="password" autocomplete="off" placeholder="LUB_CARGA_CLAVE (no se guarda)"></label></div>
+    <textarea id="c-csv" rows="10" style="width:100%;font:13px monospace" spellcheck="false" placeholder="fecha,fuente,url,titulo,..."></textarea>
+    <p><button id="c-enviar" class="link" style="font-size:15px">Enviar</button></p>
+    <div id="c-out"></div>
+    <h2>Cargado este mes</h2>
+    <div id="c-mes"></div>
+  </section>
+
   <section id="fuentes" hidden>
     <h2>Estado de las fuentes</h2>
     <div id="fue-out"></div>
@@ -107,7 +123,7 @@ table.comp th:nth-child(1) { width: 26%; } table.comp th:nth-child(2) { width: 1
     <p class="nota">Avisos con más de un candidato o ninguno. No se adivina: quedan afuera del comparador y del índice hasta que se agreguen a <code>seed/alias.csv</code>.</p>
     <div id="sm-out"></div>
     <h2 id="api">Cómo usar la API</h2>
-    <p class="nota">Todas las rutas <code>/api/*</code> piden la clave en el header <code>X-API-Key</code> (o Basic Auth, contraseña = clave). Nunca en la URL. Agregá <code>?formato=csv</code> para CSV. Rutas: <code>productos</code>, <code>equivalencias</code>, <code>ultimo</code>, <code>obs?mes=AAAA-MM</code>, <code>serie?p=producto_id</code>, <code>indice</code>, <code>fuentes</code>, <code>sin_match</code>, <code>oferta_ml</code>.</p>
+    <p class="nota">Todas las rutas <code>/api/*</code> piden la clave en el header <code>X-API-Key</code> (o Basic Auth, contraseña = clave). Nunca en la URL. Agregá <code>?formato=csv</code> para CSV. Rutas: <code>servicios</code>, <code>grok?mes=AAAA-MM</code>, <code>productos</code>, <code>equivalencias</code>, <code>ultimo</code>, <code>obs?mes=AAAA-MM</code>, <code>serie?p=producto_id</code>, <code>indice</code>, <code>fuentes</code>, <code>sin_match</code>, <code>oferta_ml</code>.</p>
     <p class="nota">Python sin dependencias:</p>
 <pre>import csv, io, os, urllib.request
 
@@ -139,7 +155,12 @@ const entero = new Intl.NumberFormat("es-AR");
 const dec1 = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 1 });
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-const nf = f => (NOMBRE_FUENTE[f] || f) + (MAYORISTAS.includes(f) ? " (mayorista)" : "");
+const esGrok = f => f.startsWith("grok_");
+const hostGrok = f => (D.grok_sitios || []).find(x => x.fuente === f)?.host || "";
+const nf = f => esGrok(f) ? "Grok · " + (hostGrok(f) || f) : (NOMBRE_FUENTE[f] || f) + (MAYORISTAS.includes(f) ? " (mayorista)" : "");
+const nfh = f => esGrok(f) && hostGrok(f) ? `Grok · <a href="https://${esc(hostGrok(f))}" rel="noreferrer noopener" target="_blank">${esc(hostGrok(f))}</a>` : esc(nf(f));
+const sello = v => v === "1" ? '<span class="badge confirmada">✓ verificado</span>' : '<span class="badge">no verificado</span>';
+const linkUrl = (url, txt) => /^https:\/\//.test(url) ? `<a href="${esc(url)}" rel="noreferrer noopener" target="_blank">${esc(txt)}</a>` : esc(txt);
 const fechaAR = iso => iso ? iso.slice(8, 10) + "/" + iso.slice(5, 7) + "/" + iso.slice(0, 4) : "";
 const dia = iso => Date.parse(iso + "T00:00:00Z") / 864e5;
 
@@ -231,9 +252,9 @@ function comparador() {
         dif = `<br><span class="${d > 0 ? "caro" : "barato"}">${d > 0 ? "+" : ""}${dec1.format(d)} %</span>`;
       } else dif = `<br><span class="vacio">sin YPF para comparar</span>`;
     }
-    return `<td class="n">${pesos.format(u.precio_litro)}/L${dif}<br><span class="mut">${fechaAR(u.fecha)}${u.n > 1 ? " · " + u.n + " precios" : ""}</span></td>`;
+    return `<td class="n">${pesos.format(u.precio_litro)}/L${dif}<br><span class="mut">${fechaAR(u.fecha)}${u.n > 1 ? " · " + u.n + " precios" : ""}</span>${esGrok(u.fuente) ? `<br><span class="mut">${linkUrl(u.url, nf(u.fuente))}</span> ${sello(u.verificado)}` : ""}</td>`;
   };
-  const cab = `<tr><th>Producto</th><th>Equivalencia</th>${fuentes.map(f => `<th>${esc(nf(f))}</th>`).join("")}</tr>`;
+  const cab = `<tr><th>Producto</th><th>Equivalencia</th>${fuentes.map(f => `<th>${nfh(f)}</th>`).join("")}</tr>`;
   out.innerHTML = filas.map(p => {
     const eqs = equivDe(p.producto_id);
     const filasEq = eqs.length ? eqs.map(e => {
@@ -275,7 +296,7 @@ async function evolucion() {
   out.innerHTML = ley + fuentes.map(f => {
     const lineas = ids.map(x => ({ color: color[x], nombre: nombre(x), puntos: series[x].filter(s => s.fuente === f).map(s => [s.fecha, s.precio_litro]) }));
     const caida = caidas().find(c => c.fuente === f);
-    return `<div class="graf"><h3>${esc(nf(f))}${caida ? ` <span class="vacio">${esc(motivoVacio(f))}</span>` : ""}</h3>${grafico(lineas)}</div>`;
+    return `<div class="graf"><h3>${nfh(f)}${caida ? ` <span class="vacio">${esc(motivoVacio(f))}</span>` : ""}</h3>${grafico(lineas)}</div>`;
   }).join("");
 }
 
@@ -352,7 +373,7 @@ function sparkline(filas, desde) {
 function fuentes() {
   $("#fue-out").innerHTML = !D.fuentes.length ? `<div class="explica">Todavía no corrió ninguna recolección (<code>data/fuentes.csv</code> vacío).</div>` :
     `<div class="tabla"><table><tr><th>Fuente</th><th>Última corrida</th><th>HTTP</th><th>Ítems</th><th>Con precio</th><th>Sin stock</th><th>Sin match</th><th>Último OK</th><th>Días sin datos</th><th>Error</th></tr>
-    ${D.fuentes.map(f => `<tr><td>${esc(nf(f.fuente))}<br><span class="mut">${esc(f.fuente)}</span></td><td>${fechaAR(f.fecha)}</td><td>${esc(f.http) || '<span class="vacio">sin respuesta</span>'}</td>
+    ${D.fuentes.map(f => `<tr><td>${nfh(f.fuente)}<br><span class="mut">${esc(f.fuente)}</span></td><td>${fechaAR(f.fecha) || '<span class="vacio">sin cargas</span>'}</td><td>${esGrok(f.fuente) ? '<span class="mut">carga de Grok</span>' : esc(f.http) || '<span class="vacio">sin respuesta</span>'}</td>
       <td class="n">${esc(f.n_items)}</td><td class="n">${sinPrecios(f) ? '<span class="vacio" title="La fuente responde bien pero todos sus ítems están sin stock">sin precios con stock</span>' : esc(f.n_con_precio)}</td><td class="n">${esc(f.n_sin_stock)}</td><td class="n">${esc(f.n_sin_match)}</td>
       <td>${f.ultimo_ok ? fechaAR(f.ultimo_ok) : '<span class="vacio">nunca</span>'}</td>
       <td class="n${f.dias_sin_datos > 1 || f.dias_sin_datos === null ? " caro" : ""}">${f.dias_sin_datos ?? '<span class="vacio">nunca trajo datos</span>'}</td>
@@ -368,8 +389,51 @@ function fuentes() {
   document.querySelectorAll(".origen").forEach(e => e.textContent = location.origin);
 }
 
+// ---------- Servicios (combos) ----------
+function servicios() {
+  $("#srv-out").innerHTML = !D.servicios.length ? `<div class="explica">Todavía no se cargó ningún servicio (filas con <code>tipo=servicio</code>).</div>` :
+    `<div class="tabla"><table><tr><th>Fuente</th><th>Servicio</th><th>Precio</th><th>Detalle</th><th>Fecha</th><th></th></tr>
+    ${D.servicios.map(r => `<tr><td>${nfh(r.fuente)}</td><td>${linkUrl(r.url, r.titulo)}</td>
+      <td class="n">${pesos.format(r.precio)}${Number(r.precio_lista) > 0 ? `<br><span class="mut">lista ${pesos.format(r.precio_lista)}</span>` : ""}</td>
+      <td>${esc(r.detalle) || '<span class="vacio">sin detalle</span>'}</td><td>${fechaAR(r.fecha)}</td><td>${sello(r.verificado)}</td></tr>`).join("")}</table></div>`;
+}
+
+// ---------- Cargar ----------
+async function mesCargado() {
+  const mes = new Date().toISOString().slice(0, 7);
+  try {
+    const r = await fetch(location.origin + "/api/grok?mes=" + mes, { credentials: "same-origin" });
+    if (r.status === 404) return $("#c-mes").innerHTML = `<div class="explica">Todavía no hay cargas de Grok en ${mes}.</div>`;
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const filas = await r.json();
+    $("#c-mes").innerHTML = `<div class="tabla"><table><tr><th>Fecha</th><th>Fuente</th><th>Título</th><th>Tipo</th><th>Precio</th><th>Producto</th><th></th></tr>
+      ${filas.map(f => `<tr><td>${fechaAR(f.fecha)}</td><td>${nfh(f.fuente)}</td><td>${linkUrl(f.url, f.titulo)}</td><td>${esc(f.tipo)}</td>
+        <td class="n">${pesos.format(f.precio)}</td><td>${esc(f.producto_id) || '<span class="vacio">sin producto</span>'}</td><td>${sello(f.verificado)}</td></tr>`).join("")}</table></div>`;
+  } catch (e) { $("#c-mes").innerHTML = `<div class="explica">No se pudo leer lo cargado: ${esc(e.message)}</div>`; }
+}
+
+async function enviar() {
+  const out = $("#c-out"), clave = $("#c-clave").value;
+  if (!$("#c-csv").value.trim()) return out.innerHTML = `<div class="explica">Pegá el CSV primero.</div>`;
+  out.textContent = "Enviando… (el server baja cada página para verificar el precio, puede tardar)";
+  const h = { "Content-Type": "text/csv; charset=utf-8" };
+  if (clave) h["X-Carga-Clave"] = clave;  // solo en memoria: nunca a localStorage ni a la URL
+  let r, j;
+  try {
+    r = await fetch(location.origin + "/api/cargar", { method: "POST", headers: h, body: $("#c-csv").value, credentials: "same-origin" });
+    j = await r.json();
+  } catch (e) { return out.innerHTML = `<div class="explica">No se pudo enviar: ${esc(e.message)}</div>`; }
+  const errs = (j.errores || []).map(e => `<tr><td class="n">${e.fila ?? ""}</td><td>${esc(e.titulo || "")}</td><td><span class="caro">rechazada</span></td><td>${esc(e.error)}</td></tr>`).join("");
+  const oks = (j.filas || []).map(f => `<tr><td class="n">${f.fila}</td><td>${esc(f.titulo)}</td><td>${sello(f.verificado ? "1" : "0")}</td>
+    <td>${esc(f.tipo)}${f.producto_id ? " · " + esc(f.producto_id) : ""}</td></tr>`).join("");
+  out.innerHTML = (j.ok ? `<p><strong>${j.ok} filas guardadas</strong> (${j.verificadas} verificadas, ${j.no_verificadas} no verificadas, ${(j.errores || []).length} rechazadas). Commit: ${esc(Array.isArray(j.commit) ? j.commit.map(c => c.slice(0, 7)).join(", ") : j.commit)}.</p>` : "") +
+    (j.error ? `<p class="caro">${esc(j.error)}</p>` : "") +
+    (errs || oks ? `<div class="tabla"><table><tr><th>Fila</th><th>Título</th><th>Estado</th><th>Detalle</th></tr>${errs}${oks}</table></div>` : "");
+  if (j.ok) { await cargarDatos(); mesCargado(); }
+}
+
 // ---------- pestañas ----------
-const vistas = { comparador: () => {}, evolucion, indice: () => {}, fuentes: () => {} };
+const vistas = { comparador: () => {}, evolucion, indice: () => {}, fuentes: () => {}, cargar: mesCargado };
 function ir(tab) {
   if (!vistas[tab]) tab = "comparador";
   document.querySelectorAll("nav button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === tab));
@@ -380,21 +444,29 @@ function ir(tab) {
 document.querySelectorAll("nav button").forEach(b => b.onclick = () => ir(b.dataset.tab));
 addEventListener("hashchange", () => ir(location.hash.slice(1)));
 
-(async () => {
-  ir(location.hash.slice(1));
+$("#c-enviar").onclick = enviar;
+
+async function cargarDatos() {
   try {
-    const nombres = ["productos", "equivalencias", "ultimo", "indice", "fuentes", "sin_match"];
+    const nombres = ["productos", "equivalencias", "ultimo", "indice", "fuentes", "sin_match", "servicios", "grok_sitios"];
     const r = await Promise.all(nombres.map(api));
     nombres.forEach((n, i) => D[n] = r[i]);
   } catch (e) {
     $("#banner").textContent = "No se pudieron leer los datos: " + e.message;
-    document.querySelectorAll("main section > div[id$=out]").forEach(d => d.textContent = "");
-    return;
+    document.querySelectorAll("main section > div[id$=out]").forEach(d => { if (d.id !== "c-out") d.textContent = ""; });
+    return false;
   }
+  for (const k in series) delete series[k];
   D.prodPorId = Object.fromEntries(D.productos.map(p => [p.producto_id, p]));
+  $("#banner").innerHTML = "";
   banner();
-  initComparador(); initEvolucion(); indice(); fuentes();
+  initComparador(); initEvolucion(); indice(); fuentes(); servicios();
+  return true;
+}
+
+(async () => {
   ir(location.hash.slice(1));
+  if (await cargarDatos()) ir(location.hash.slice(1));
 })();
 </script>
 </body>
