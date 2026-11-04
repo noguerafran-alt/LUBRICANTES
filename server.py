@@ -40,7 +40,11 @@ OFERTA_F = "fecha,categoria_id,categoria,total_items".split(",")
 GROK_F = "fecha,fuente,url,titulo,marca,precio,precio_lista,litros,unidades,tipo,detalle".split(",")  # lo que devuelve la Task de Grok
 GROK_ALM_F = GROK_F + ["verificado", "producto_id", "match", "cargado"]  # lo que se guarda en data/grok/
 SITIOS_F = ["fuente", "host", "descripcion"]
-SERVICIOS_F = [c for c in GROK_ALM_F if c not in ("tipo", "producto_id", "match")]
+SERVICIOS_F = [c for c in GROK_ALM_F if c not in ("tipo", "producto_id", "match")] + ["solo_aceite", "precio_litro"]
+# Un combo con cualquiera de estos ítems en `detalle` no es "aceite + colocación": su precio no se divide por litro.
+# ponytail: lista negra de palabras; un repuesto que no esté acá se dividiría. Sumarlo si aparece.
+RX_EXTRA = re.compile(r"filtro|kit|aditiv|refrigerante|lavado|buj[ií]a|pastilla|l[ií]quido|limpi|alineaci|balanceo|neum[aá]tic|"
+                      r"escobill|l[aá]mpara|bater[ií]a|correa|flushing|repuesto", re.I)
 MAX_FILAS, MAX_CARGAS_DIA, MAX_BYTES = 500, 10, 2_000_000
 RX_FUENTE = re.compile(r"grok_[a-z0-9_]{2,30}")
 RX_FECHA = re.compile(r"\d{4}-\d{2}-\d{2}")
@@ -114,12 +118,24 @@ def clave_grok(r):
     return r["fuente"], r["fecha"], r["url"], r["titulo"], r["detalle"]
 
 
+def litro_servicio(r):
+    """Combo de solo aceite + colocación → $/L (con la mano de obra adentro). Con filtros u otro repuesto, o sin litros → vacío."""
+    litros = pos(r["litros"])
+    if not litros or RX_EXTRA.search(r["detalle"]):
+        return "0", ""
+    return "1", round(float(r["precio"]) / (litros * (pos(r["unidades"]) or 1)), 2)
+
+
 def servicios(grok):
     ult = {}
     for r in sorted(grok, key=lambda r: r["fecha"]):
         if r["tipo"] == "servicio":
             ult[clave_grok(r)[:1] + clave_grok(r)[2:]] = r
-    return sorted(ult.values(), key=lambda r: (r["fuente"], r["titulo"]))
+    out = []
+    for r in ult.values():
+        solo, pl = litro_servicio(r)
+        out.append({**r, "solo_aceite": solo, "precio_litro": pl})
+    return sorted(out, key=lambda r: (r["fuente"], r["titulo"]))
 
 
 def equivalencias(d):
@@ -770,6 +786,14 @@ def demo():
         combos = sorted((r["detalle"], r["precio"]) for r in d2["grok"] if r["titulo"] == "Combo HX7 X 4L")
         assert combos == [("filtro aire", "85000"), ("filtro aire;filtro aceite", "99000")], combos
         assert sum(r["titulo"] == "Combo HX7 X 4L" for r in calcular(d2)["servicios"]) == 2  # /api/servicios tampoco los colapsa
+        # $/L de servicio: solo aceite + colocación se divide; con filtros, no
+        sv0 = dict(fila(tipo="servicio"), verificado="0", cargado="x", producto_id="", match="none")
+        assert litro_servicio(dict(sv0, precio="96990", litros="4", detalle="COLOCACIÓN Y CONTROLES;zona: sin selector")) == ("1", 24247.5)
+        assert litro_servicio(dict(sv0, precio="194790", litros="8", unidades="", detalle="HELIX HX7 10W-40 X 8L;Mano de obra: Incluida")) == ("1", 24348.75)
+        assert litro_servicio(dict(sv0, precio="239990", litros="4", detalle="FILTRO AIRE;FILTRO ACEITE;COLOCACIÓN")) == ("0", "")
+        assert litro_servicio(dict(sv0, precio="303690", litros="5", detalle="Filtro de aire JFA-0285;Mano de obra")) == ("0", "")
+        assert litro_servicio(dict(sv0, precio="76990", litros="", detalle="COLOCACIÓN")) == ("0", "")
+        assert {(r["detalle"], r["solo_aceite"]) for r in calcular(d2)["servicios"] if r["titulo"] == "Combo HX7 X 4L"} ==             {("filtro aire", "0"), ("filtro aire;filtro aceite", "0")}
         # tope de 10 cargas por día
         for i in range(12):
             cod, _ = procesar_carga(d2, raiz, csv_de(fila(titulo=f"Combo HX7 n{i}", fecha="2030-01-01")), hoy=date(2030, 1, 1),

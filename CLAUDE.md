@@ -157,7 +157,7 @@ contraseña `LUB_CLAVE`). Respuestas JSON; `?formato=csv` devuelve CSV.
 | `/api/fuentes` | último estado de cada fuente + días sin datos |
 | `/api/sin_match` | avisos sin `producto_id` (cola de revisión) |
 | `/api/oferta_ml` | `data/ml_oferta.csv` |
-| `/api/servicios` | último precio de cada servicio/combo cargado por Grok (`tipo=servicio`), con `verificado`; no es $/L |
+| `/api/servicios` | último precio de cada servicio/combo cargado por Grok (`tipo=servicio`), con `verificado`, `solo_aceite` y `precio_litro`: si `detalle` no nombra filtros ni otro repuesto (`RX_EXTRA`) y hay litros, `precio_litro = precio / (litros × unidades)` con la colocación adentro; si no, vacío. Nunca entra al comparador ni al índice |
 | `/api/grok?mes=AAAA-MM` | filas Grok crudas del mes (con `verificado`, `tipo`, `cargado`); van aparte de `/api/obs` |
 | `/api/grok_sitios` | `seed/grok_sitios.csv` |
 | `POST /api/cargar` | carga de un CSV de Grok (ver abajo) |
