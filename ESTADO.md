@@ -53,6 +53,12 @@ Actualizado 2026-11-04 (carga de Grok). Remoto privado `noguerafran-alt/LUBRICAN
 - "HELIX ULTRA HX8 5W-40" entraba como `shell-helix-ultra-5w40` por el alias genérico de Helix Ultra. Un título que mezcla Ultra y HXn es ambiguo: los alias genéricos de Helix Ultra excluyen `hx\s*\d` y queda sin match (assert en `normalizar.py test`). `--renormalizar` ahora también recorre `data/grok/` (solo `producto_id`/`match`). Diff contra main: obs sin cambios; grok solo la fila HX8 pasa a sin match.
 - Pendiente: Grok reenvía las 33 filas (idempotente: las 17 guardadas se pisan, las 16 faltantes entran).
 
+## Primera corrida de ML en la Action (2026-11-04, run 41860377079) — ML INOP
+- Recolectar OK: `ml` 2385 avisos con precio (194 sin match), y `ypf_gql` **trajo 69 desde Actions** (el "200 sin data" del 2026-11-03 no se repitió). SEPA OK.
+- **Falla:** el paso "Rotar refresh token ML" dio `HTTP 403: Resource not accessible by personal access token` en `actions/secrets/public-key`: el `GH_PAT` cargado no tiene permiso de Secrets. El canje ya había rotado el refresh, así que el nuevo se perdió y el viejo (el del secret y el de `.ml_local` en la PC) ya no vale. **ML queda sin token en los dos lados** hasta reautorizar.
+- Acción correctiva en `recolectar.yml`: paso "Chequear GH_PAT" que prueba `gh api .../actions/secrets/public-key` ANTES del canje; si falla, ML no recibe `ML_REFRESH_TOKEN` (queda "sin token") y el refresh no se quema.
+- Para volver a servicio (usuario): (1) GH_PAT con permiso **Secrets: Read and write** sobre LUBRICANTES (fine-grained) y recargarlo; (2) `python ml.py autorizar` en la PC; (3) subir el refresh nuevo de `.ml_local` a `ML_REFRESH_TOKEN`; (4) desde ahí la PC no corre `--solo ml`.
+
 ## Visor y README verificados (2026-11-04, sin cambios de código)
 - lub-test en navegador: a 375 px las pestañas Cargar, Fuentes e Índice entran en el viewport (las tablas scrollean dentro de su contenedor); la etiqueta "Grok · www.helixturno.com.ar" aparece en Fuentes y en el aviso de fuentes con problemas, con "sin cargas" explicado. Consola sin errores propios del visor. Comparador y Evolución a 375 px no se recorrieron.
 - Snippet de pandas del README ejecutado contra server.py local (pandas + requests): `/api/obs?mes=2026-11` 2789x15, `/api/ultimo?formato=csv` 190x9. Correcto, no se tocó.

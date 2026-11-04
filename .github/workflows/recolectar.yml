@@ -21,12 +21,24 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      # El canje de ML rota el refresh: si después no se puede guardar, se pierde (pasó el 2026-11-04 con un PAT sin
+      # permiso de Secrets). Se prueba ANTES que GH_PAT llega a los secrets; si no, ML no corre y el token queda intacto.
+      # ponytail: solo prueba lectura de la clave pública; un PAT con Secrets "read-only" pasaría. Darle "Read and write".
+      - name: Chequear GH_PAT
+        id: pat
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          if [ -n "$GH_TOKEN" ] && gh api "repos/$GITHUB_REPOSITORY/actions/secrets/public-key" --silent; then
+            echo "ok=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::GH_PAT falta o no tiene permiso Secrets read/write sobre este repo: ML no corre (el refresh no se canjea)"
+          fi
       - name: Recolectar
         env:
           ML_CLIENT_ID: ${{ secrets.ML_CLIENT_ID }}
           ML_CLIENT_SECRET: ${{ secrets.ML_CLIENT_SECRET }}
-          # Sin GH_PAT el refresh rotado no se puede guardar y el token se perdería: ML queda "sin token".
-          ML_REFRESH_TOKEN: ${{ secrets.GH_PAT != '' && secrets.ML_REFRESH_TOKEN || '' }}
+          ML_REFRESH_TOKEN: ${{ steps.pat.outputs.ok == '1' && secrets.ML_REFRESH_TOKEN || '' }}
         run: python recolectar.py
       # El refresh de ML es de un solo uso: si el canje rotó, hay que guardarlo aunque falle lo demás.
       - name: Rotar refresh token ML
@@ -34,12 +46,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
-          if [ -n "$GH_TOKEN" ]; then
-            gh secret set ML_REFRESH_TOKEN --repo "$GITHUB_REPOSITORY" < .ml_refresh_nuevo
-          else
-            echo "::warning::Falta el secret GH_PAT: el refresh token nuevo de ML no se guardó"
-          fi
-          rm -f .ml_refresh_nuevo
+          trap 'rm -f .ml_refresh_nuevo' EXIT
+          gh secret set ML_REFRESH_TOKEN --repo "$GITHUB_REPOSITORY" < .ml_refresh_nuevo
       - name: Comitear data/
         if: always()
         run: |
