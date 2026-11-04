@@ -118,3 +118,10 @@ Actualizado 2026-11-04 (carga de Grok). Remoto privado `noguerafran-alt/LUBRICAN
 - Lista blanca `seed/grok_sitios.csv`: helix + 15 sitios revisados (robots.txt y términos).
 - No habilitados: enausa (términos), mejorescompras (republica ML), fiatturin/motoracing/performance-lube y donagro (robots bloquea bots de IA), lubritodo/autodo/maxkar (términos prohíben copia o extracción), sodimac (Cloudflare), ceridono (solo aceites de refrigeración).
 - Visor 2026-11-04: el Comparador en escritorio tenía columnas de ~57 px y los textos se pisaban; ahora cada fuente tiene 118 px fijos (encabezados en dos líneas) y la tabla scrollea dentro de su recuadro. El banner junta en una línea los sitios Grok habilitados que todavía no tuvieron carga.
+
+## Visor: mejora visual y responsive (2026-11-04, solo `site/index.html`)
+- Fix tras rechazo: en <=640 px los `.filtros` (label, select, input) ocupan 100% y `min-width: 0`, así el select largo de Evolución ya no ensancha la página (antes `scrollWidth` 458 a 375 px). Sin re-medir en navegador.
+- Encabezado en una fila (título + pestañas, que scrollean solas si no entran); banner de avisos en una línea con `<details>` (el texto de cada aviso sigue igual al abrirlo); título de Vitrina más chico.
+- Carrusel: la tarjeta actual ocupa todo el ancho (sin vecinas cortadas); foto de 230 px de columna con imagen de 190 px (150 px en tablet); a 640 px o menos la foto es una franja de 124 px (tope 140 px; el slide no estira la fila, `align-content: start`) arriba del nombre, y el buscador mide 44 px. Nombre y precios más chicos para que precio YPF, precio competencia y diferencia % entren sin scroll a 1366x768.
+- Celular: inputs a 16 px y 44 px de alto, pestañas de 44 px, `.vt-slide` con `min-width: 0` contra el desborde horizontal.
+- No verificado en navegador (sin medir `scrollWidth` ni `getBoundingClientRect`): queda para lub-test.
