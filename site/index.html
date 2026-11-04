@@ -65,6 +65,18 @@ h2 { font-size: 17px; margin: 18px 0 6px; }
 /* misma grilla en todas las tablas del comparador, aunque sean una por producto */
 table.comp { table-layout: fixed; min-width: 640px; }
 table.comp th:nth-child(1) { width: 26%; } table.comp th:nth-child(2) { width: 17%; }
+/* en el celular la tabla de cada producto pasa a tarjeta: una fila por producto, una línea por fuente (data-l = nombre de la fuente) */
+@media (max-width: 640px) {
+  table.comp { min-width: 0; table-layout: auto; }
+  table.comp, table.comp tbody, table.comp tr, table.comp td { display: block; width: 100%; }
+  table.comp tr:first-child { display: none; }
+  table.comp tr + tr { border-top: 1px solid var(--borde); }
+  table.comp td { border-bottom: 0; padding: 4px 10px; }
+  table.comp td:first-child { padding-top: 10px; font-weight: 600; }
+  table.comp td:empty { display: none; }
+  table.comp td[data-l] { display: flex; justify-content: space-between; gap: 12px; text-align: right; white-space: normal; }
+  table.comp td[data-l]::before { content: attr(data-l); color: var(--mut); font-size: 12px; font-weight: 400; text-align: left; flex: 0 1 45%; }
+}
 </style>
 </head>
 <body>
@@ -242,7 +254,7 @@ function comparador() {
 
   const celda = (pid, f, ref) => {
     const u = precio[pid + "|" + f];
-    if (!u) return `<td><span class="vacio" title="${esc(motivoVacio(f))}">${esc(motivoVacio(f))}</span></td>`;
+    if (!u) return `<td data-l="${esc(nf(f))}"><span class="vacio" title="${esc(motivoVacio(f))}">${esc(motivoVacio(f))}</span></td>`;
     let dif = "";
     if (ref) {
       const r = precio[ref + "|" + f];
@@ -252,7 +264,7 @@ function comparador() {
         dif = `<br><span class="${d > 0 ? "caro" : "barato"}">${d > 0 ? "+" : ""}${dec1.format(d)} %</span>`;
       } else dif = `<br><span class="vacio">sin YPF para comparar</span>`;
     }
-    return `<td class="n">${pesos.format(u.precio_litro)}/L${dif}<br><span class="mut">${fechaAR(u.fecha)}${u.n > 1 ? " · " + u.n + " precios" : ""}</span>${esGrok(u.fuente) ? `<br><span class="mut">${linkUrl(u.url, nf(u.fuente))}</span> ${sello(u.verificado)}` : ""}</td>`;
+    return `<td class="n" data-l="${esc(nf(f))}"><span>${pesos.format(u.precio_litro)}/L${dif}<br><span class="mut">${fechaAR(u.fecha)}${u.n > 1 ? " · " + u.n + " precios" : ""}</span>${esGrok(u.fuente) ? `<br><span class="mut">${linkUrl(u.url, nf(u.fuente))}</span> ${sello(u.verificado)}` : ""}</span></td>`;
   };
   const cab = `<tr><th>Producto</th><th>Equivalencia</th>${fuentes.map(f => `<th>${nfh(f)}</th>`).join("")}</tr>`;
   out.innerHTML = filas.map(p => {
@@ -260,7 +272,7 @@ function comparador() {
     const filasEq = eqs.length ? eqs.map(e => {
       const c = prod(e.comp_id);
       return `<tr><td>${esc(e.comp_marca)} ${esc(e.comp_nombre || e.comp_id)}${c ? "" : ` <span class="vacio">(no está en productos.csv)</span>`}</td>
-        <td><span class="badge">${esc(TIPO[e.tipo] || e.tipo)}</span><span class="badge ${esc(e.evidencia)}">${esc(e.evidencia)}</span></td>
+        <td data-l="Equivalencia"><span><span class="badge">${esc(TIPO[e.tipo] || e.tipo)}</span><span class="badge ${esc(e.evidencia)}">${esc(e.evidencia)}</span></span></td>
         ${fuentes.map(f => celda(e.comp_id, f, p.producto_id)).join("")}</tr>`;
     }).join("") : `<tr><td colspan="${fuentes.length + 2}" class="vacio">Sin equivalencias cargadas en seed/equivalencias.csv</td></tr>`;
     return `<div class="tabla"><table class="comp">${cab}
