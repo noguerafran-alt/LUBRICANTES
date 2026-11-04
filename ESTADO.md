@@ -69,6 +69,9 @@ Actualizado 2026-11-04 (carga de Grok). Remoto privado `noguerafran-alt/LUBRICAN
 - La página nunca desbordaba (scrollWidth = 375 en las 5 pestañas), pero el Comparador arma una tabla de ~650 px por producto: en el celular cada una había que deslizarla de costado. Ahora, a 640 px o menos, cada tabla se muestra como tarjeta (una línea por fuente con su nombre a la izquierda, `data-l`); en escritorio la tabla queda igual.
 - Verificado en el navegador con datos reales: a 375 px, 116 tarjetas y ninguna desborda; a 1280 px, tabla con encabezado; consola sin errores.
 
+## Relevamiento de fuentes candidatas (2026-11-04)
+- 61 sitios revisados, 37 con precio visto. Lista completa en `docs/relevamiento/fuentes-candidatas.md`; resumen y reglas para seguir relevando en `CLAUDE.md` ("Fuentes: en uso y candidatas"). Ninguna implementada todavía. Falta leer los términos de uso de cada una antes de sumarla.
+
 ## Visor y README verificados (2026-11-04, sin cambios de código)
 - lub-test en navegador: a 375 px las pestañas Cargar, Fuentes e Índice entran en el viewport (las tablas scrollean dentro de su contenedor); la etiqueta "Grok · www.helixturno.com.ar" aparece en Fuentes y en el aviso de fuentes con problemas, con "sin cargas" explicado. Consola sin errores propios del visor. Comparador y Evolución a 375 px no se recorrieron.
 - Snippet de pandas del README ejecutado contra server.py local (pandas + requests): `/api/obs?mes=2026-11` 2789x15, `/api/ultimo?formato=csv` 190x9. Correcto, no se tocó.

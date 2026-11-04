@@ -130,8 +130,33 @@ data/catalogo_ypf.json # foto del catálogo oficial YPF (el diff de git avisa al
 
 VTEX pagina de a 50 (`_from`/`_to`, máximo 2500). 1 request/s por host,
 `User-Agent` honesto, timeout 30 s, un reintento. Las tiendas Shopify/Tiendanube consultan antes el `robots.txt` del host
-(`tiendas.permitido`, `urllib.robotparser`): si no se puede leer, la fuente no corre. Coto está **diferido**: no se leyeron
-sus términos de uso, no se implementa hasta leerlos.
+(`tiendas.permitido`, `urllib.robotparser`): si no se puede leer, la fuente no corre. Coto está **diferido**: sus términos
+(cláusula 2.3 ix) prohíben el uso comercial sin autorización escrita; no se implementa sin esa autorización.
+
+## Fuentes: en uso y candidatas
+
+**En uso** (todas las de la tabla de arriba, más Grok): Mercado Libre (API con token) · SEPA/Precios Claros · Carrefour,
+Más Online, Easy, Jumbo, Norauto (VTEX) · D'Atri (Shopify, mayorista) · LS Palermo y Casa González (Tiendanube) ·
+catálogo YPF (GraphQL, sin precios) · categorías ML · helixturno.com.ar vía Grok (`grok_helix`, combos).
+
+**Candidatas, NO en uso:** relevamiento del 2026-11-04 en `docs/relevamiento/fuentes-candidatas.md` (61 sitios, 37 con
+precio visto; estado, ejemplo de precio, forma de lectura, robots/términos y notas de cada uno). Resumen:
+- `automatica` (API JSON, se suman al recolector como las actuales): API JSON de helixturno (reemplaza a Grok para Shell),
+  neumaticoslarutaok, repuestosrano, allenderepuestos, lubritodo, olafil, autodo, daytona, tiendaneumaticos, fiatturin, ceridono.
+- `automatica_o_grok`: performance-lube (YPF, Puma, Mobil, Shell, Castrol y Total juntos), lubrimaster, lubricentrodg,
+  exporepuestos, laestacionsrl, enausa (mayorista YPF con IVA), mejorescompras (historial de ML).
+- `grok`: motoracing, norfren, lubricentromaximo (robots pide ir lento), netrenault, gramagliarepuestos, maxkar,
+  comprarmarket, hermanrepuestos, lubricentrotorooils, donagro, sodimac.
+- No usar: cambiodeaceite.com.ar (robots bloquea todo bot salvo Google), precialo (bloquea bots de IA), Coto.
+- Hallazgo: **YPF no publica precio en ningún canal propio** (YPF Boxes solo en la app con login); Axion/Castrol, Bardahl,
+  Motul y Liqui Moly tampoco. El precio de las marcas siempre sale de terceros.
+
+**Para seguir relevando** (cualquier sesión o cuenta):
+1. Un sitio cuenta solo si se abrió la página y se vio un precio en pesos de un lubricante concreto, con fecha. Si no, `precio visto = no`.
+2. Mirar `robots.txt` y los términos de uso antes de proponerlo. Si prohíbe bots o el uso comercial, va a "no usar" con la cláusula citada.
+3. Preferir API (Tiendanube, WooCommerce `/wp-json/wc/store/v1/products`, VTEX `/api/catalog_system/pub/products/search`, Shopify `/products.json`) antes que Grok.
+4. Anotar cada hallazgo en `docs/relevamiento/fuentes-candidatas.md` (misma tabla); no se toca el código ni `data/` para relevar.
+5. Pasar una candidata a uso = implementarla con `/lub-cambio` (lub-edit + lub-test) y moverla a "En uso" acá.
 
 ## Mercado Libre con token
 
