@@ -23,7 +23,7 @@ Actualizado 2026-11-04 (carga de Grok). Remoto privado `noguerafran-alt/LUBRICAN
 - D'Atri es **mayorista**: `/api/indice` lo excluye (`?mayoristas=1` lo suma) y el visor lo rotula. IVA sin verificar. Los títulos casi no dicen "Castrol": la marca sale de EDGE/GTX/MAGNATEC/VECTON (`normalizar.MARCAS`); el resto queda sin marca ni match, a propósito. Cajas con variante en quarts (1QT) → `litros` vacío. `agents.md` de la tienda pide identificarse con Web Bot Auth al tráfico "de agentes" server-to-server; `robots.txt` permite `/products.json` y mandamos el User-Agent honesto de siempre. Revisar si D'Atri se queja.
 - Tiendanube: `robots.txt` de LS Palermo y Casa González no bloquea `/productos/` ni los sitemaps (se chequea en código en cada corrida). Rotación: tope 150 páginas por tienda/día; LS Palermo (229 URLs de aceite) se lee en dos mitades alternadas por `sha1(url)`, cada URL cada 2 días (`ultimo` en la API ya muestra la fecha de cada precio). Si el sitemap crece, k crece solo. Se loguea "cortadas N" y el tiempo en el log de la Action. Si sobra tiempo, subir `TOPE_PAGINAS` (250 cubre todo y suma ~2 min).
 - Seed: 5 productos nuevos (Magnatec Stop-Start 5W-40 A3/B4, 5W-30 C3, 5W-30 A5; Shell Helix Ultra 5W-30 y 0W-20) con EAN de Norauto o título explícito de D'Atri; `inferido`. Magnatec Stop-Start 5W-30 en Norauto no dice C3/A5 y queda sin match. Falta correr `python recolectar.py --renormalizar` para que el histórico use los alias nuevos.
-- **Coto: diferido.** Sus términos de uso no se leyeron; no se implementó (receta en el relevamiento).
+- **Coto: diferido.** Términos leídos el 2026-11-04: ver sección Coto.
 - Duda de "Edge Professional 0W-20" / "Edge Titan 5W-30": resuelta en la tanda "Seed sin match" (abajo).
 
 ## Carga de Grok (2026-11-04)
@@ -42,13 +42,27 @@ Actualizado 2026-11-04 (carga de Grok). Remoto privado `noguerafran-alt/LUBRICAN
 - Sin match a propósito: "Quartz Ineo 5W-30" sin variante (no se toca); "Edge Professional 0W-20" y "Edge Titan 5W-30" (no hay producto propio en el seed); títulos con más de un candidato; cola de ML con pocos avisos por producto (174 avisos restantes).
 - Verificado: `normalizar.py test` con asserts de los casos nuevos (incluido Edge Professional/Titan) y los demás tests dan OK. No verificado: nada contra red ni ML con token; los alias son `inferida`, no salen de fichas.
 
+## ypf_gql: causa del "HTTP 200 sin data" (2026-11-04)
+- La corrida 2026-11-03 de Actions dio "HTTP 200 sin data"; desde la PC `--solo ypf_gql` trae 69 productos. La causa no se pudo probar fuera de Actions. Cambio en `recolectar.py`: cuando ypf_gql falla, el error de `data/fuentes.csv` lleva un extracto saneado del cuerpo (mensaje de `errors` de GraphQL o primeros 120 caracteres), para que la próxima corrida diaria diga la causa. Assert en `demo()`; `python recolectar.py test` da OK.
+- Efecto lateral: el pedido de ypf_gql pasa por `ml.pedir(..., texto=True)`, que manda `Accept: */*` en vez de `application/json`. Hoy sigue trayendo 69 productos; si la Action empezara a fallar distinto, mirar esto primero.
+- No verificado: la causa real, ni la Action.
+
+## Visor y README verificados (2026-11-04, sin cambios de código)
+- lub-test en navegador: a 375 px las pestañas Cargar, Fuentes e Índice entran en el viewport (las tablas scrollean dentro de su contenedor); la etiqueta "Grok · www.helixturno.com.ar" aparece en Fuentes y en el aviso de fuentes con problemas, con "sin cargas" explicado. Consola sin errores propios del visor. Comparador y Evolución a 375 px no se recorrieron.
+- Snippet de pandas del README ejecutado contra server.py local (pandas + requests): `/api/obs?mes=2026-11` 2789x15, `/api/ultimo?formato=csv` 190x9. Correcto, no se tocó.
+- Primera carga real de Grok: queda por reenviar con `fuente=grok_helix`.
+
+## Coto: términos leídos (2026-11-04) — sigue diferido, decisión del usuario
+- Los términos (https://www.coto.com.ar/ayuda?s=2) no nombran scraping ni robots, pero la cláusula 2.3 (ix) prohíbe el uso comercial del sitio sin autorización escrita de Coto, y un monitor de precios para YPF puede leerse como tal. La 11 prohíbe reproducir imágenes/textos (no menciona precios).
+- No hay API pública: el front lee el catálogo de Constructor.io (ac.cnstrc.com) con la clave de cliente de Coto embebida en el bundle, con precio por sucursal. No es un endpoint ofrecido a terceros: no se usa.
+- Conclusión: ambiguo con riesgo. No se implementa sin autorización escrita de Coto (o un dictamen de Legales de YPF).
+
 ## Falta
 - Deploy en Render: formulario armado en el workspace YPF (`lubricantes-ypf`, free, /salud); falta que el usuario cargue LUB_CLAVE y despliegue.
 - ML con token: app "Lubricantes AR precios" armada en DevCenter el 2026-11-03 (lectura de publicaciones, redirect provisorio `https://biblioteca-b8mb.onrender.com/ml-callback`); la crea el usuario (T&C + captcha). Autorizada y probada en la PC. Para la Action faltan cargar los secrets ML_CLIENT_ID/ML_CLIENT_SECRET/ML_REFRESH_TOKEN/GH_PAT (la Action necesita ML_REFRESH_TOKEN además de los dos ya cargados).
-- Action en GitHub: primera corrida manual OK el 2026-11-04 (recolectar + sepa). `ypf_gql` da HTTP 200 sin data desde Actions (desde la PC trae 69): sin investigar.
+- Action en GitHub: primera corrida manual OK el 2026-11-04 (recolectar + sepa). `ypf_gql` da HTTP 200 sin data desde Actions (desde la PC trae 69): la próxima corrida deja el extracto del cuerpo en `data/fuentes.csv`.
 - Token ML rotativo: lo usa UN solo lado. Si se sube ML_REFRESH_TOKEN a la Action, la PC deja de correr `--solo ml` (o al revés), porque cada canje invalida el anterior.
-- Cola `sin_match` (~100 avisos): revisar y ampliar `seed/alias.csv`. "Quartz Ineo 5W-30" sin variante queda sin match a propósito.
-- El snippet de pandas del README no se ejecutó contra el server (la API con X-API-Key y CSV sí se probó).
+- Cola `sin_match`: ampliada (ver "Seed sin match"); quedan 174 avisos ML ambiguos o de bajo volumen. "Quartz Ineo 5W-30" sin variante queda sin match a propósito.
 
 ## Cómo retomar
 `python <modulo> test` en cada módulo; `LUB_CLAVE=x python server.py` y abrir http://127.0.0.1:8000; `python recolectar.py --solo <fuente>` para una fuente.
