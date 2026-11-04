@@ -6,28 +6,23 @@
 <title>Lubricantes YPF</title>
 <style>
 :root {
-  --bg: #f6f7f9; --panel: #ffffff; --tx: #1b1f24; --mut: #5c6672; --borde: #dde2e8;
-  --acento: #0b5cad; --ok: #1d7a3a; --mal: #b3261e; --aviso-bg: #fff4d6; --aviso-tx: #6b4a00;
-  --caro: #b3261e; --barato: #1d7a3a;
-  --c1: #0b5cad; --c2: #d9480f; --c3: #2b8a3e; --c4: #862e9c; --c5: #c2255c; --c6: #5c940d;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #111418; --panel: #1a1f25; --tx: #e6e9ed; --mut: #9aa4b0; --borde: #2e353d;
-    --acento: #6cb0f5; --ok: #5cc57c; --mal: #ff8a80; --aviso-bg: #3a2f10; --aviso-tx: #ffd98a;
-    --caro: #ff8a80; --barato: #6fd18f;
-    --c1: #6cb0f5; --c2: #ff9a5a; --c3: #69db7c; --c4: #da77f2; --c5: #f783ac; --c6: #a9e34b;
-  }
+  color-scheme: light;
+  --bg: #f3f6fa; --panel: #ffffff; --tx: #1b2430; --mut: #55606d; --borde: #dbe3ec; --borde-ctl: #7d8998;
+  --acento: #0047ba; --ok: #17692f; --mal: #b3261e; --aviso-bg: #fff6d6; --aviso-tx: #5c3d00;
+  --caro: #b3261e; --barato: #17692f; --sombra: 0 1px 2px rgba(16, 40, 80, .06);
+  --c1: #0047ba; --c2: #c97500; --c3: #17692f; --c4: #862e9c; --c5: #c2255c; --c6: #0e7490;
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--tx); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-header, main { max-width: 1200px; margin: 0 auto; padding: 0 16px; }
-header { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0 24px; border-bottom: 1px solid var(--borde); }
-header h1 { font-size: 17px; margin: 10px 0 6px; white-space: nowrap; }
+main, .cab { max-width: 1200px; margin: 0 auto; padding: 0 16px; }
+header { background: var(--acento); color: #fff; }
+.cab { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0 24px; }
+header :focus-visible { outline-color: #fff; }
+header h1 { font-size: 18px; margin: 10px 0 6px; white-space: nowrap; }
 nav { display: flex; gap: 2px; flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; }
 nav::-webkit-scrollbar { display: none; }
-nav button { background: none; border: 0; border-bottom: 3px solid transparent; color: var(--mut); font: inherit; padding: 8px 10px; min-height: 44px; cursor: pointer; white-space: nowrap; flex: none; }
-nav button[aria-selected="true"] { color: var(--tx); border-color: var(--acento); font-weight: 600; }
+nav button { background: none; border: 0; border-bottom: 3px solid transparent; color: #dbe6fb; font: inherit; padding: 8px 10px; min-height: 44px; cursor: pointer; white-space: nowrap; flex: none; }
+nav button[aria-selected="true"] { color: #fff; border-color: #fff; font-weight: 600; }
 #banner:empty { display: none; }
 #banner { background: var(--aviso-bg); color: var(--aviso-tx); border-radius: 6px; padding: 4px 12px; margin: 8px 0; font-size: 13px; }
 #banner summary { cursor: pointer; min-height: 28px; display: flex; align-items: center; }
@@ -38,9 +33,9 @@ section[hidden] { display: none; }
 .filtros label { display: flex; flex-direction: column; font-size: 12px; color: var(--mut); max-width: 100%; min-width: 0; }
 .filtros select, .filtros input { max-width: 100%; min-width: 0; }
 @media (max-width: 640px) { .filtros label { flex: 1 1 100%; } .filtros select, .filtros input { width: 100%; } }
-select, input { font: inherit; color: var(--tx); background: var(--panel); border: 1px solid var(--borde); border-radius: 6px; padding: 6px 8px; min-width: 0; }
+select, input { font: inherit; color: var(--tx); background: var(--panel); border: 1px solid var(--borde-ctl); border-radius: 6px; padding: 6px 8px; min-width: 0; }
 input[type=search] { width: 220px; max-width: 100%; }
-.tabla { overflow-x: auto; background: var(--panel); border: 1px solid var(--borde); border-radius: 8px; margin-bottom: 14px; }
+.tabla { overflow-x: auto; background: var(--panel); border: 1px solid var(--borde); box-shadow: var(--sombra); border-radius: 8px; margin-bottom: 14px; }
 table { border-collapse: collapse; width: 100%; font-size: 14px; }
 th, td { padding: 6px 8px; border-bottom: 1px solid var(--borde); text-align: left; vertical-align: top; }
 th { font-size: 12px; color: var(--mut); font-weight: 600; white-space: nowrap; }
@@ -58,7 +53,7 @@ textarea, input { max-width: 100%; box-sizing: border-box; }
 .explica { background: var(--panel); border: 1px dashed var(--borde); border-radius: 8px; padding: 16px; color: var(--mut); }
 a { color: var(--acento); }
 button.link { background: none; border: 0; padding: 0; color: var(--acento); font: inherit; font-size: 12px; cursor: pointer; text-decoration: underline; }
-.graf { background: var(--panel); border: 1px solid var(--borde); border-radius: 8px; padding: 8px; margin-bottom: 12px; }
+.graf { background: var(--panel); border: 1px solid var(--borde); box-shadow: var(--sombra); border-radius: 8px; padding: 8px; margin-bottom: 12px; }
 .graf h3 { font-size: 14px; margin: 0 0 4px; }
 .graf svg { width: 100%; height: auto; display: block; }
 .ley { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; margin: 4px 0 10px; }
@@ -91,11 +86,7 @@ table.comp td .vacio { display: block; line-height: 1.3; }
 /* Bahnschrift es DIN (Windows); sin CDN no hay fuentes web, así que la pila busca otras DIN/condensadas instaladas */
 :root {
   --f-cifra: Bahnschrift, "DIN Alternate", "DIN Next", "Roboto Condensed", "Arial Narrow", system-ui, sans-serif;
-  --ypf: #0b5cad; --comp: #8f5a00; --vt-foto: #e8ecf0; --vt-piso: rgba(27, 31, 36, .16);
-}
-@media (prefers-color-scheme: dark) {
-  /* el pedestal sigue claro: las fotos de las tiendas traen fondo blanco y se funden con multiply */
-  :root { --ypf: #6cb0f5; --comp: #f0b44c; --vt-foto: #d3d9df; --vt-piso: rgba(0, 0, 0, .28); }
+  --ypf: #0047ba; --comp: #e08a00; --vt-foto: #ffffff; --vt-piso: rgba(27, 36, 48, .14);
 }
 ::selection { background: color-mix(in srgb, var(--acento) 30%, transparent); }
 :focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
@@ -108,15 +99,15 @@ table.comp td .vacio { display: block; line-height: 1.3; }
 .vt-buscar input { width: 100%; padding: 7px 10px; min-height: 40px; }
 .vt-buscar output { min-height: 0; }
 .vt-filtro { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; flex: 1 1 auto; justify-content: flex-end; }
-.vt-toggle { font: inherit; font-size: 13px; color: var(--tx); background: var(--panel); border: 1px solid var(--borde); border-radius: 999px; padding: 10px 14px; min-height: 44px; cursor: pointer; }
+.vt-toggle { font: inherit; font-size: 13px; color: var(--tx); background: var(--panel); border: 1px solid var(--borde-ctl); border-radius: 999px; padding: 10px 14px; min-height: 44px; cursor: pointer; }
 .vt-toggle:hover { border-color: var(--acento); }
 .vt-toggle[aria-pressed="true"] { background: var(--acento); border-color: var(--acento); color: var(--panel); font-weight: 600; }
 .vt-pista { position: relative; display: flex; gap: 16px; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none; padding: 2px 0 6px; }
 .vt-pista::-webkit-scrollbar { display: none; }
 .vt-slide { flex: 0 0 100%; min-width: 0; scroll-snap-align: center; scroll-snap-stop: always; display: grid; grid-template-columns: 230px minmax(0, 1fr);
-  background: var(--panel); border: 1px solid var(--borde); border-radius: 16px; overflow: hidden; transition: opacity .45s cubic-bezier(.16, 1, .3, 1); }
+  background: var(--panel); border: 1px solid var(--borde); box-shadow: var(--sombra); border-radius: 16px; overflow: hidden; transition: opacity .45s cubic-bezier(.16, 1, .3, 1); }
 
-.vt-foto { margin: 0; position: relative; background: var(--vt-foto); display: grid; place-items: center; padding: 12px 12px 30px; }
+.vt-foto { margin: 0; align-self: start; position: relative; background: var(--vt-foto); display: grid; place-items: center; padding: 12px 12px 30px; }
 .vt-foto::after { content: ""; position: absolute; left: 22%; right: 22%; bottom: 24px; height: 14px; border-radius: 50%; background: var(--vt-piso); filter: blur(7px); }
 .vt-foto img, .vt-foto svg { position: relative; z-index: 1; width: 100%; max-width: 200px; height: 190px; object-fit: contain; mix-blend-mode: multiply; }
 .vt-foto figcaption { position: absolute; left: 14px; bottom: 9px; font-size: 11px; color: #4f5964; z-index: 1; }
@@ -159,8 +150,8 @@ table.comp td .vacio { display: block; line-height: 1.3; }
 .vt-sub { font-size: 12px; color: var(--mut); margin: 12px 0 0; }
 .mini { width: 40px; height: 40px; border-radius: 6px; background: var(--vt-foto); display: grid; place-items: center; overflow: hidden; flex: none; }
 .mini img, .mini svg { width: 100%; height: 100%; object-fit: contain; mix-blend-mode: multiply; }
-.vt-ctrl { display: flex; align-items: center; gap: 10px; margin: 8px 0 4px; }
-.vt-btn { width: 44px; height: 44px; flex: none; border-radius: 50%; border: 1px solid var(--borde); background: var(--panel); color: var(--tx); display: grid; place-items: center; cursor: pointer; padding: 0; }
+.vt-ctrl { display: flex; align-items: center; gap: 10px; margin: 0 0 6px; }
+.vt-btn { width: 44px; height: 44px; flex: none; border-radius: 50%; border: 1px solid var(--borde-ctl); background: var(--panel); color: var(--tx); display: grid; place-items: center; cursor: pointer; padding: 0; }
 .vt-btn:hover { border-color: var(--acento); color: var(--acento); }
 .vt-btn svg { width: 20px; height: 20px; }
 .vt-pos { font: 500 15px/1 var(--f-cifra); font-variant-numeric: tabular-nums; min-width: 4.8em; text-align: center; }
@@ -200,7 +191,7 @@ table.comp td .vacio { display: block; line-height: 1.3; }
 </style>
 </head>
 <body>
-<header>
+<header><div class="cab">
   <h1>Lubricantes: YPF vs competencia</h1>
   <nav role="tablist">
     <button role="tab" data-tab="vitrina">Vitrina YPF</button>
@@ -210,7 +201,7 @@ table.comp td .vacio { display: block; line-height: 1.3; }
     <button role="tab" data-tab="fuentes">Fuentes</button>
     <button role="tab" data-tab="cargar">Cargar</button>
   </nav>
-</header>
+</div></header>
 <main>
   <div id="banner"></div>
 
@@ -748,7 +739,6 @@ function pintarVt(irA) {
   const idx = j => ((j % n) + n) % n;
   const antes = Array.from({ length: K }, (_, j) => idx(j - K)), despues = Array.from({ length: K }, (_, j) => idx(j));
   out.innerHTML = `<div class="vt-car" role="region" aria-roledescription="carrusel" aria-label="Productos YPF">
-      <div class="vt-pista">${antes.map(i => slideVt(ps[i], i, n, true)).join("")}${ps.map((p, i) => slideVt(p, i, n, false)).join("")}${despues.map(i => slideVt(ps[i], i, n, true)).join("")}</div>
       <div class="vt-ctrl">
         <button class="vt-btn" data-paso="-1" aria-label="Producto anterior"${n < 2 ? " disabled" : ""}>${icono("prev")}</button>
         <span class="vt-pos" aria-hidden="true"></span>
@@ -756,6 +746,7 @@ function pintarVt(irA) {
         <button class="vt-btn" id="vt-play" aria-label="Pausar el pase automático">${icono("pausa")}</button>
         <button class="vt-btn" data-paso="1" aria-label="Producto siguiente"${n < 2 ? " disabled" : ""}>${icono("next")}</button>
       </div>
+      <div class="vt-pista">${antes.map(i => slideVt(ps[i], i, n, true)).join("")}${ps.map((p, i) => slideVt(p, i, n, false)).join("")}${despues.map(i => slideVt(ps[i], i, n, true)).join("")}</div>
       <p class="sr" id="vt-vivo" aria-live="polite" aria-atomic="true"></p>
       <div class="vt-minis" aria-label="Todos los productos">${ps.map((p, i) => `<button class="vt-mini" data-i="${i}" aria-label="${esc(nombreVt(p))}"><span class="mini">${foto(p.imagen, nombreVt(p), false)}</span><span aria-hidden="true">${esc(p.nombre || p.linea)}</span></button>`).join("")}</div>
     </div>`;
