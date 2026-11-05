@@ -31,7 +31,8 @@ from recolectar import relacionados  # mismo filtro "solo lo relacionado con YPF
 from tiendas import MAYORISTAS  # fuentes de precio mayorista: fuera del índice salvo ?mayoristas=1
 
 RAIZ = Path(__file__).resolve().parent
-INDEX = RAIZ / "site" / "index.html"
+SITE = RAIZ / "site"
+INDEX = SITE / "index.html"
 
 PRODUCTOS_F = "producto_id,marca,linea,nombre,segmento,sae,base,api,acea,ilsac,jaso,oem,fuente_specs,verificado".split(",")
 EQUIV_F = "eq_id,ypf_id,comp_id,tipo,criterio,evidencia,fuente".split(",")
@@ -274,6 +275,14 @@ def _barato(xs):
             "litros": _litros(r), "precio_litro": round(pl, 2), "url": r["url"] or None}
 
 
+def specs(p):
+    """Ficha técnica de un producto del seed para el modo presentación: vacío = null (oem: lista, [] si no hay)."""
+    g = lambda k: (p.get(k) or "").strip() or None
+    return {**{k: g(k) for k in ("api", "acea", "ilsac", "jaso", "base", "sae", "segmento")},
+            "oem": [o.strip() for o in (p.get("oem") or "").split(";") if o.strip()],
+            "verificado": g("verificado"), "fuente_specs": g("fuente_specs")}
+
+
 def vitrina(d, mayoristas=False):
     """YPF vs competencia por producto: precios por litro del último relevamiento de cada aviso (ver CLAUDE.md, /api/vitrina).
     Cada aviso (fuente+url+ean+titulo+vendedor+envase) cuenta una vez, con su observación más reciente de los últimos
@@ -327,13 +336,13 @@ def vitrina(d, mayoristas=False):
             if entra:
                 en_prom += xs
             eqs.append({"producto_id": cid, "marca": c.get("marca", ""), "nombre": c.get("nombre", ""), "tipo": e["tipo"],
-                        "evidencia": e["evidencia"], "en_promedio": entra, "excluido": excluido, "imagen": (foto.get(cid) or {}).get("url"),
+                        "evidencia": e["evidencia"], "specs": specs(c), "en_promedio": entra, "excluido": excluido, "imagen": (foto.get(cid) or {}).get("url"),
                         "n": s["n"], "promedio_litro": s["promedio_litro"], "min_litro": s["min_litro"], "mas_barato": _barato(xs)})
         eqs.sort(key=lambda x: (not x["en_promedio"], -x["n"], x["producto_id"]))
         comp = _stats(en_prom)
         productos.append({
             "producto_id": pid, "nombre": p["nombre"], "linea": p["linea"], "segmento": p["segmento"], "sae": p["sae"], "base": p["base"],
-            "imagen": (foto.get(pid) or {}).get("url"), "imagen_fuente": (foto.get(pid) or {}).get("fuente"),
+            "imagen": (foto.get(pid) or {}).get("url"), "imagen_fuente": (foto.get(pid) or {}).get("fuente"), "specs": specs(p),
             "ypf": ypf, "competencia": {**{k: comp[k] for k in ("n", "promedio_litro", "min_litro", "max_litro")}, "equivalentes": eqs},
             "dif_pct": round((comp["promedio_litro"] / ypf["promedio_litro"] - 1) * 100, 1)
             if comp["promedio_litro"] and ypf["promedio_litro"] else None})
@@ -860,7 +869,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(codigo)
         self.send_header("Content-Type", tipo)
         self.send_header("Content-Length", str(len(cuerpo)))
-        self.send_header("Cache-Control", "no-store")
+        if not any(k == "Cache-Control" for k, _ in extra):
+            self.send_header("Cache-Control", "no-store")
         self.send_header("Vary", "Accept-Encoding, Authorization, X-API-Key")
         self.send_header("X-Content-Type-Options", "nosniff")
         for k, v in extra:
@@ -882,6 +892,10 @@ class Handler(BaseHTTPRequestHandler):
                                [("WWW-Authenticate", 'Basic realm="LUBRICANTES", charset="UTF-8"')])
         if u.path in ("/", "/index.html"):  # solo se sirve este archivo: no hay path traversal posible
             return self.enviar(200, INDEX.read_bytes(), "text/html; charset=utf-8")
+        if u.path.endswith((".js", ".mjs")):  # three.js vendorizado (modo presentación); resolve + is_relative_to contra traversal
+            f = (SITE / u.path.lstrip("/")).resolve()
+            if f.is_file() and f.is_relative_to(SITE.resolve()):
+                return self.enviar(200, f.read_bytes(), "text/javascript; charset=utf-8", [("Cache-Control", "public, max-age=31536000, immutable")])
         if not u.path.startswith("/api/"):
             return self.json(404, {"error": "no existe"})
         nombre = u.path[5:]
@@ -1089,6 +1103,9 @@ def demo():
     pv = {p["producto_id"]: p for p in vi["productos"]}
     assert vi["fecha"] == "2026-11-05" and [p["producto_id"] for p in vi["productos"]] == ["ypf-a", "ypf-c", "ypf-b"]  # con precio primero, por n
     ya = pv["ypf-a"]["ypf"]
+    sp = specs({"api": "SP", "oem": "A 1; B 2;", "acea": " ", "verificado": "inferido"})
+    assert sp["oem"] == ["A 1", "B 2"] and sp["acea"] is None and sp["jaso"] is None and sp["api"] == "SP" and specs({})["oem"] == []
+    assert pv["ypf-a"]["specs"]["sae"] is None and pv["ypf-a"]["competencia"]["equivalentes"][0]["specs"]["oem"] == []
     assert (ya["n"], ya["promedio_litro"], ya["min_litro"], ya["max_litro"], ya["mediana_litro"]) == (2, 4500, 4000, 5000, 4500), ya
     assert ya["mas_barato"] == {"fuente": "sepa", "vendedor": None, "precio": 4000.0, "litros": 1.0, "precio_litro": 4000, "url": "a1"}, ya["mas_barato"]
     assert (ya["presentacion_comun_l"], ya["promedio_presentacion"]) == (1.0, 4000)                 # empate 1 L / 4 L: gana la chica
@@ -1209,6 +1226,9 @@ def demo():
             return e.code, e.read()
     assert get("/salud") == (200, b'{"ok": true}')
     assert get("/api/ultimo")[0] == 401
+    st = urllib.request.urlopen(urllib.request.Request(base + "/vendor/three.module.min.js", headers={"X-API-Key": "s3cr3t"}))
+    assert st.status == 200 and st.headers["Content-Type"].startswith("text/javascript") and "max-age=31536000" in st.headers["Cache-Control"]
+    assert get("/vendor/three.module.min.js")[0] == 401 and get("/../server.py", {"X-API-Key": "s3cr3t"})[0] == 404 and get("/vendor/../../x.js", {"X-API-Key": "s3cr3t"})[0] == 404
     assert get("/api/ultimo", {"X-API-Key": "s3cr3t"})[0] == 200
     assert get("/api/ultimo", b("x:s3cr3t"))[0] == 200
     assert get("/api/obs?mes=2026-11&formato=csv", {"X-API-Key": "s3cr3t"})[1].startswith(b"fecha,fuente,url")

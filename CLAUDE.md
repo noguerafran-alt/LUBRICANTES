@@ -26,6 +26,9 @@ El relevamiento que fundamenta todo esto está en `docs/relevamiento/`
   7.5/7.6). Solo API: categorías sin token, precios con OAuth de app propia.
 - **Clave obligatoria en Render.** Si `RENDER` está definida y falta
   `LUB_CLAVE`, el server no arranca. Nunca una clave en la URL.
+- **Única excepción a "solo stdlib": three.js vendorizado** (`site/vendor/three.module.min.js`, three@0.170.0, licencia MIT en
+  `site/vendor/three.LICENSE`), solo para el modo presentación y cargado on-demand (import dinámico) para que el resto del visor no lo
+  pague. Versión fijada, nada de CDN en runtime; `server.py` sirve cualquier `.js`/`.mjs` de `site/` como `text/javascript` con cache largo.
 - Lógica nueva → su `assert` en el `demo()` de ese módulo
   (`python <modulo>.py test` tiene que dar `OK`).
 - `ESTADO.md` se actualiza en el mismo commit que cualquier cambio.
@@ -227,6 +230,7 @@ que tienen precio hoy (por `ypf.n` desc), después los que no. Cada uno:
 `producto_id, nombre, linea, segmento, sae, base, imagen, imagen_fuente` (de `data/imagenes.csv`; `null` si no hay),
 `ypf{n, promedio_litro, min_litro, max_litro, mediana_litro, presentacion_comun_l, promedio_presentacion, mas_barato{fuente, vendedor, precio, litros, precio_litro, url}, por_fuente[{fuente, n, promedio_litro}]}`,
 `competencia{n, promedio_litro, min_litro, max_litro, equivalentes[{producto_id, marca, nombre, tipo, evidencia, en_promedio, imagen, n, promedio_litro, min_litro, mas_barato}]}`,
+`specs{api, acea, ilsac, jaso, oem[], base, sae, segmento, verificado: confirmado|inferido, fuente_specs}` (de `seed/productos.csv`; campo vacío = `null`, `oem` separado por `;` → lista, `[]` si no hay), también en cada equivalente,
 `dif_pct = (competencia.promedio_litro / ypf.promedio_litro - 1) × 100` (1 decimal; `null` si falta un lado).
 - Qué cuenta: cada aviso (fuente + url + ean + título + vendedor + envase) una vez, con su observación más reciente dentro de los
   últimos 3 días contados desde el último día con datos (Tiendanube rota cada 2 días; SEPA no trae URL, por eso la clave es más larga que fuente+url).
