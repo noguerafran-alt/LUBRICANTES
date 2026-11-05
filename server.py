@@ -75,6 +75,8 @@ CAMPOS = {
     "vitrina": VITRINA_F,
 }
 CAMPOS["indice_con_mayoristas"] = CAMPOS["indice"]
+CAMPOS["macro"] = MACRO_F = ["fecha", "id", "valor", "signo"]
+CAMPOS["mercado_share"] = ["mes", "empresa", "volumen", "total", "share"]
 
 
 def leer_csv(path):
@@ -112,8 +114,16 @@ def cargar(raiz):
         "grok_meses": {p.stem: leer_csv(p) for p in sorted((raiz / "data" / "grok").glob("*.csv"))},
         "grok_sitios": leer_csv(raiz / "seed" / "grok_sitios.csv"),
         "imagenes": leer_csv(raiz / "data" / "imagenes.csv"),
+        "macro": leer_csv(raiz / "data" / "macro" / "series.csv"),
+        "macro_seed": leer_csv(raiz / "seed" / "macro_series.csv"),
+        "energia": leer_energia(raiz / "data" / "macro" / "energia.csv"),
     }
     integrar_grok(d)
+    d["energia_por_producto"] = defaultdict(list)
+    for f in d["energia"]:
+        if not f[2].startswith("Gasoil"):
+            d["energia_por_producto"][f[2]].append(f)
+    d["macro_meta"], d["macro_series"] = series_macro(d)
     return d
 
 
@@ -363,9 +373,223 @@ def sin_match(obs):
     return sorted(grupos.values(), key=lambda g: (g["ultima"], g["fuente"], g["titulo"]), reverse=True)
 
 
+# ---------- Mercado: share oficial (Secretaría de Energía), actividad (datos.gob.ar) y compuestos propios ----------
+PRODUCTOS_SHARE = {"automotrices": "Lubricantes automotrices(m3)", "industriales": "Lubricantes industriales(m3)",
+                   "marinos": "Lubricantes marinos(m3)", "grasas": "Grasas(Ton)"}
+TOP_EMPRESAS, MESES_SHARE, PUNTOS_ACTIVIDAD = 7, 36, 60
+ID_PEAJES, ID_AGRO, ID_IPC = "302.3_S_ORIGINALJES_0_S_17", "11.3_ISOM_2004_M_39", "148.3_INIVELNAL_DICI_M_26"
+ID_SALARIO, ID_TC = "149.1_SOR_PRIADO_OCTU_0_25", "92.2_TIPO_CAMBIION_0_0_21_24"
+ID_GASOIL_CARGA = "se_gasoil_carga"
+# ponytail: pesos supuestos del relevamiento, sin calibrar contra el volumen de la SE (regresión pendiente).
+PESOS_IDP = {ID_PEAJES: 0.5, ID_GASOIL_CARGA: 0.3, ID_AGRO: 0.2}
+FUENTE_SE = "Secretaría de Energía, Res. 1104"
+# Series que salen de data/macro/energia.csv: (id, nombre, grupo, prefijo de producto, canal o None = todos)
+DERIVADAS = [
+    ("se_lub_automotrices", "Lubricantes automotrices vendidos", "demanda", "Lubricantes automotrices", None),
+    ("se_lub_industriales", "Lubricantes industriales vendidos", "demanda", "Lubricantes industriales", None),
+    (ID_GASOIL_CARGA, "Gasoil vendido a Transporte de Carga", "pesado", "Gasoil", "Transporte de Carga"),
+    ("se_gasoil_agro", "Gasoil vendido al Agro", "agro", "Gasoil", "Agro"),
+]
+NOTA_SHARE = ("Share entre las empresas que declaran (Res. SE 1104): Mobil, Castrol, Motul, Liqui Moly y los importadores chicos no figuran. "
+              "Es el volumen que vende la empresa (sell-in), no lo que compra el consumidor final, y viene por empresa, no por marca "
+              "comercial (Elaion, Helix). Una empresa sin fila ese mes se muestra sin dato, no como 0.")
+
+
+def leer_energia(path):
+    """data/macro/energia.csv → tuplas (mes, empresa, producto, canal, provincia, cantidad). Las repetidas se internan: son ~200 mil filas."""
+    if not path.exists():
+        return []
+    with open(path, encoding="utf-8-sig", newline="") as f:
+        lector = csv.reader(f)
+        next(lector, None)
+        return [(*map(sys.intern, r[:5]), float(r[5])) for r in lector if len(r) >= 6]
+
+
+def punto(fecha, valor, signo=""):
+    """Un dato de serie. Null nunca es 0: sin signo se muestra '...'; solo el signo '-' (cero absoluto del INDEC) vale 0."""
+    v = num(valor) if valor not in ("", None) else None
+    if v is not None and not math.isfinite(v):
+        v = None
+    signo = signo or None
+    if v is None:
+        return {"fecha": fecha, "valor": 0.0, "signo": "-"} if signo == "-" else {"fecha": fecha, "valor": None, "signo": signo or "..."}
+    return {"fecha": fecha, "valor": v, "signo": signo}
+
+
+def var_ia(serie):
+    """Variación interanual (%) del último punto contra el mismo mes/día del año anterior. Solo si existen los dos extremos."""
+    if not serie or serie[-1]["valor"] is None:
+        return None
+    f = serie[-1]["fecha"]
+    ant = {p["fecha"]: p["valor"] for p in serie}.get(f"{int(f[:4]) - 1:04d}{f[4:]}")
+    return round((serie[-1]["valor"] / ant - 1) * 100, 2) if ant else None
+
+
+def mes_mas(m, k):
+    a, b = divmod(int(m[:4]) * 12 + int(m[5:7]) - 1 + k, 12)
+    return f"{a:04d}-{b + 1:02d}"
+
+
+def series_macro(d):
+    """→ (meta por id, serie por id): las de datos.gob.ar (data/macro/series.csv) más las derivadas de energia.csv."""
+    meta = {s["id"]: {k: s[k] for k in ("nombre", "grupo", "frec", "unidad", "fuente")} for s in d["macro_seed"]}
+    crudas = defaultdict(list)
+    for r in d["macro"]:
+        crudas[r["id"]].append(punto(r["fecha"], r["valor"], r["signo"]))
+    ser = {i: sorted(crudas.get(i, []), key=lambda p: p["fecha"]) for i in meta}
+    for sid, nombre, grupo, prefijo, canal in DERIVADAS:
+        por_mes = defaultdict(float)
+        for mes, _e, prod, can, _p, q in d["energia"]:
+            if prod.startswith(prefijo) and (canal is None or can == canal):
+                por_mes[mes] += q
+        meta[sid] = {"nombre": nombre, "grupo": grupo, "frec": "M", "unidad": "m3", "fuente": FUENTE_SE}
+        ser[sid] = []
+        if por_mes:  # un mes sin fila dentro del rango es hueco ('...'), no 0
+            desde, hasta = min(por_mes), max(por_mes)
+            ser[sid] = [punto(f"{m}-01", por_mes.get(m)) for m in (mes_mas(desde, k) for k in range(
+                (int(hasta[:4]) - int(desde[:4])) * 12 + int(hasta[5:7]) - int(desde[5:7]) + 1))]
+    return meta, ser
+
+
+def agregado(filas, canal=None):
+    vol, tot = defaultdict(float), defaultdict(float)
+    for mes, emp, _prod, can, _prov, q in filas:
+        if not canal or can == canal:
+            vol[(mes, emp)] += q
+            tot[mes] += q
+    return vol, tot
+
+
+def share(filas, canal=None, n=MESES_SHARE):
+    """Share mensual por empresa de un producto (`filas` = tuplas de energia.csv de ese producto), últimos n meses, top 7 + Otras."""
+    vol, tot = agregado(filas, canal)
+    out = {"meses": [], "total": [], "empresas": [], "canales": [], "provincias": [], "nota": NOTA_SHARE}
+    if not tot:
+        return out
+    meses = [mes_mas(max(tot), k - n + 1) for k in range(n)]
+    ventana = set(meses)
+    por_canal, por_emp = defaultdict(float), defaultdict(float)
+    for mes, emp, _p, can, _pr, q in filas:
+        if mes in ventana:
+            por_canal[can] += q
+    for (mes, emp), q in vol.items():
+        if mes in ventana:
+            por_emp[emp] += q
+    ranking = sorted(por_emp, key=lambda e: (-por_emp[e], e))
+    top = ranking[:TOP_EMPRESAS]
+
+    def fila(nombre, vols):
+        serie = [v / tot[m] if v is not None and tot.get(m) else None for m, v in zip(meses, vols)]
+        u, h = serie[-1], serie[-13] if len(serie) >= 13 else None
+        return {"empresa": nombre, "serie": [None if x is None else round(x, 6) for x in serie],
+                "ultimo": None if u is None else round(u, 6), "hace12": None if h is None else round(h, 6),
+                "var_pp": round((u - h) * 100, 2) if u is not None and h is not None else None,
+                "volumen_ultimo": None if vols[-1] is None else round(vols[-1], 3)}
+    empresas = [fila(e, [vol.get((m, e)) for m in meses]) for e in top]
+    if len(ranking) > len(top):
+        empresas.append(fila("Otras", [max(0.0, tot[m] - sum(vol.get((m, e), 0.0) for e in top)) if m in tot else None for m in meses]))
+    ult, ant = meses[-1], meses[-13] if len(meses) >= 13 else None
+    tp, yp = defaultdict(float), {}
+    for mes, emp, _p, can, prov, q in filas:
+        if mes in (ult, ant) and (not canal or can == canal):
+            tp[(mes, prov)] += q
+            if emp == "YPF":
+                yp[(mes, prov)] = yp.get((mes, prov), 0.0) + q
+    sh = lambda m, p: yp[(m, p)] / tp[(m, p)] if (m, p) in yp and tp.get((m, p)) else None
+    provincias = []
+    for p in sorted({p for m, p in tp if m == ult}, key=lambda p: -tp[(ult, p)]):
+        a, b = sh(ult, p), sh(ant, p)
+        provincias.append({"provincia": p, "share_ypf": None if a is None else round(a, 6), "share_ypf_hace12": None if b is None else round(b, 6),
+                           "var_pp": round((a - b) * 100, 2) if a is not None and b is not None else None, "volumen": round(tp[(ult, p)], 3)})
+    out.update(meses=meses, total=[round(tot[m], 3) if m in tot else None for m in meses], empresas=empresas,
+               canales=sorted(por_canal, key=lambda c: -por_canal[c]), provincias=provincias)
+    return out
+
+
+def share_filas(filas, canal=None):
+    """Serie mensual completa (todos los meses, todas las empresas) para /api/mercado/share?formato=csv."""
+    vol, tot = agregado(filas, canal)
+    return [{"mes": m, "empresa": e, "volumen": round(q, 3), "total": round(tot[m], 3), "share": round(q / tot[m], 6) if tot[m] else None}
+            for (m, e), q in sorted(vol.items(), key=lambda x: (x[0][0], -x[1], x[0][1]))]
+
+
+def precios_pares(d):
+    """$/L de los pares YPF ↔ equivalente del seed (sin no_equivalente, mayoristas ni Grok sin verificar) → (por mes, por día)."""
+    lado = {}
+    for e in d["equivalencias"]:
+        if e["tipo"] != "no_equivalente":
+            lado[e["ypf_id"]] = "ypf"
+            lado.setdefault(e["comp_id"], "comp")
+    por_pid = defaultdict(list)
+    for r in d["obs"]:
+        if r["producto_id"] in lado and r["fuente"] not in MAYORISTAS and r.get("verificado") != "0" and (pl := precio_litro(r)) is not None:
+            por_pid[r["producto_id"]].append((r["fecha"], pl))
+    mes, dia = defaultdict(lambda: defaultdict(list)), defaultdict(lambda: defaultdict(list))
+    for pid, xs in por_pid.items():
+        m = median(pl for _, pl in xs)
+        for f, pl in xs:
+            if m / SANIDAD <= pl <= m * SANIDAD:  # mismo filtro de envases mal leídos que la vitrina
+                mes[f[:7]][lado[pid]].append(pl)
+                dia[f][lado[pid]].append(pl)
+    return mes, dia
+
+
+def idx_2023(serie):
+    """{AAAA-MM: valor / promedio 2023 × 100}. Sin los 12 meses de 2023 no hay base: vacío (no se aproxima)."""
+    v = {p["fecha"][:7]: p["valor"] for p in serie if p["valor"] is not None}
+    base = [v.get(f"2023-{m:02d}") for m in range(1, 13)]
+    if None in base or not sum(base):
+        return {}
+    prom = sum(base) / 12
+    return {m: x / prom * 100 for m, x in v.items()}
+
+
+def compuestos(d, ser):
+    mes, dia = precios_pares(d)
+    ipc, sal, tc = ({p["fecha"][:n]: p["valor"] for p in ser.get(i, []) if p["valor"]} for i, n in ((ID_IPC, 7), (ID_SALARIO, 7), (ID_TC, 10)))
+    med = lambda xs: round(median(xs), 2) if xs else None
+    meses = sorted(mes)
+    base = meses[0] if meses else None
+    y = {m: med(mes[m]["ypf"]) for m in meses}
+    real = lambda x, m: round(x / ipc[m] * ipc[base], 2) if x is not None and ipc.get(m) and ipc.get(base) else None
+    precio_real = [{"mes": m, "ypf_litro": y[m], "ypf_real": real(y[m], m), "comp_litro": (c := med(mes[m]["comp"])), "comp_real": real(c, m)} for m in meses]
+    by = next((m for m in meses if y[m] is not None), None)  # asequibilidad: base = primer mes con precio YPF
+    aseq = [{"mes": m, "indice": round(y[m] / sal[m] / (y[by] / sal[by]) * 100, 1)
+             if y[m] is not None and by and sal.get(m) and sal.get(by) else None} for m in meses]
+    usd = lambda xs, f: round(median(xs) / tc[f], 3) if xs and tc.get(f) else None
+    precio_usd = [{"fecha": f, "ypf_usd": usd(dia[f]["ypf"], f), "comp_usd": usd(dia[f]["comp"], f)} for f in sorted(dia)]
+    comps = {i: idx_2023(ser.get(i, [])) for i in PESOS_IDP}
+    todos = sorted(set().union(*comps.values()))[-PUNTOS_ACTIVIDAD:]
+    idp = [{"mes": m, "valor": round(sum(PESOS_IDP[i] * comps[i][m] for i in PESOS_IDP), 2) if all(m in c for c in comps.values()) else None}
+           for m in todos]
+    return {"precio_real": precio_real, "precio_usd": precio_usd, "asequibilidad": aseq, "demanda_potencial": idp, "notas": {
+        "precio_real": f"Deflactado por el IPC nacional nivel general; base = primer mes con precio ({base}). Un mes sin IPC publicado queda en null "
+                       "(el IPC sale con ~1 mes de atraso). Precio = mediana del $/L de los pares YPF y equivalente del seed.",
+        "precio_usd": "Mediana diaria del $/L sobre el tipo de cambio de valuación del BCRA del mismo día; un día sin cotización (fin de semana, o la serie va atrasada) queda en null, no se arrastra.",
+        "asequibilidad": "Precio YPF por litro sobre el índice de salarios privados registrados (es un índice, no un monto), base 100 = primer mes con precio YPF. Sube = el aceite pesa más contra el salario.",
+        "demanda_potencial": "pesos supuestos, sin calibrar: 0,5 peajes + 0,3 gasoil vendido a Transporte de Carga (SE) + 0,2 EMAE Agro, cada uno en base 2023 = 100. "
+                             "Nulo en los meses donde falta algún componente o si 2023 no tiene los 12 meses."}}
+
+
+def actividad(meta, ser):
+    return [{"id": i, **m, "serie": ser[i][-PUNTOS_ACTIVIDAD:], "ultimo": ser[i][-1] if ser[i] else None, "var_ia": var_ia(ser[i])}
+            for i, m in meta.items()]
+
+
+def mercado(d, producto="automotrices", canal=None):
+    ok = [r["fecha"] for r in d["fuentes"] if r["fuente"] == "macro_series" and not r["error"]]
+    meses_e = [f[0] for f in d["energia"]]
+    return {"actualizado": {"energia": max(meses_e) if meses_e else None, "series": max(ok) if ok else None},
+            "share": {"producto": PRODUCTOS_SHARE[producto], "canal": canal,
+                      **share(d["energia_por_producto"].get(PRODUCTOS_SHARE[producto], []), canal)},
+            "actividad": actividad(d["macro_meta"], d["macro_series"]),
+            "compuestos": compuestos(d, d["macro_series"])}
+
+
 def calcular(d, hoy=None):
     """Lo que no depende de parámetros se calcula una vez al arrancar."""
     return {
+        "mercado": mercado(d),
         "productos": d["productos"],
         "equivalencias": equivalencias(d),
         "ultimo": ultimo(d["obs"]),
@@ -661,6 +885,8 @@ class Handler(BaseHTTPRequestHandler):
         if not u.path.startswith("/api/"):
             return self.json(404, {"error": "no existe"})
         nombre = u.path[5:]
+        if nombre in ("mercado", "mercado/share", "macro"):
+            return self.mercado(nombre, q)
         if nombre == "vitrina":
             v = self.calc["vitrina_con_mayoristas" if q.get("mayoristas") == "1" else "vitrina"]
             if q.get("formato") == "csv":
@@ -689,6 +915,32 @@ class Handler(BaseHTTPRequestHandler):
         if q.get("formato") == "csv":
             return self.enviar(200, a_csv(nombre, filas), "text/csv; charset=utf-8")
         self.json(200, filas)
+
+    def mercado(self, nombre, q):
+        d = self.datos
+        if nombre == "macro":
+            meta, ser = d["macro_meta"], d["macro_series"]
+            ids = [i for i in q.get("ids", "").split(",") if i]
+            if not ids:
+                return self.json(200, [{"id": i, **m, "n": len(ser[i])} for i, m in meta.items()])
+            falta = [i for i in ids if i not in meta]
+            if falta:
+                return self.json(404, {"error": f"id desconocido: {falta}", "ids": list(meta)})
+            if q.get("formato") == "csv":
+                return self.enviar(200, a_csv("macro", [{"id": i, **p} for i in ids for p in ser[i]]), "text/csv; charset=utf-8")
+            return self.json(200, [{"id": i, **meta[i], "serie": ser[i]} for i in ids])
+        prod, canal = q.get("producto", "automotrices"), q.get("canal") or None
+        if prod not in PRODUCTOS_SHARE:
+            return self.json(400, {"error": f"producto inválido: {prod!r}", "productos": list(PRODUCTOS_SHARE)})
+        filas = d["energia_por_producto"].get(PRODUCTOS_SHARE[prod], [])
+        canales = share(filas)["canales"]
+        if canal and canal not in canales:
+            return self.json(404, {"error": f"canal sin datos: {canal!r}", "canales": canales})
+        if nombre == "mercado/share" and q.get("formato") == "csv":
+            return self.enviar(200, a_csv("mercado_share", share_filas(filas, canal)), "text/csv; charset=utf-8")
+        if nombre == "mercado/share":
+            return self.json(200, {"producto": PRODUCTOS_SHARE[prod], "canal": canal, **share(filas, canal)})
+        self.json(200, self.calc["mercado"] if prod == "automotrices" and not canal else mercado(d, prod, canal))
 
     def do_POST(self):
         if urlsplit(self.path).path != "/api/cargar":
@@ -758,6 +1010,26 @@ def demo():
         "2026-11-02,vtex_carrefour,200,10,8,2,0,\n"
         "2026-11-03,vtex_carrefour,403,0,0,0,0,HTTP 403\n"
         "2026-11-03,ml,,0,0,0,0,sin token\n", encoding="utf-8")
+
+    # datos sintéticos de mercado: 13 meses de automotrices (YPF, Shell, A..F, Z1, Z2) con Shell ausente en 2026-03
+    (raiz / "data" / "macro").mkdir()
+    ms = [mes_mas("2025-09", k) for k in range(13)]
+    AP, LA, E_ = "Al Público", "Lubricantes automotrices(m3)", []
+    for m in ms:
+        E_ += [(m, "YPF", LA, AP, "Córdoba", 60), (m, "YPF", LA, AP, "Salta", 60 if m == "2025-09" else 40)]
+        E_ += [(m, "Shell/Raízen", LA, AP, "Córdoba", 50)] * (m != "2026-03")
+        E_ += [(m, e, LA, AP, "Córdoba", v) for e, v in zip("ABCDEF", (10, 9, 8, 7, 6, 5))]
+        E_ += [(m, "Z1", LA, AP, "Córdoba", 1), (m, "Z2", LA, AP, "Córdoba", 1)]
+        E_ += [(m, "Todas", "Gasoil Grado 2(m3)", "Transporte de Carga", "Todas", 1000)] * (m != "2026-03")  # 2026-03: mes sin fila
+    E_ += [("2026-09", "YPF", LA, "Agro", "Córdoba", 10), ("2026-09", "Shell/Raízen", LA, AP, "Jujuy", 5), ("2026-09", "YPF", "Grasas(Ton)", AP, "Córdoba", 7)]
+    with open(raiz / "data" / "macro" / "energia.csv", "w", encoding="utf-8", newline="") as f:
+        csv.writer(f, lineterminator="\n").writerows([("mes", "empresa", "producto", "canal", "provincia", "cantidad"), *E_])
+    (raiz / "data" / "macro" / "series.csv").write_text(
+        "fecha,id,valor,signo\n2026-06-01,A,1.5,*\n2026-07-01,A,,...\n2026-08-01,A,,-\n2026-08-01,B,7,\n", encoding="utf-8")
+    (raiz / "seed" / "macro_series.csv").write_text(
+        "id,nombre,grupo,frec,unidad,fuente\nA,Serie A,liviano,M,u,INDEC\nB,Serie B,precios,M,u,BCRA\nC,Serie C,agro,M,u,INDEC\n", encoding="utf-8")
+    with open(raiz / "data" / "fuentes.csv", "a", encoding="utf-8") as f:
+        f.write("2026-11-02,macro_series,200,3,3,0,0,,0\n2026-11-03,macro_series,200,3,0,0,0,sin datos,0\n")
 
     d = cargar(raiz)
     c = calcular(d, hoy=date(2026, 11, 3))
@@ -847,6 +1119,71 @@ def demo():
     assert len(fl) == 3 and fl[0]["ypf_promedio_litro"] == 4500 and fl[0]["n_equivalentes"] == 3 and fl[2]["ypf_mas_barato_fuente"] is None
     assert a_csv("vitrina", fl).decode().startswith("fecha,producto_id,nombre,linea,segmento,sae,base,imagen,imagen_fuente,ypf_n,")
 
+    # ---------- mercado: signos, share, interanual, deflactor, demanda potencial (sin red) ----------
+    assert punto("f", "", "") == {"fecha": "f", "valor": None, "signo": "..."}          # null sin signo → '...', nunca 0
+    assert punto("f", "", "-") == {"fecha": "f", "valor": 0.0, "signo": "-"}            # '-' es el único cero
+    assert punto("f", "", "s")["valor"] is None and punto("f", "5", "*") == {"fecha": "f", "valor": 5.0, "signo": "*"}
+    assert punto("f", float("nan"), "")["valor"] is None
+    assert var_ia([punto("2025-07-01", 100), punto("2026-07-01", 110)]) == 10.0
+    assert var_ia([punto("2025-07-01", ""), punto("2026-07-01", 110)]) is None and var_ia([punto("2025-07-01", 100), punto("2026-07-01", "")]) is None
+    assert var_ia([punto("2025-06-01", 100), punto("2026-07-01", 110)]) is None and var_ia([punto("2025-07-01", 0), punto("2026-07-01", 1)]) is None
+    assert var_ia([]) is None
+    assert mes_mas("2025-11", 3) == "2026-02" and mes_mas("2026-01", -1) == "2025-12"
+    sh = d["energia_por_producto"]["Lubricantes automotrices(m3)"]
+    S = share(sh)
+    assert len(S["meses"]) == 36 and S["meses"][-1] == "2026-09" and S["total"][0] is None and S["total"][-1] == 212 and S["total"][-2] == 197
+    for i, tot_i in enumerate(S["total"]):                                               # share suma 1 en cada mes con dato
+        assert tot_i is None or abs(sum(e["serie"][i] or 0 for e in S["empresas"]) - 1) < 1e-4, i
+    assert [e["empresa"] for e in S["empresas"]] == ["YPF", "Shell/Raízen", "A", "B", "C", "D", "E", "Otras"]
+    ey = S["empresas"][0]
+    assert ey["ultimo"] == round(110 / 212, 6) and ey["hace12"] == round(120 / 217, 6) and ey["volumen_ultimo"] == 110
+    assert ey["var_pp"] == round((110 / 212 - 120 / 217) * 100, 2) and ey["serie"][0] is None
+    es = S["empresas"][1]
+    assert es["serie"][-7] is None and es["serie"][-8] is not None and es["volumen_ultimo"] == 55  # 2026-03 sin fila de Shell: null, no 0
+    assert S["empresas"][-1]["volumen_ultimo"] == 7 and S["canales"] == ["Al Público", "Agro"] and S["empresas"][2]["hace12"] == round(10 / 217, 6)
+    pv = {p["provincia"]: p for p in S["provincias"]}
+    assert [p["provincia"] for p in S["provincias"]] == ["Córdoba", "Salta", "Jujuy"] and pv["Córdoba"]["volumen"] == 167
+    assert pv["Córdoba"]["share_ypf"] == round(70 / 167, 6) and pv["Córdoba"]["share_ypf_hace12"] == round(60 / 157, 6) and pv["Salta"]["var_pp"] == 0
+    assert pv["Jujuy"]["share_ypf"] is None and pv["Jujuy"]["var_pp"] is None            # sin YPF: null
+    Sa = share(sh, "Agro")
+    assert Sa["empresas"][0]["ultimo"] == 1.0 and Sa["empresas"][0]["hace12"] is None and Sa["empresas"][0]["var_pp"] is None  # hace 12 no hay Agro
+    assert share(sh, "Al Público")["empresas"][0]["ultimo"] == round(100 / 202, 6)
+    assert share([])["meses"] == [] and share(sh, "Inexistente")["empresas"] == []
+    sf = share_filas(sh, "Al Público")
+    assert sf[0]["mes"] == "2025-09" and sf[0]["empresa"] == "YPF" and sf[0]["share"] == round(120 / 217, 6) and sf[0]["volumen"] == 120
+    ms_, ser_ = d["macro_meta"], d["macro_series"]
+    assert [(p["valor"], p["signo"]) for p in ser_["A"]] == [(1.5, "*"), (None, "..."), (0.0, "-")] and ser_["C"] == [] and ser_["B"][0]["signo"] is None
+    assert ser_["se_gasoil_carga"][0]["fecha"] == "2025-09-01" and ser_["se_gasoil_carga"][6] == {"fecha": "2026-03-01", "valor": None, "signo": "..."}
+    assert ser_["se_lub_automotrices"][-1]["valor"] == 212 and ms_["se_lub_automotrices"]["grupo"] == "demanda"
+    act = {a["id"]: a for a in actividad(ms_, ser_)}
+    assert act["C"]["ultimo"] is None and act["C"]["var_ia"] is None and act["A"]["ultimo"]["valor"] == 0.0 and act["A"]["var_ia"] is None
+    assert len(act["A"]["serie"]) == 3 and list(act)[-4:] == [x[0] for x in DERIVADAS]
+    assert c["mercado"]["actualizado"] == {"energia": "2026-09", "series": "2026-11-02"}   # la corrida con error no cuenta
+    # compuestos: deflactor, USD, asequibilidad y demanda potencial
+    Ob = lambda f, pid, precio, fu="sepa": {**dict.fromkeys(OBS_F, ""), "fecha": f, "fuente": fu, "producto_id": pid, "precio": precio, "litros": "1", "unidades": "1"}
+    dc = {"equivalencias": [{"ypf_id": "y", "comp_id": "c", "tipo": "match_total"}, {"ypf_id": "y", "comp_id": "g", "tipo": "no_equivalente"}],
+          "obs": [Ob("2026-10-05", "y", "1000"), Ob("2026-10-06", "y", "3000"), Ob("2026-10-05", "c", "3000"), Ob("2026-11-05", "y", "2000"),
+                  Ob("2026-11-05", "c", "2500"), Ob("2026-11-05", "g", "1"), Ob("2026-11-05", "y", "9", "shopify_datri")]}
+    sr = {ID_IPC: [punto("2026-10-01", 100), punto("2026-11-01", 200)], ID_SALARIO: [punto("2026-10-01", 100), punto("2026-11-01", 125)],
+          ID_TC: [punto("2026-10-05", 1000), punto("2026-11-05", "")]}
+    cp = compuestos(dc, sr)
+    assert cp["precio_real"] == [{"mes": "2026-10", "ypf_litro": 2000, "ypf_real": 2000, "comp_litro": 3000, "comp_real": 3000},
+                                 {"mes": "2026-11", "ypf_litro": 2000, "ypf_real": 1000, "comp_litro": 2500, "comp_real": 1250}], cp["precio_real"]
+    assert cp["asequibilidad"] == [{"mes": "2026-10", "indice": 100.0}, {"mes": "2026-11", "indice": 80.0}], cp["asequibilidad"]
+    assert cp["precio_usd"] == [{"fecha": "2026-10-05", "ypf_usd": 1.0, "comp_usd": 3.0}, {"fecha": "2026-10-06", "ypf_usd": None, "comp_usd": None},
+                                {"fecha": "2026-11-05", "ypf_usd": None, "comp_usd": None}]    # TC null o ausente → null, no se arrastra
+    assert "sin calibrar" in cp["notas"]["demanda_potencial"]
+    sin_ipc = compuestos(dc, {ID_SALARIO: sr[ID_SALARIO]})
+    assert all(r["ypf_real"] is None and r["comp_real"] is None for r in sin_ipc["precio_real"]) and sin_ipc["precio_real"][0]["ypf_litro"] == 2000
+    assert compuestos({**dc, "obs": []}, sr)["precio_real"] == []
+    cte = lambda v, extra: [punto(f"2023-{m:02d}-01", v) for m in range(1, 13)] + extra
+    sd = {ID_PEAJES: cte(100, [punto("2026-01-01", 120), punto("2026-02-01", 100)]), ID_GASOIL_CARGA: cte(50, [punto("2026-01-01", 100)]),
+          ID_AGRO: cte(10, [punto("2026-01-01", 5)])}
+    idp = {r["mes"]: r["valor"] for r in compuestos(dc, sd)["demanda_potencial"]}
+    assert idp["2026-01"] == 130.0 and idp["2023-06"] == 100.0 and idp["2026-02"] is None     # 0,5·120 + 0,3·200 + 0,2·50; falta un componente → null
+    sd[ID_AGRO] = sd[ID_AGRO][1:]                                                           # 2023 incompleto: sin base, todo null
+    assert all(r["valor"] is None for r in compuestos(dc, sd)["demanda_potencial"])
+
     def b(s):
         return {"Authorization": "Basic " + base64.b64encode(s.encode()).decode()}
     assert autorizado({}, None) and autorizado({}, "")
@@ -880,6 +1217,19 @@ def demo():
     assert json.loads(get("/api/vitrina", k)[1]) == json.loads(json.dumps(c["vitrina"])) and c["vitrina"]["productos"][0]["producto_id"] == "ypf-a-10w40"
     assert json.loads(get("/api/vitrina?mayoristas=1", k)[1]) == json.loads(json.dumps(c["vitrina_con_mayoristas"]))
     assert get("/api/vitrina?formato=csv", k)[1].startswith(b"fecha,producto_id,nombre,") and get("/api/vitrina")[0] == 401
+    assert get("/api/mercado")[0] == 401
+    mj = json.loads(get("/api/mercado", k)[1])
+    assert mj["share"]["producto"] == "Lubricantes automotrices(m3)" and mj["share"]["empresas"][0]["empresa"] == "YPF" and len(mj["actividad"]) == 7
+    assert mj["compuestos"]["notas"]["demanda_potencial"].startswith("pesos supuestos")
+    mg = json.loads(get("/api/mercado?producto=grasas", k)[1])["share"]
+    assert mg["producto"] == "Grasas(Ton)" and mg["empresas"][0]["ultimo"] == 1.0 and get("/api/mercado?producto=nada", k)[0] == 400
+    assert json.loads(get("/api/mercado/share?canal=" + urllib.parse.quote("Al Público"), k)[1])["empresas"][0]["ultimo"] == round(100 / 202, 6)
+    assert get("/api/mercado/share?canal=Nada", k)[0] == 404
+    assert get("/api/mercado/share?formato=csv", k)[1].startswith(b"mes,empresa,volumen,total,share\n2025-09,YPF,120")
+    assert [x["id"] for x in json.loads(get("/api/macro", k)[1])][:3] == ["A", "B", "C"] and get("/api/macro?ids=A,zzz", k)[0] == 404
+    ma = json.loads(get("/api/macro?ids=A,B", k)[1])
+    assert [m["id"] for m in ma] == ["A", "B"] and ma[0]["serie"][1] == {"fecha": "2026-07-01", "valor": None, "signo": "..."}
+    assert get("/api/macro?ids=A&formato=csv", k)[1].decode().splitlines()[:3] == ["fecha,id,valor,signo", "2026-06-01,A,1.5,*", "2026-07-01,A,,..."]
     assert get("/api/obs", {"X-API-Key": "s3cr3t"})[0] == 400
     assert get("/api/serie?p=nada", {"X-API-Key": "s3cr3t"})[0] == 404
     assert get("/../server.py", {"X-API-Key": "s3cr3t"})[0] == 404

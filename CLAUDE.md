@@ -39,6 +39,7 @@ tiendas.py         # lectores Shopify (D'Atri) y Tiendanube (LS Palermo, Casa Go
 ml.py              # cliente ML: categorías sin token, OAuth refresh, products/items con token
 sepa.py            # Precios Claros (SEPA): zip diario en streaming, filtra lubricantes
 normalizar.py      # aviso → (marca, sae, litros, unidades, producto_id, match)
+macro.py           # `series`: series de datos.gob.ar → data/macro/series.csv; `energia`: ventas de lubricantes de la SE (CSV de 770 MB en streaming) → data/macro/energia.csv
 server.py          # http.server: visor estático site/ + /api/* calculado desde data/ y seed/
 site/index.html    # visor: Comparador, Evolución, Índice, Fuentes (JS vanilla, SVG propio)
 seed/productos.csv     # catálogo normalizado YPF + competencia (a mano)
@@ -51,6 +52,9 @@ data/grok/AAAA-MM.csv  # relevamientos de Grok cargados por POST /api/cargar (lo
 data/ml_oferta.csv     # total de publicaciones por categoría ML por día
 data/catalogo_ypf.json # foto del catálogo oficial YPF (el diff de git avisa altas/bajas); cada ítem trae `imagen` (URL https absoluta o "")
 data/imagenes.csv      # una foto por producto_id (ver esquema)
+seed/macro_series.csv  # ids de datos.gob.ar que baja `macro.py series`: id,nombre,grupo,frec,unidad,fuente (grupo: liviano|pesado|agro|industria|precios|demanda)
+data/macro/series.csv  # series largas de datos.gob.ar (ver Mercado)
+data/macro/energia.csv # ventas de lubricantes y gasoil de la Secretaría de Energía por mes (ver Mercado)
 .github/workflows/recolectar.yml
 ```
 
@@ -209,6 +213,9 @@ contraseña `LUB_CLAVE`). Respuestas JSON; `?formato=csv` devuelve CSV.
 | `/api/grok?mes=AAAA-MM` | filas Grok crudas del mes (con `verificado`, `tipo`, `cargado`); van aparte de `/api/obs` |
 | `/api/grok_sitios` | `seed/grok_sitios.csv` |
 | `POST /api/cargar` | carga de un CSV de Grok (ver abajo) |
+| `/api/mercado` | share oficial de la SE + actividad + compuestos (ver "Mercado"). `?producto=automotrices\|industriales\|marinos\|grasas` (default automotrices), `?canal=` |
+| `/api/mercado/share` | solo el bloque `share` (mismos parámetros); `?formato=csv` = serie mensual completa de todas las empresas (`mes,empresa,volumen,total,share`) |
+| `/api/macro?ids=a,b` | series largas de `data/macro/series.csv` y las derivadas de la SE (`se_*`); `?formato=csv` = `fecha,id,valor,signo`. Sin `ids`, el catálogo |
 | `/salud` | sin clave, `{"ok":true}` para el health check de Render |
 
 `/api/ultimo` suma `url` y `verificado` (vacío en las fuentes que no son Grok). `/api/fuentes` incluye una fila por cada `grok_*` de
@@ -247,3 +254,43 @@ Verificación: 1 req/s, timeout 15 s, sin seguir redirecciones, `User-Agent` de 
 `precio_litro = precio / (litros × unidades)`. Índice: mediana de `precio_litro`
 del día por (segmento, SAE, marca) / mediana YPF del mismo grupo y día × 100.
 Sin YPF ese día en ese grupo → celda vacía, no se calcula.
+
+## Mercado — `macro.py`, `/api/mercado`, `/api/macro`
+
+Relevamiento y fuentes en `docs/relevamiento/mercado.md`. Dos fuentes, dos corridas:
+
+- **`python macro.py series`** (diaria, en el job `recolectar`): baja de `https://apis.datos.gob.ar/series/api/series/?ids=ID&format=csv&limit=5000`
+  (una request por id, paginada con `start=`; sin token, CC-BY 4.0) las ids de `seed/macro_series.csv` y escribe
+  **`data/macro/series.csv`** `fecha,id,valor,signo`. Valida que tenga algún valor y que el último dato no sea más viejo que
+  120 (diarias) / 150 (mensuales) / 300 (trimestrales) días: una serie vacía o cortada **no se escribe** (conserva lo que ya tenía) y queda en
+  `data/fuentes.csv` como `macro_<id con _>` con el error; además una fila `macro_series` por corrida (`n_items` = series pedidas, `n_con_precio` = con datos).
+  Cuando una serie se recupera, `macro.py` escribe una fila buena de esa fuente que limpia el error.
+- **`python macro.py energia`** (mensual, job `mercado`, cron `0 12 28 * *` + `workflow_dispatch`, ~2,5 min): resuelve la URL por CKAN `package_show`
+  (dataset `5bdc436c-…`, recurso `f0e4e10a-…`; si falla, la URL directa), lee el CSV de ~770 MB **en streaming** (sin guardarlo), valida el encabezado,
+  se queda con `ubric`/`Grasas`/`Gasoil*` (no `Bases Lubricantes`: es insumo entre empresas) y escribe **`data/macro/energia.csv`**
+  `mes,empresa,producto,canal,provincia,cantidad` (`mes` AAAA-MM; `canal` = `subtipodecomercializacion`; ~130 mil filas, 9 MB).
+  El archivo rellena con `0.0000` toda la grilla empresa × canal × provincia: esas filas **no se escriben**, así que una empresa sin fila ese mes es
+  "sin dato", nunca 0. **Gasoil** va sin empresa ni provincia (`empresa=Todas`, `provincia=Todas`): solo se usa por canal.
+  `empresa` lleva una etiqueta corta (`macro.ETIQUETAS`: YPF, Shell/Raízen, TotalEnergies, PAE/Axion, Petronas, Fercol, DAPSA, Fuchs, Nynas, Esso, …;
+  lo no mapeado queda con su nombre). Si la fuente falla o el último mes retrocede, no se escribe nada y `macro_energia` queda con el error en `fuentes.csv`.
+
+**Signos INDEC** (tabla en el relevamiento §3). datos.gob.ar manda null sin signo: en `series.csv` es `valor` vacío + `signo` `...`. Un null **nunca es 0**;
+solo `-` (cero absoluto) vale 0. Las variaciones (`var_ia`, compuestos) se calculan solo si existen los dos extremos; si no, `null`.
+
+**`GET /api/mercado`** (todo calculado en memoria al arrancar desde `data/macro/`, `data/obs/` y `seed/`):
+- `actualizado`: `energia` = último mes de `energia.csv`; `series` = última corrida de `macro_series` sin error.
+- `share`: `producto` (`Lubricantes automotrices(m3)`, …), `canal` (o null), `meses` (36, terminan en el último mes con dato), `total` (m3 o null), `empresas`
+  (top 7 por volumen de la ventana + `Otras`; `serie` de share 0–1 o null, `ultimo`, `hace12`, `var_pp` en puntos porcentuales, `volumen_ultimo`), `canales`
+  (del producto, por volumen), `provincias` (último mes: `share_ypf`, `share_ypf_hace12`, `var_pp`, `volumen`; mes contra el mismo mes del año anterior), `nota` (límites).
+  Share = volumen de la empresa / suma de las empresas que declaran ese mes. Un mes o empresa sin fila = null.
+- `actividad`: una entrada por serie de `seed/macro_series.csv` más las derivadas de la SE (`se_lub_automotrices`, `se_lub_industriales`, `se_gasoil_carga`,
+  `se_gasoil_agro`; `server.DERIVADAS`): `id,nombre,grupo,unidad,frec,fuente`, `serie` (últimos 60 puntos `{fecha,valor,signo}`), `ultimo` (el último punto, aunque sea null),
+  `var_ia` (% contra el mismo mes del año anterior).
+- `compuestos`: `precio_real` (mediana mensual del $/L de los pares YPF ↔ equivalente de `seed/equivalencias.csv` — sin `no_equivalente`, mayoristas ni Grok sin verificar, con la
+  sanidad de la vitrina —, deflactada por el IPC nacional general, base = primer mes con precio; sin IPC publicado = null), `precio_usd` (diario, sobre el tipo de cambio de
+  valuación; día sin cotización = null, no se arrastra), `asequibilidad` (precio YPF / índice de salarios privados registrados, base 100 = primer mes con precio YPF),
+  `demanda_potencial` (0,5 peajes + 0,3 gasoil a Transporte de Carga de la SE + 0,2 EMAE Agro, cada uno base 2023 = 100; null si falta un componente o 2023 no está completo;
+  **pesos supuestos, sin calibrar**) y `notas`.
+- Límites del share (van en `nota` y hay que mostrarlos): solo declaran las empresas inscriptas en la Res. SE 1104 (Mobil, Castrol, Motul, Liqui Moly e importadores chicos no
+  figuran); es sell-in de la petrolera, no compra del consumidor; viene por empresa, no por marca (Elaion/Helix).
+- Fuente al pie: "INDEC, vía datos.gob.ar (CC-BY 4.0)" o "Secretaría de Energía, Res. 1104".

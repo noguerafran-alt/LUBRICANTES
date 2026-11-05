@@ -3,6 +3,7 @@ name: recolectar
 on:
   schedule:
     - cron: "0 9 * * *"  # 06:00 ART
+    - cron: "0 12 28 * *"  # 09:00 ART del 28: ventas de lubricantes de la SE (job mercado)
   workflow_dispatch:
 
 permissions:
@@ -14,6 +15,7 @@ concurrency:
 
 jobs:
   recolectar:
+    if: github.event.schedule != '0 12 28 * *'  # el cron mensual corre solo el job mercado
     runs-on: ubuntu-latest
     timeout-minutes: 30  # ML con token tarda ~14 min
     steps:
@@ -48,6 +50,10 @@ jobs:
         run: |
           trap 'rm -f .ml_refresh_nuevo' EXIT
           gh secret set ML_REFRESH_TOKEN --repo "$GITHUB_REPOSITORY" < .ml_refresh_nuevo
+      # Series de datos.gob.ar (INDEC, SE, BCRA): barato y el tipo de cambio es diario. Una serie vacía queda en fuentes.csv, no rompe el job.
+      - name: Series de mercado
+        if: always()
+        run: python macro.py series
       - name: Comitear data/
         if: always()
         run: |
@@ -63,7 +69,7 @@ jobs:
   # al final de data/fuentes.csv y data/obs/, y en paralelo el rebase choca.
   sepa:
     needs: recolectar
-    if: always()
+    if: always() && github.event.schedule != '0 12 28 * *'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -83,5 +89,33 @@ jobs:
           git add data/
           git diff --cached --quiet && exit 0
           git commit -m "datos $(date -u +%F): sepa"
+          git pull --rebase
+          git push
+
+  # Mensual: el CSV de ventas de la SE pesa ~770 MB y se lee en streaming (~2,5 min). Aparte del diario por tamaño y porque el dato es mensual.
+  # También corre a mano (workflow_dispatch). Si la fuente falla no escribe nada y lo deja en data/fuentes.csv.
+  # needs: sepa, así en una corrida manual no se pisa con los otros jobs al comitear data/ (en el cron mensual los otros se saltean).
+  mercado:
+    needs: sepa
+    if: always() && (github.event_name == 'workflow_dispatch' || github.event.schedule == '0 12 28 * *')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Ventas de lubricantes (SE)
+        run: python macro.py energia
+      - name: Comitear data/macro
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/
+          git diff --cached --quiet && exit 0
+          git commit -m "datos $(date -u +%F): mercado"
           git pull --rebase
           git push

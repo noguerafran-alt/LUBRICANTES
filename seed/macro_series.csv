@@ -1,0 +1,16 @@
+id,nombre,grupo,frec,unidad,fuente
+302.3_S_ORIGINALJES_0_S_17,Peajes (tránsito vehicular),liviano,M,índice,INDEC vía datos.gob.ar
+365.3_VENTAS_DE_YPF_I__20,Naftas vendidas por YPF,liviano,M,m3,Secretaría de Energía vía datos.gob.ar
+38.3_ANIT_1994_M_21,Ventas de 0 km (total),liviano,M,unidades,Min. de Economía vía datos.gob.ar
+38.3_ANIU_1994_M_27,Ventas de 0 km (utilitarios),liviano,M,unidades,Min. de Economía vía datos.gob.ar
+365.3_VENTAS_DE_YPF__20,Gasoil vendido por YPF,pesado,M,m3,Secretaría de Energía vía datos.gob.ar
+302.3_S_TENDENCIRGA_0_S_30,Transporte de carga (tendencia-ciclo),pesado,M,índice,INDEC vía datos.gob.ar
+11.3_EMC_2004_M_25,EMAE Transporte y comunicaciones,pesado,M,índice,INDEC vía datos.gob.ar
+11.3_ISOM_2004_M_39,EMAE Agro y ganadería,agro,M,índice,INDEC vía datos.gob.ar
+11.3_ISD_2004_M_26,EMAE Minas y canteras,industria,M,índice,INDEC vía datos.gob.ar
+453.1_SERIE_DESEADA_0_0_24_58,IPI manufacturero (desestacionalizado),industria,M,índice,INDEC vía datos.gob.ar
+33.2_ISAC_SIN_EDAD_0_M_23_56,ISAC construcción (desestacionalizado),industria,M,índice,INDEC vía datos.gob.ar
+149.1_SOR_PRIADO_OCTU_0_25,Índice de salarios privados registrados,precios,M,índice,INDEC vía datos.gob.ar
+148.3_INIVELNAL_DICI_M_26,IPC nacional nivel general,precios,M,índice,INDEC vía datos.gob.ar
+146.3_ITRANSPNAL_DICI_M_23,IPC nacional transporte,precios,M,índice,INDEC vía datos.gob.ar
+92.2_TIPO_CAMBIION_0_0_21_24,Tipo de cambio de valuación,precios,D,$/USD,BCRA vía datos.gob.ar
