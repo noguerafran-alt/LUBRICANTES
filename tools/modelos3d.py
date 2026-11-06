@@ -34,6 +34,53 @@ def bajar(url):
         return r.read()
 
 
+def con_foto(malla, foto):
+    """Proyecta la foto sobre la cara que TripoSR vio: el color por vértice deja la etiqueta borrosa.
+    El lado y el sentido se eligen comparando con esos colores, así no depende de la convención de cámara.
+    → trimesh.Scene, o None si ningún candidato coincide (queda solo el color por vértice)."""
+    import numpy as np
+    import trimesh
+    from trimesh.visual.material import PBRMaterial
+    from trimesh.visual.texture import TextureVisuals
+
+    a = np.array(foto)
+    ys, xs = np.nonzero(a[:, :, 3] > 128)
+    x0, x1, y0, y1 = xs.min(), xs.max(), ys.min(), ys.max()
+    alto, ancho = a.shape[:2]
+    v, col = malla.vertices, malla.visual.vertex_colors[:, :3].astype(float)
+    mejor = None
+    for lado in (1, -1):
+        d = 1.9 - lado * v[:, 0]  # perspectiva de la cámara de condicionamiento de TripoSR
+        for sentido in (1, -1):
+            px, pz = sentido * v[:, 1] / d, v[:, 2] / d
+            vis = lado * malla.vertex_normals[:, 0] > 0.3
+            fx = (px - px[vis].min()) / np.ptp(px[vis])
+            fz = (pz - pz[vis].min()) / np.ptp(pz[vis])
+            cx = np.clip(x0 + fx * (x1 - x0), 0, ancho - 1)
+            cy = np.clip(y1 - fz * (y1 - y0), 0, alto - 1)
+            err = np.abs(a[cy.astype(int), cx.astype(int), :3] - col)[vis].mean()
+            if mejor is None or err < mejor[0]:
+                mejor = (err, lado, cx / ancho, 1 - cy / alto)
+    err, lado, u, w = mejor
+    print(f"  proyección: error de color {err:.0f}/255, lado {lado}", flush=True)
+    if err > 60:
+        return None
+    frente = lado * malla.face_normals[:, 0] > 0.25
+    adelante = malla.submesh([np.nonzero(frente)[0]], append=True)
+    atras = malla.submesh([np.nonzero(~frente)[0]], append=True)
+    idx = malla.faces[frente].reshape(-1)
+    # submesh reindexa los vértices: se recuperan sus UV por posición
+    orden = {tuple(p): i for i, p in zip(idx, malla.vertices[idx])}
+    sel = [orden[tuple(p)] for p in adelante.vertices]
+    fondo = a[:, :, :3][a[:, :, 3] > 128].mean(axis=0)
+    rgb = a[:, :, :3] * (a[:, :, 3:4] / 255.0) + fondo * (1 - a[:, :, 3:4] / 255.0)
+    from PIL import Image
+    tex = Image.fromarray(rgb.astype("uint8")).resize((1024, 1024))
+    adelante.visual = TextureVisuals(uv=np.c_[u[sel], w[sel]], material=PBRMaterial(
+        baseColorTexture=tex, metallicFactor=0.0, roughnessFactor=0.55))
+    return trimesh.Scene([adelante, atras])
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--limite", type=int, default=5)
@@ -66,6 +113,7 @@ def main():
         try:
             img = Image.open(io.BytesIO(bajar(r["url"]))).convert("RGBA")
             img = resize_foreground(remove_background(img, sesion), 0.85)
+            recorte = img
             x = np.array(img).astype(np.float32) / 255.0
             x = x[:, :, :3] * x[:, :, 3:4] + (1 - x[:, :, 3:4]) * 0.5
             img = Image.fromarray((x * 255.0).astype(np.uint8))
@@ -74,7 +122,7 @@ def main():
                 malla = modelo.extract_mesh(codigos, True, resolution=a.resolucion)[0]
             print(f"{pid}: {len(malla.faces)} caras crudas", flush=True)
             destino = SALIDA / f"{pid}.glb"
-            malla.export(destino)
+            (con_foto(malla, recorte) or malla).export(destino, file_type="glb")
             print(f"{pid}: {destino.stat().st_size / 1e6:.1f} MB en {time.time() - t0:.0f} s", flush=True)
         except Exception as e:  # una foto mala no frena la tanda
             fallas += 1
