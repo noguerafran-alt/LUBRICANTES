@@ -35,7 +35,7 @@ jobs:
           git clone -q https://github.com/VAST-AI-Research/TripoSR.git /tmp/triposr
           git -C /tmp/triposr checkout -q 107cefd
           pip install -q torch==2.2.2 --index-url https://download.pytorch.org/whl/cpu
-          pip install -q "numpy<2" setuptools wheel scikit-build cmake ninja pybind11
+          pip install -q "numpy<2" setuptools wheel scikit-build-core cmake ninja pybind11
           pip install -q --no-build-isolation git+https://github.com/tatsy/torchmcubes.git
           pip install -q omegaconf==2.3.0 Pillow==10.1.0 einops==0.7.0 transformers==4.35.0 trimesh==4.0.5 "rembg[cpu]" huggingface-hub
       - uses: actions/cache@v4
@@ -53,7 +53,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add site/modelos
+          mkdir -p site/modelos && git add site/modelos
           git diff --cached --quiet && exit 0
           git commit -m "modelos 3D $(date -u +%F)"
           git pull --rebase
