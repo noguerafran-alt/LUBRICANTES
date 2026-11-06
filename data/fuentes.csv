@@ -47,3 +47,4 @@ fecha,fuente,http,n_items,n_con_precio,n_sin_stock,n_sin_match,error,n_descartad
 2026-11-06,ml_cat,200,4,0,0,0,,0
 2026-11-06,ml,200,1922,1922,0,0,,0
 2026-11-06,macro_series,200,15,15,0,0,,0
+2026-11-06,sepa,200,113,84,0,0,,29
