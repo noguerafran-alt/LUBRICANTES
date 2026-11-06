@@ -75,9 +75,16 @@ def con_foto(malla, foto):
     fondo = a[:, :, :3][a[:, :, 3] > 128].mean(axis=0)
     rgb = a[:, :, :3] * (a[:, :, 3:4] / 255.0) + fondo * (1 - a[:, :, 3:4] / 255.0)
     from PIL import Image
-    tex = Image.fromarray(rgb.astype("uint8")).resize((1024, 1024))
+    buf = io.BytesIO()
+    Image.fromarray(rgb.astype("uint8")).resize((1024, 1024)).save(buf, "JPEG", quality=85)
+    buf.seek(0)
+    tex = Image.open(buf)  # con format=JPEG trimesh lo embebe así; sin él usa PNG y el modelo pesa el triple
     adelante.visual = TextureVisuals(uv=np.c_[u[sel], w[sel]], material=PBRMaterial(
         baseColorTexture=tex, metallicFactor=0.0, roughnessFactor=0.55))
+    if lado < 0:  # el frente siempre mira a +x: el visor no tiene que saber de qué lado salió
+        giro = trimesh.transformations.rotation_matrix(np.pi, [0, 0, 1])
+        adelante.apply_transform(giro)
+        atras.apply_transform(giro)
     return trimesh.Scene([adelante, atras])
 
 
@@ -85,8 +92,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--limite", type=int, default=5)
     ap.add_argument("--solo", default="")
-    ap.add_argument("--resolucion", type=int, default=192)
-    ap.add_argument("--caras", type=int, default=20000)
+    ap.add_argument("--resolucion", type=int, default=144)  # el frente lo da la foto: la malla puede ser liviana
     a = ap.parse_args()
 
     lista = pendientes(a.solo)[:a.limite]

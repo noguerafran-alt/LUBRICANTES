@@ -2,9 +2,6 @@ name: modelos3d
 
 # Foto → GLB con TripoSR en CPU. Va aparte de recolectar: sus dependencias pesan y no hacen falta a diario.
 on:
-  push:
-    branches: [feat/modelos-3d]  # piloto: se saca antes de mergear
-    paths: [tools/modelos3d.py, .github/workflows/modelos3d.yml]
   workflow_dispatch:
     inputs:
       limite:
@@ -47,7 +44,7 @@ jobs:
       - name: Generar
         env:
           PYTHONPATH: /tmp/triposr
-        run: python tools/modelos3d.py --limite "${{ inputs.limite || '1' }}" --solo "${{ inputs.solo || 'ypf-elaion-ts1040-10w40' }}"
+        run: python tools/modelos3d.py --limite "${{ inputs.limite }}" --solo "${{ inputs.solo }}"
       - name: Comitear site/modelos
         if: always()
         run: |
