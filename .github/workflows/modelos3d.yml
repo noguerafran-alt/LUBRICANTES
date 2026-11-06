@@ -1,0 +1,60 @@
+name: modelos3d
+
+# Foto → GLB con TripoSR en CPU. Va aparte de recolectar: sus dependencias pesan y no hacen falta a diario.
+on:
+  push:
+    branches: [feat/modelos-3d]  # piloto: se saca antes de mergear
+    paths: [tools/modelos3d.py, .github/workflows/modelos3d.yml]
+  workflow_dispatch:
+    inputs:
+      limite:
+        description: Cuántos modelos generar
+        default: "5"
+      solo:
+        description: producto_id puntual (opcional)
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: recolectar  # comitea en el mismo repo que los datos: de a una
+  cancel-in-progress: false
+
+jobs:
+  modelos:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"  # TripoSR fija transformers 4.35, que no anda bien en 3.12
+      - name: TripoSR
+        run: |
+          git clone -q https://github.com/VAST-AI-Research/TripoSR.git /tmp/triposr
+          git -C /tmp/triposr checkout -q 107cefd
+          pip install -q torch==2.2.2 --index-url https://download.pytorch.org/whl/cpu
+          pip install -q "numpy<2" setuptools wheel scikit-build cmake ninja pybind11
+          pip install -q --no-build-isolation git+https://github.com/tatsy/torchmcubes.git
+          pip install -q omegaconf==2.3.0 Pillow==10.1.0 einops==0.7.0 transformers==4.35.0 trimesh==4.0.5 "rembg[cpu]" huggingface-hub
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/huggingface
+            ~/.u2net
+          key: pesos-triposr-v1
+      - name: Generar
+        env:
+          PYTHONPATH: /tmp/triposr
+        run: python tools/modelos3d.py --limite "${{ inputs.limite || '1' }}" --solo "${{ inputs.solo || 'ypf-elaion-ts1040-10w40' }}"
+      - name: Comitear site/modelos
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add site/modelos
+          git diff --cached --quiet && exit 0
+          git commit -m "modelos 3D $(date -u +%F)"
+          git pull --rebase
+          git push
