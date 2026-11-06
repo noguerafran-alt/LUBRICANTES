@@ -37,7 +37,7 @@ jobs:
           pip install -q torch==2.2.2 --index-url https://download.pytorch.org/whl/cpu
           pip install -q "numpy<2" setuptools wheel scikit-build-core cmake ninja pybind11
           pip install -q --no-build-isolation git+https://github.com/tatsy/torchmcubes.git
-          pip install -q omegaconf==2.3.0 Pillow==10.1.0 einops==0.7.0 transformers==4.35.0 trimesh==4.0.5 "rembg[cpu]" huggingface-hub
+          pip install -q "numpy<2" omegaconf==2.3.0 Pillow==10.1.0 einops==0.7.0 transformers==4.35.0 trimesh==4.0.5 "rembg[cpu]" huggingface-hub  # rembg suelto trae numpy 2, que rompe torch 2.2
       - uses: actions/cache@v4
         with:
           path: |
