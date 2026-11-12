@@ -112,3 +112,15 @@ fecha,fuente,http,n_items,n_con_precio,n_sin_stock,n_sin_match,error,n_descartad
 2026-11-11,ml,200,1904,1904,0,0,,0
 2026-11-11,macro_series,200,15,15,0,0,,0
 2026-11-11,sepa,200,113,84,0,0,,29
+2026-11-12,ypf_gql,200,0,0,0,0,HTTP 200 sin data: <html><head><title>Request Rejected</title></head><body>The requested URL was rejected. Please consult with your adminis,0
+2026-11-12,vtex_carrefour,200,185,12,114,0,,59
+2026-11-12,vtex_masonline,200,61,36,5,0,,20
+2026-11-12,vtex_easy,200,47,14,0,0,,33
+2026-11-12,vtex_jumbo,200,224,0,224,0,,0
+2026-11-12,vtex_norauto,200,97,45,0,0,,52
+2026-11-12,shopify_datri,200,298,22,3,0,,273
+2026-11-12,tn_lspalermo,200,115,26,2,0,,87
+2026-11-12,tn_spch,200,63,27,4,0,,32
+2026-11-12,ml_cat,200,4,0,0,0,,0
+2026-11-12,ml,200,1954,1954,0,0,,0
+2026-11-12,macro_series,200,15,15,0,0,,0
