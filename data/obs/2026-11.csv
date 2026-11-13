@@ -22364,3 +22364,87 @@ fecha,fuente,url,ean,titulo,marca,precio,precio_lista,stock,vendedor,sucursal,li
 2026-11-13,ml,https://articulo.mercadolibre.com.ar/MLA-3944865918,08710941019239,Aceite Valvoline Synpower 2t 100% Sintetico- Bmmotopartes 1 L,Valvoline,69359.1,,,65730901 tienda:177712,,1,1,valvoline-synpower-2t,texto
 2026-11-13,ml,https://articulo.mercadolibre.com.ar/MLA-4103421360,08710941019239,Aceite Valvoline Synpower 2t 100% Sintetico- Bmmotopartes 1 L,Valvoline,75841.7,,,15251497,,1,1,valvoline-synpower-2t,texto
 2026-11-13,ml,https://articulo.mercadolibre.com.ar/MLA-1704728785,08710941019239,Aceite Valvoline Synpower 2t 100% Sintetico- Bmmotopartes 1 L,Valvoline,45100,,,152127361,,1,1,valvoline-synpower-2t,texto
+2026-11-13,sepa,,7790968911694,ACEITE GNC SUPER 20W 50 X 1LT.,,20100.00,,,Hipermercado Carrefour,n=53;min=20100.00;max=20100.00,1.0,1,ypf-gnc-super-20w50,ean
+2026-11-13,sepa,,7790968911700,ACEITE GNC SUPER 20W 50 X 4LT,YPF,69900.00,,,Hipermercado Carrefour,n=53;min=69900.00;max=69900.00,4.0,1,ypf-gnc-super-20w50,ean
+2026-11-13,sepa,,7790968914626,ACEITE ELAION MI 1540 X 1,YPF,23999.00,,,Hipermercado Carrefour,n=71;min=23999.00;max=24990.00,1.0,1,ypf-elaion-mi1540-15w40,ean
+2026-11-13,sepa,,7790968914633,ACEITE ELAION MI 1540 X 4,YPF,79999.00,,,Hipermercado Carrefour,n=71;min=79999.00;max=82990.00,4.0,1,ypf-elaion-mi1540-15w40,ean
+2026-11-13,sepa,,7790968914640,ACEITE ELAION MI 2050 X 1,YPF,19299.00,,,Hipermercado Carrefour,n=36;min=19299.00;max=19990.00,1.0,1,ypf-elaion-mi2050-20w50,ean
+2026-11-13,sepa,,7790968914657,ACEITE ELAION MI 2050 X 4,YPF,59999.00,,,Hipermercado Carrefour,n=37;min=43990.00;max=59999.00,4.0,1,ypf-elaion-mi2050-20w50,ean
+2026-11-13,sepa,,7790968914664,ACEITE ELAION TS 1040 X 1,YPF,24999.00,,,Hipermercado Carrefour,n=47;min=18999.00;max=24999.00,1.0,1,ypf-elaion-ts1040-10w40,ean
+2026-11-13,sepa,,7790968914671,ACEITE ELAION TS 1040 X 4,YPF,89999.00,,,Hipermercado Carrefour,n=48;min=61499.00;max=89999.00,4.0,1,ypf-elaion-ts1040-10w40,ean
+2026-11-13,sepa,,7790968914701,ACEITE ELAION FS 540 X 1,YPF,49900.00,,,Hipermercado Carrefour,n=19;min=49900.00;max=49900.00,1.0,1,ypf-elaion-fs540-5w40,ean
+2026-11-13,sepa,,7790968914718,ACEITE ELAION FS 540 X 4,YPF,159999.00,,,Hipermercado Carrefour,n=19;min=122900.00;max=159999.00,4.0,1,ypf-elaion-fs540-5w40,ean
+2026-11-13,sepa,,7793921205960,ACEITE GENECELF MULTI 20W 50 X 4 LT,TotalEnergies,42344.50,,,Hipermercado Carrefour,n=36;min=39689.00;max=45000.00,4.0,1,totalenergies-genecelf-20w50,ean
+2026-11-13,sepa,,7793921205977,ACEITE TOTAL QUARTZ 5000 15W 40 X 4LT,TotalEnergies,44300.00,,,Hipermercado Carrefour,n=35;min=41990.00;max=44300.00,4.0,1,totalenergies-quartz-5000-15w40,ean
+2026-11-13,sepa,,7793921205991,ACEITE TOTAL QUARTZ 7000 10W 40 X 4 LT,TotalEnergies,71990.00,,,Hipermercado Carrefour,n=70;min=64100.00;max=71990.00,4.0,1,totalenergies-quartz-7000-10w40,ean
+2026-11-13,sepa,,7793921206004,ACEITE TOTAL QUARTZ 9000 5W 40 X 4 LT,TotalEnergies,133000.00,,,Hipermercado Carrefour,n=19;min=119990.00;max=133000.00,4.0,1,totalenergies-quartz-9000-5w40,ean
+2026-11-13,sepa,,7793921206127,ACEITE GENECELF MULTI 20W 50 X 1 LT,TotalEnergies,14000.00,,,Hipermercado Carrefour,n=35;min=13899.00;max=15400.00,1.0,1,totalenergies-genecelf-20w50,ean
+2026-11-13,sepa,,7793921206165,ACEITE ELF MOTO 4T CRUISE 20W50 X1L,Elf,12595.00,,,Hipermercado Carrefour,n=36;min=11990.00;max=13200.00,1.0,1,elf-moto-4-cruise-20w50,ean
+2026-11-13,sepa,,7798056300153,ACEITE GULF MAX 15W 40 X 4L,Gulf,57000.00,,,Hipermercado Carrefour,n=61;min=51800.00;max=57000.00,4.0,1,gulf-max-15w40,ean
+2026-11-13,sepa,,7798056300160,ACEITE GULF MAX 15W 40 X 1L,Gulf,18390.00,,,Hipermercado Carrefour,n=51;min=15600.00;max=18390.00,1.0,1,gulf-max-15w40,ean
+2026-11-13,sepa,,7798056300191,ACEITE GULF MAX 20W 50 X 4L,Gulf,60990.00,,,Hipermercado Carrefour,n=41;min=51800.00;max=60990.00,4.0,1,gulf-max-20w50,ean
+2026-11-13,sepa,,7798056300207,ACEITE GULF MAX 20W 50 X 1L,Gulf,18390.00,,,Hipermercado Carrefour,n=46;min=13200.00;max=18390.00,1.0,1,gulf-max-20w50,ean
+2026-11-13,sepa,,7790968914626,ACEITE ELAION MI 1540 X 1,YPF,25439.00,,,Market,n=1;min=25439.00;max=25439.00,1.0,1,ypf-elaion-mi1540-15w40,ean
+2026-11-13,sepa,,7790968914633,ACEITE ELAION MI 1540 X 4,YPF,84799.00,,,Market,n=1;min=84799.00;max=84799.00,4.0,1,ypf-elaion-mi1540-15w40,ean
+2026-11-13,sepa,,7793921205991,ACEITE TOTAL QUARTZ 7000 10W 40 X 4 LT,TotalEnergies,71990.00,,,Market,n=1;min=71990.00;max=71990.00,4.0,1,totalenergies-quartz-7000-10w40,ean
+2026-11-13,sepa,,7798056300153,ACEITE GULF MAX 15W 40 X 4L,Gulf,57000.00,,,Market,n=1;min=57000.00;max=57000.00,4.0,1,gulf-max-15w40,ean
+2026-11-13,sepa,,7798056300160,ACEITE GULF MAX 15W 40 X 1L,Gulf,18390.00,,,Market,n=1;min=18390.00;max=18390.00,1.0,1,gulf-max-15w40,ean
+2026-11-13,sepa,,7790968911694,ACEITE GNC SUPER 20W 50 X 1LT.,,18100.00,,,Maxi,n=1;min=18100.00;max=18100.00,1.0,1,ypf-gnc-super-20w50,ean
+2026-11-13,sepa,,7790968911700,ACEITE GNC SUPER 20W 50 X 4LT,YPF,62900.00,,,Maxi,n=1;min=62900.00;max=62900.00,4.0,1,ypf-gnc-super-20w50,ean
+2026-11-13,sepa,,7790968914626,ACEITE ELAION MI 1540 X 1,YPF,21600.00,,,Maxi,n=1;min=21600.00;max=21600.00,1.0,1,ypf-elaion-mi1540-15w40,ean
+2026-11-13,sepa,,7790968914633,ACEITE ELAION MI 1540 X 4,YPF,72000.00,,,Maxi,n=1;min=72000.00;max=72000.00,4.0,1,ypf-elaion-mi1540-15w40,ean
+2026-11-13,sepa,,7790968914664,ACEITE ELAION TS 1040 X 1,YPF,22500.00,,,Maxi,n=1;min=22500.00;max=22500.00,1.0,1,ypf-elaion-ts1040-10w40,ean
+2026-11-13,sepa,,7790968914671,ACEITE ELAION TS 1040 X 4,YPF,81000.00,,,Maxi,n=1;min=81000.00;max=81000.00,4.0,1,ypf-elaion-ts1040-10w40,ean
+2026-11-13,sepa,,7793921205991,ACEITE TOTAL QUARTZ 7000 10W 40 X 4 LT,TotalEnergies,64800.00,,,Maxi,n=1;min=64800.00;max=64800.00,4.0,1,totalenergies-quartz-7000-10w40,ean
+2026-11-13,sepa,,7798056300153,ACEITE GULF MAX 15W 40 X 4L,Gulf,46600.00,,,Maxi,n=29;min=46600.00;max=51300.00,4.0,1,gulf-max-15w40,ean
+2026-11-13,sepa,,7798056300160,ACEITE GULF MAX 15W 40 X 1L,Gulf,16551.00,,,Maxi,n=1;min=16551.00;max=16551.00,1.0,1,gulf-max-15w40,ean
+2026-11-13,sepa,,7798056300191,ACEITE GULF MAX 20W 50 X 4L,Gulf,54891.00,,,Maxi,n=1;min=54891.00;max=54891.00,4.0,1,gulf-max-20w50,ean
+2026-11-13,sepa,,7798056300207,ACEITE GULF MAX 20W 50 X 1L,Gulf,16551.00,,,Maxi,n=2;min=16551.00;max=16551.00,1.0,1,gulf-max-20w50,ean
+2026-11-13,sepa,,7790968914428,AURO FE 5W30 1L,,49999.00,,,Changomas,n=53;min=49999.00;max=49999.00,1.0,1,ypf-elaion-auro-fe-530-5w30,ean
+2026-11-13,sepa,,7790968914466,AURO D2 5W30 1L,,49999.00,,,Changomas,n=53;min=49999.00;max=49999.00,1.0,1,ypf-elaion-auro-d2-530-5w30,ean
+2026-11-13,sepa,,7790968914473,X AURO D2 5W30 4L,,169999.00,,,Changomas,n=53;min=169999.00;max=169999.00,4.0,1,ypf-elaion-auro-d2-530-5w30,ean
+2026-11-13,sepa,,7790968914589,ELAION AURO D1 0W20,YPF,49999.00,,,Changomas,n=53;min=49999.00;max=49999.00,,1,ypf-elaion-auro-d1-020-0w20,ean
+2026-11-13,sepa,,7790968914596,ELAION AURO D1 0W20 4L,YPF,179999.00,,,Changomas,n=53;min=179999.00;max=179999.00,4.0,1,ypf-elaion-auro-d1-020-0w20,ean
+2026-11-13,sepa,,7790968914602,ELAION AURO D1 5W30 1L,YPF,49999.00,,,Changomas,n=53;min=49999.00;max=49999.00,1.0,1,ypf-elaion-auro-d1-530-5w30,ean
+2026-11-13,sepa,,7790968914619,ELAION AURO D1 5W30 4L,YPF,179999.00,,,Changomas,n=53;min=179999.00;max=179999.00,4.0,1,ypf-elaion-auro-d1-530-5w30,ean
+2026-11-13,sepa,,7790968914626,ELAION MI 1540 B 1L,YPF,23999.00,,,Changomas,n=53;min=23999.00;max=23999.00,1.0,1,ypf-elaion-mi1540-15w40,ean
+2026-11-13,sepa,,7790968914633,ELAION MI 1540 B4L,YPF,79999.00,,,Changomas,n=53;min=79999.00;max=79999.00,,1,ypf-elaion-mi1540-15w40,ean
+2026-11-13,sepa,,7790968914640,ELAION MI 2050 B1L,YPF,19299.00,,,Changomas,n=53;min=19299.00;max=19299.00,,1,ypf-elaion-mi2050-20w50,ean
+2026-11-13,sepa,,7790968914664,ELAION TS 1040 B1 L,YPF,24999.00,,,Changomas,n=53;min=24999.00;max=24999.00,,1,ypf-elaion-ts1040-10w40,ean
+2026-11-13,sepa,,7790968914671,ELAION TS 1040 B4 L,YPF,89999.00,,,Changomas,n=53;min=89999.00;max=89999.00,,1,ypf-elaion-ts1040-10w40,ean
+2026-11-13,sepa,,7790968914701,LUBRI ELAIONFS540 1L,YPF,49999.00,,,Changomas,n=53;min=49999.00;max=49999.00,1.0,1,ypf-elaion-fs540-5w40,ean
+2026-11-13,sepa,,7790968915241,YPF ROD MOTO 20W501L,YPF,17999.00,,,Changomas,n=53;min=17999.00;max=17999.00,1.0,1,ypf-rod-4t-20w50,ean
+2026-11-13,sepa,,7790968915265,YPF ROD MOTO 10W301L,YPF,17999.00,,,Changomas,n=53;min=17999.00;max=17999.00,1.0,1,ypf-rod-4t-10w30,ean
+2026-11-13,sepa,,7790968915289,YPF ROD MOTO 10W401L,YPF,17999.00,,,Changomas,n=53;min=17999.00;max=17999.00,1.0,1,ypf-rod-4t-10w40,ean
+2026-11-13,sepa,,7790968914428,AURO FE 5W30 1L,,49999.00,,,SuperChangomas,n=9;min=49999.00;max=49999.00,1.0,1,ypf-elaion-auro-fe-530-5w30,ean
+2026-11-13,sepa,,7790968914466,AURO D2 5W30 1L,,49999.00,,,SuperChangomas,n=9;min=49999.00;max=49999.00,1.0,1,ypf-elaion-auro-d2-530-5w30,ean
+2026-11-13,sepa,,7790968914473,X AURO D2 5W30 4L,,169999.00,,,SuperChangomas,n=9;min=169999.00;max=169999.00,4.0,1,ypf-elaion-auro-d2-530-5w30,ean
+2026-11-13,sepa,,7790968914589,ELAION AURO D1 0W20,YPF,49999.00,,,SuperChangomas,n=9;min=49999.00;max=49999.00,,1,ypf-elaion-auro-d1-020-0w20,ean
+2026-11-13,sepa,,7790968914596,ELAION AURO D1 0W20 4L,YPF,179999.00,,,SuperChangomas,n=9;min=179999.00;max=179999.00,4.0,1,ypf-elaion-auro-d1-020-0w20,ean
+2026-11-13,sepa,,7790968914602,ELAION AURO D1 5W30 1L,YPF,49999.00,,,SuperChangomas,n=9;min=49999.00;max=49999.00,1.0,1,ypf-elaion-auro-d1-530-5w30,ean
+2026-11-13,sepa,,7790968914619,ELAION AURO D1 5W30 4L,YPF,179999.00,,,SuperChangomas,n=9;min=179999.00;max=179999.00,4.0,1,ypf-elaion-auro-d1-530-5w30,ean
+2026-11-13,sepa,,7790968914626,ELAION MI 1540 B 1L,YPF,23999.00,,,SuperChangomas,n=9;min=23999.00;max=23999.00,1.0,1,ypf-elaion-mi1540-15w40,ean
+2026-11-13,sepa,,7790968914633,ELAION MI 1540 B4L,YPF,79999.00,,,SuperChangomas,n=9;min=79999.00;max=79999.00,,1,ypf-elaion-mi1540-15w40,ean
+2026-11-13,sepa,,7790968914640,ELAION MI 2050 B1L,YPF,19299.00,,,SuperChangomas,n=9;min=19299.00;max=19299.00,,1,ypf-elaion-mi2050-20w50,ean
+2026-11-13,sepa,,7790968914664,ELAION TS 1040 B1 L,YPF,24999.00,,,SuperChangomas,n=9;min=24999.00;max=24999.00,,1,ypf-elaion-ts1040-10w40,ean
+2026-11-13,sepa,,7790968914671,ELAION TS 1040 B4 L,YPF,89999.00,,,SuperChangomas,n=9;min=89999.00;max=89999.00,,1,ypf-elaion-ts1040-10w40,ean
+2026-11-13,sepa,,7790968914701,LUBRI ELAIONFS540 1L,YPF,49999.00,,,SuperChangomas,n=9;min=49999.00;max=49999.00,1.0,1,ypf-elaion-fs540-5w40,ean
+2026-11-13,sepa,,7790968915241,YPF ROD MOTO 20W501L,YPF,17999.00,,,SuperChangomas,n=9;min=17999.00;max=17999.00,1.0,1,ypf-rod-4t-20w50,ean
+2026-11-13,sepa,,7790968915265,YPF ROD MOTO 10W301L,YPF,17999.00,,,SuperChangomas,n=9;min=17999.00;max=17999.00,1.0,1,ypf-rod-4t-10w30,ean
+2026-11-13,sepa,,7790968915289,YPF ROD MOTO 10W401L,YPF,17999.00,,,SuperChangomas,n=9;min=17999.00;max=17999.00,1.0,1,ypf-rod-4t-10w40,ean
+2026-11-13,sepa,,7790968914428,AURO FE 5W30 1L,,49999.00,,,HiperChangomas,n=31;min=49999.00;max=49999.00,1.0,1,ypf-elaion-auro-fe-530-5w30,ean
+2026-11-13,sepa,,7790968914466,AURO D2 5W30 1L,,49999.00,,,HiperChangomas,n=31;min=49999.00;max=49999.00,1.0,1,ypf-elaion-auro-d2-530-5w30,ean
+2026-11-13,sepa,,7790968914473,X AURO D2 5W30 4L,,169999.00,,,HiperChangomas,n=31;min=169999.00;max=169999.00,4.0,1,ypf-elaion-auro-d2-530-5w30,ean
+2026-11-13,sepa,,7790968914589,ELAION AURO D1 0W20,YPF,49999.00,,,HiperChangomas,n=31;min=49999.00;max=49999.00,,1,ypf-elaion-auro-d1-020-0w20,ean
+2026-11-13,sepa,,7790968914596,ELAION AURO D1 0W20 4L,YPF,179999.00,,,HiperChangomas,n=31;min=179999.00;max=179999.00,4.0,1,ypf-elaion-auro-d1-020-0w20,ean
+2026-11-13,sepa,,7790968914602,ELAION AURO D1 5W30 1L,YPF,49999.00,,,HiperChangomas,n=31;min=49999.00;max=49999.00,1.0,1,ypf-elaion-auro-d1-530-5w30,ean
+2026-11-13,sepa,,7790968914619,ELAION AURO D1 5W30 4L,YPF,179999.00,,,HiperChangomas,n=31;min=179999.00;max=179999.00,4.0,1,ypf-elaion-auro-d1-530-5w30,ean
+2026-11-13,sepa,,7790968914626,ELAION MI 1540 B 1L,YPF,23999.00,,,HiperChangomas,n=31;min=23999.00;max=23999.00,1.0,1,ypf-elaion-mi1540-15w40,ean
+2026-11-13,sepa,,7790968914633,ELAION MI 1540 B4L,YPF,79999.00,,,HiperChangomas,n=31;min=79999.00;max=79999.00,,1,ypf-elaion-mi1540-15w40,ean
+2026-11-13,sepa,,7790968914640,ELAION MI 2050 B1L,YPF,19299.00,,,HiperChangomas,n=31;min=19299.00;max=19299.00,,1,ypf-elaion-mi2050-20w50,ean
+2026-11-13,sepa,,7790968914664,ELAION TS 1040 B1 L,YPF,24999.00,,,HiperChangomas,n=31;min=24999.00;max=24999.00,,1,ypf-elaion-ts1040-10w40,ean
+2026-11-13,sepa,,7790968914671,ELAION TS 1040 B4 L,YPF,89999.00,,,HiperChangomas,n=31;min=89999.00;max=89999.00,,1,ypf-elaion-ts1040-10w40,ean
+2026-11-13,sepa,,7790968914701,LUBRI ELAIONFS540 1L,YPF,49999.00,,,HiperChangomas,n=31;min=49999.00;max=49999.00,1.0,1,ypf-elaion-fs540-5w40,ean
+2026-11-13,sepa,,7790968915241,YPF ROD MOTO 20W501L,YPF,17999.00,,,HiperChangomas,n=31;min=17999.00;max=17999.00,1.0,1,ypf-rod-4t-20w50,ean
+2026-11-13,sepa,,7790968915265,YPF ROD MOTO 10W301L,YPF,17999.00,,,HiperChangomas,n=31;min=17999.00;max=17999.00,1.0,1,ypf-rod-4t-10w30,ean
+2026-11-13,sepa,,7790968915289,YPF ROD MOTO 10W401L,YPF,17999.00,,,HiperChangomas,n=31;min=17999.00;max=17999.00,1.0,1,ypf-rod-4t-10w40,ean
