@@ -137,7 +137,6 @@ fecha,fuente,http,n_items,n_con_precio,n_sin_stock,n_sin_match,error,n_descartad
 2026-11-13,ml_cat,200,4,0,0,0,,0
 2026-11-13,ml,200,1965,1965,0,0,,0
 2026-11-13,macro_series,200,15,15,0,0,,0
-2026-11-13,sepa,200,113,84,0,0,,29
 2026-11-14,ypf_gql,200,0,0,0,0,HTTP 200 sin data: <html><head><title>Request Rejected</title></head><body>The requested URL was rejected. Please consult with your adminis,0
 2026-11-14,vtex_carrefour,200,185,11,116,0,,58
 2026-11-14,vtex_masonline,200,61,36,5,0,,20
@@ -150,3 +149,4 @@ fecha,fuente,http,n_items,n_con_precio,n_sin_stock,n_sin_match,error,n_descartad
 2026-11-14,ml_cat,200,4,0,0,0,,0
 2026-11-14,ml,200,1854,1854,0,0,,0
 2026-11-14,macro_series,200,15,15,0,0,,0
+2026-11-13,sepa,200,113,84,0,0,,29
