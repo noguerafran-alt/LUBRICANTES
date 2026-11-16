@@ -175,3 +175,4 @@ fecha,fuente,http,n_items,n_con_precio,n_sin_stock,n_sin_match,error,n_descartad
 2026-11-16,ml_cat,200,4,0,0,0,,0
 2026-11-16,ml,200,1859,1859,0,0,,0
 2026-11-16,macro_series,200,15,15,0,0,,0
+2026-11-16,sepa,403,0,0,0,0,HTTPError: HTTP Error 403: Forbidden,0
