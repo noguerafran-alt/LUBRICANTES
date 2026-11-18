@@ -4,9 +4,11 @@ Se corre con el Python de Blender (no con el del server, que sigue siendo stdlib
     blender -b --factory-startup -P tools/modelos3d.py -- [--limite N] [--solo ID] [--forzar] [--fotos DIR]
     blender -b --factory-startup -P tools/modelos3d.py -- test
 
-La forma sale de la silueta de la foto: se separa el envase del fondo, se infla con los bordes
-redondeados (profundidad proporcional al ancho) y se espeja atrás. La foto es la textura, proyectada
-de frente: la etiqueta queda exacta; el dorso repite el frente sin espejar.
+La forma sale de la silueta de la foto: se separa el envase del fondo, se limpia la máscara (cierre/apertura,
+isla principal, huecos de ruido rellenos), se infla con los bordes redondeados (profundidad proporcional al ancho)
+y se cierra atrás con una malla propia (sin MIRROR). La foto solo va en la cara frontal casi plana, proyectada de
+frente (la etiqueta queda exacta); los costados y el dorso llevan un material liso del color del envase: la foto
+no tiene dorso y no se inventa. La malla es una sola pieza cerrada y manifold (se verifica en cada generación).
 Orientación del GLB (glTF, Y arriba): frente mirando a +Z, base en y=0, alto 1.
 """
 import argparse
@@ -28,6 +30,9 @@ FILAS = 200          # resolución vertical de la grilla de la máscara (antes d
 CARAS = 9000         # triángulos objetivo por modelo
 TEX = 1024           # lado mayor de la textura
 TOPE = 450_000       # bytes por GLB: más que esto es un error del generador
+FRENTE = .5          # una cara lleva la foto si su normal apunta al frente al menos así (coseno): lo casi plano
+FRENTE_BALDE = .25   # el balde es un cilindro: no tiene plano, la foto cubre casi todo el frente
+TOL_FONDO = .015     # tolerancia del relleno del fondo: más flojo deja entrar los brillos blancos del envase
 # Baldes de 20 L: cilindro (la silueta de frente no distingue un balde de un bidón chato).
 BALDES = ("ypf-extravida-", "ypf-elaion-nautico-2t", "ypf-super-20w50", "ypf-transferencia-termica",
           "shell-rimula-r3-l-", "shell-rimula-r6-lm-", "shell-rimula-r6-ms-")
@@ -39,6 +44,8 @@ DESCARTES = {
     "totalenergies-quartz-ineo-long-life-5w30": "dos envases",
     "valvoline-moto-4t-10w40": "foto ambientada, fondo no liso",
     "ypf-gnc-super-20w50": "envase blanco sobre fondo blanco: no se separa",
+    "totalenergies-quartz-7000-10w40": "brillos blancos del hombro y la manija iguales al fondo: la silueta no se separa",
+    "ypf-elaion-f50j-5w30-br": "foto de una caja de cartón, no de un envase",
     "ypf-rod-2t": "familia de envases",
     "ypf-rod-4t-10w30": "dos envases",
     "ypf-rod-4t-10w40": "dos envases",
@@ -103,7 +110,7 @@ def fondo_conectado(rgb, cerca):
         y, x = q.popleft()
         for yy, xx in ((y + 1, x), (y - 1, x), (y, x + 1), (y, x - 1)):
             if 0 <= yy < h and 0 <= xx < w and not f[yy, xx] and (
-                    cerca[yy, xx] < .04 or (suave[yy, xx] and np.abs(rgb[yy, xx] - rgb[y, x]).max() < .012)):
+                    cerca[yy, xx] < TOL_FONDO or (suave[yy, xx] and np.abs(rgb[yy, xx] - rgb[y, x]).max() < .012)):
                 f[yy, xx] = True
                 q.append((yy, xx))
     return f
@@ -127,13 +134,21 @@ def mascara(a, huecos=True):
         # hueco de la manija: zona encerrada, del color del fondo, chica y lisa, en la mitad de arriba
         et2, n2 = componentes(parecido & ~fondo)
         env = ~fondo
+        et0, n0 = componentes(env)  # la caja y el área son del envase principal (las fotos traen texto al lado)
+        env = et0 == np.bincount(et0.ravel())[1:].argmax() + 1 if n0 else env
         ys = np.nonzero(env.any(axis=1))[0]
         y_tope = ys[0] + .4 * (ys[-1] - ys[0])  # las manijas van arriba; un óvalo blanco de etiqueta, más abajo
+        xs = np.nonzero(env.any(axis=0))[0]
+        y_lat = ys[0] + .8 * (ys[-1] - ys[0])   # el agarre lateral (ventana) baja más, pero pegado a un costado
+        x_lat = .25 * (xs[-1] - xs[0])
         area = env.sum()
         for i in range(1, n2 + 1 if huecos else 1):
             r = et2 == i
             yy = np.nonzero(r)[0]
-            if .004 * area < r.sum() < .15 * area and yy.mean() < y_tope and cerca[r].std() < .03:
+            xx = np.nonzero(r)[1].mean()
+            dentro = xs[0] <= xx <= xs[-1] and ys[0] <= yy.mean() <= ys[-1]
+            lateral = dentro and yy.mean() < y_lat and min(xx - xs[0], xs[-1] - xx) < x_lat and r.sum() > .02 * area
+            if .004 * area < r.sum() < .15 * area and (dentro and yy.mean() < y_tope or lateral) and cerca[r].std() < .03:
                 fondo |= r
     env = ~fondo
     et, n = componentes(env)
@@ -151,6 +166,56 @@ def mascara(a, huecos=True):
         if r.sum() < .004 * env.sum() and not (r[0].any() or r[-1].any() or r[:, 0].any() or r[:, -1].any()):
             env |= r
     return env, None
+
+
+# ---------------------------------------------------------------- limpieza de la máscara
+
+def dilatar(m, r):
+    """Dilatación con disco de radio r (cuadros fuera de la máscara: False)."""
+    p = np.pad(m, r + 1)
+    out = np.zeros_like(p)
+    for dy in range(-r, r + 1):
+        for dx in range(-r, r + 1):
+            if dy * dy + dx * dx <= r * r:
+                out |= np.roll(np.roll(p, dy, 0), dx, 1)
+    return out[r + 1:-r - 1, r + 1:-r - 1]
+
+
+def erosionar(m, r):
+    """Erosión con disco de radio r (fuera de la imagen cuenta como fondo)."""
+    return ~dilatar(~np.pad(m, r + 1), r)[r + 1:-r - 1, r + 1:-r - 1]
+
+
+def agujeros(m):
+    """Etiquetas de las zonas de no-envase que no tocan el borde de la imagen (agujeros cerrados)."""
+    et, n = componentes(~m)
+    out = []
+    for i in range(1, n + 1):
+        r = et == i
+        if not (r[0].any() or r[-1].any() or r[:, 0].any() or r[:, -1].any()):
+            out.append(r)
+    return out
+
+
+def limpiar(m, manija=True):
+    """Máscara sin mordidas ni islas: cierre (los brillos blancos del envase que se confundieron con el fondo
+    quedan adentro), apertura (rebabas), isla principal y agujeros de ruido rellenos. Solo sobrevive como agujero
+    la manija real: cerrada, de al menos 1 % del envase. Los baldes no tienen (`manija=False`)."""
+    ys = np.nonzero(m.any(axis=1))[0]
+    r = max(2, round(.03 * (ys[-1] - ys[0] + 1)))
+    area = m.sum()
+    manijas = [a for a in agujeros(m) if manija and a.sum() >= .01 * area]
+    c = erosionar(dilatar(m, r), r)  # cierre
+    k = max(1, r // 2)
+    c = dilatar(erosionar(c, k), k)  # apertura
+    for a in manijas:
+        c &= ~a
+    et, n = componentes(c)
+    c = et == np.bincount(et.ravel())[1:].argmax() + 1
+    for a in agujeros(c):  # lo que no es manija se rellena
+        if not any((a & q).any() for q in manijas):
+            c |= a
+    return c
 
 
 # ---------------------------------------------------------------- máscara → alturas
@@ -240,12 +305,31 @@ def textura(rgb, m, ruta):
 # ---------------------------------------------------------------- malla
 
 def malla(m, z):
-    """Grilla sobre la máscara: vértices en centros de píxel, borde en z=0, contorno suavizado."""
+    """Grilla sobre la máscara: vértices en centros de píxel, borde en z=0, contorno suavizado.
+    Sin pellizcos (dos celdas que se tocan solo en una esquina darían un vértice no-manifold: se quita una) ni celdas
+    sin espesor (4 vértices de borde, o una arista interior con los dos extremos en el borde: frente y dorso
+    compartirían cara o arista)."""
     h, w = m.shape
     idx = -np.ones((h, w), np.int64)
     ys, xs = np.nonzero(m)
     idx[ys, xs] = np.arange(len(ys))
     q = m[:-1, :-1] & m[1:, :-1] & m[:-1, 1:] & m[1:, 1:]
+    while True:
+        d1 = q[:-1, :-1] & q[1:, 1:] & ~q[:-1, 1:] & ~q[1:, :-1]
+        d2 = q[:-1, 1:] & q[1:, :-1] & ~q[:-1, :-1] & ~q[1:, 1:]
+        pq = np.pad(q, 1)  # vértice (i, j) es interior si sus 4 celdas están; una celda con 4 vértices de borde no tiene espesor
+        vi = pq[:-1, :-1] & pq[:-1, 1:] & pq[1:, :-1] & pq[1:, 1:]
+        fino = q & ~(vi[:-1, :-1] | vi[:-1, 1:] | vi[1:, :-1] | vi[1:, 1:])
+        # arista interior con los dos extremos en el borde (cuello de una celda): frente y dorso la compartirían (4 caras)
+        he = (pq[:h, 1:w] & pq[1:, 1:w] & ~vi[:, :-1] & ~vi[:, 1:])[:-1]
+        ve = (pq[1:h, :w] & pq[1:h, 1:] & ~vi[:-1] & ~vi[1:])[:, :-1]
+        if not (d1.any() or d2.any() or fino.any() or he.any() or ve.any()):
+            break
+        q[1:, 1:] &= ~d1
+        q[1:, :-1] &= ~d2
+        q &= ~(fino | he | ve)
+    et, n = componentes(q)  # un solo cuerpo
+    q = et == np.bincount(et.ravel())[1:].argmax() + 1
     qy, qx = np.nonzero(q)
     caras = np.stack([idx[qy + 1, qx], idx[qy + 1, qx + 1], idx[qy, qx + 1], idx[qy, qx]], 1)  # normal hacia -Y (frente)
     usados = np.unique(caras)
@@ -255,8 +339,8 @@ def malla(m, z):
     u, c = np.unique(ar, axis=0, return_counts=True)
     borde = u[c == 1]
     pos = np.stack([xs, ys], 1).astype(np.float64)
-    zz = z[ys, xs].astype(np.float64)
     eb = np.unique(borde)
+    zz = np.maximum(z[ys, xs].astype(np.float64), .05)  # lo de adentro nunca toca z=0: no se confunde con el borde
     zz[eb] = 0
     vec = collections.defaultdict(list)
     for a, b in borde:
@@ -273,9 +357,116 @@ def malla(m, z):
     return pos[usados], zz[usados], mapa[caras]
 
 
+def chequeo(bm, foto=0):
+    """Malla cerrada de verdad: toda arista con dos caras, vértices manifold, una sola pieza, adentro hacia afuera,
+    y la foto (material `foto`) solo en caras que miran al frente (-Y de Blender = +Z del GLB)."""
+    bordes = sum(len(e.link_faces) != 2 for e in bm.edges)
+    pellizcos = sum(not v.is_manifold for v in bm.verts)
+    visto, piezas = set(), 0
+    for v in bm.verts:
+        if v in visto:
+            continue
+        piezas += 1
+        visto.add(v)
+        pila = [v]
+        while pila:
+            for e in pila.pop().link_edges:
+                for w_ in e.verts:
+                    if w_ not in visto:
+                        visto.add(w_)
+                        pila.append(w_)
+    assert bordes == 0 and pellizcos == 0, f"malla abierta o pellizcada: {bordes} aristas, {pellizcos} vértices"
+    assert piezas == 1, f"{piezas} piezas"
+    assert bm.calc_volume(signed=True) > 0, "normales hacia adentro"
+    assert all(f.normal.y < 0 for f in bm.faces if f.material_index == foto), "foto en una cara que no mira al frente"
+    return bordes, pellizcos, piezas
+
+
+def solido(pos, zz, caras, uv):
+    """Cuerpo cerrado en bmesh: frente en -Y de Blender, dorso espejado en +Y, borde (z=0) compartido."""
+    import bmesh
+    bm = bmesh.new()
+    n = len(pos)
+    fr = [bm.verts.new((pos[i, 0], -zz[i], pos[i, 1])) for i in range(n)]
+    atras = list(range(n))
+    for i in np.nonzero(zz > 0)[0]:
+        atras[i] = len(fr)
+        fr.append(bm.verts.new((pos[i, 0], zz[i], pos[i, 1])))
+    bm.verts.ensure_lookup_table()
+    uvl = bm.loops.layers.uv.new("UVMap")
+    for f in caras:
+        for orden, mapa in ((f, list(range(n))), (f[::-1], atras)):  # el dorso va con el giro invertido
+            cara = bm.faces.new([fr[mapa[i]] for i in orden])
+            for lo, i in zip(cara.loops, orden):
+                lo[uvl].uv = uv[i]
+    return bm
+
+
+def color_envase(rgb, m):
+    """Color liso del envase (lineal, para el material): color más repetido en una franja cerca del borde de la máscara
+    (cuerpo, no etiqueta ni brillo del canto). Gris neutro si no hay con qué."""
+    ring = erosionar(m, 4) & ~erosionar(m, 12)  # lejos del canto: ahí brilla
+    px = rgb[ring] if ring.sum() >= 30 else rgb[m]
+    if not len(px):
+        return (.5, .5, .5)
+    k = (px * 8).astype(int).clip(0, 7) @ np.array([64, 8, 1])  # el color más repetido, no una mezcla (rojo+azul = violeta)
+    c = px[k == np.bincount(k).argmax()].mean(axis=0)
+    return tuple(float(x) for x in np.where(c <= .04045, c / 12.92, ((c + .055) / 1.055) ** 2.4))
+
+
+def material(nombre, color=None, img=None):
+    import bpy
+    mat = bpy.data.materials.new(nombre)
+    if bpy.app.version < (5, 0):
+        mat.use_nodes = True
+    bsdf = mat.node_tree.nodes["Principled BSDF"]
+    bsdf.inputs["Metallic"].default_value = 0
+    bsdf.inputs["Roughness"].default_value = .5
+    if img is not None:
+        tx = mat.node_tree.nodes.new("ShaderNodeTexImage")
+        tx.image = img
+        tx.extension = "EXTEND"
+        mat.node_tree.links.new(tx.outputs["Color"], bsdf.inputs["Base Color"])
+    elif color is not None:
+        bsdf.inputs["Base Color"].default_value = (*color, 1)
+    return mat
+
+
+def cuerpo(pos, zz, caras, uv, liso, img, frente=FRENTE):
+    """Malla final: cuerpo cerrado, diezmado (con revisión: el diezmado no puede abrirla), foto solo en el frente
+    casi plano y color liso en costados y dorso. → objeto de Blender."""
+    import bmesh
+    import bpy
+    bm = solido(pos, zz, caras, uv)
+    me0 = bpy.data.meshes.new("cuerpo0")
+    bm.to_mesh(me0)
+    bm.free()
+    ob0 = bpy.data.objects.new("cuerpo0", me0)
+    bpy.context.scene.collection.objects.link(ob0)
+    de = ob0.modifiers.new("liviano", "DECIMATE")
+    de.ratio = min(1.0, CARAS / (len(me0.polygons) * 2))  # cada cuadrado son dos triángulos
+    me = bpy.data.meshes.new_from_object(ob0.evaluated_get(bpy.context.evaluated_depsgraph_get()))
+    bpy.data.objects.remove(ob0)
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-7)
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
+    bm.normal_update()  # sin recalc_face_normals: en cuerpos cóncavos con manija da vuelta todo; el giro sale ya bien
+    for f in bm.faces:
+        f.material_index = 0 if f.normal.y < -frente else 1
+        f.smooth = True
+    chequeo(bm)
+    bm.to_mesh(me)
+    bm.free()
+    me.materials.append(material("foto", img=img))
+    me.materials.append(material("liso", color=liso))
+    ob = bpy.data.objects.new("envase", me)
+    bpy.context.scene.collection.objects.link(ob)
+    return ob
+
+
 def armar(pid, foto, carpeta):
     """→ ruta del GLB o (None, motivo)."""
-    import bmesh
     import bpy
     bpy.ops.wm.read_factory_settings(use_empty=True)
     a = leer(foto)
@@ -296,6 +487,7 @@ def armar(pid, foto, carpeta):
         der = np.median([m.shape[1] - 1 - np.argmax(m[y, ::-1]) for y in medio])
         m[:, :max(0, int(izq) - 1)] = False
         m[:, int(der) + 2:] = False
+    m = limpiar(m, manija=not balde)
     ys, xs = np.nonzero(m)
     y0, y1, x0, x1 = ys.min(), ys.max() + 1, xs.min(), xs.max() + 1
     m = np.pad(m[y0:y1, x0:x1], 1)
@@ -308,46 +500,13 @@ def armar(pid, foto, carpeta):
     rec = a[max(0, fy0):fy0 + h * k, max(0, fx0):fx0 + w * k]
     mg = np.repeat(np.repeat(m, k, 0), k, 1)[:rec.shape[0], :rec.shape[1]]
     img = textura(rec[..., :3], mg, carpeta / f"{pid}.jpg")
+    liso = color_envase(rec[::k, ::k, :3], mg[::k, ::k])
     # coordenadas: X derecha, Z arriba (alto 1, base en 0), -Y frente
     esc = 1.0 / (y1 - y0)
     vx = (pos[:, 0] - w / 2) * esc
     vz = (h - 1 - pos[:, 1] - 1) * esc
-    vy = -zz * esc
-    uv_u = (pos[:, 0] + .5) / w
-    uv_v = 1 - (pos[:, 1] + .5) / h
-    me = bpy.data.meshes.new(pid)
-    bm = bmesh.new()
-    vs = [bm.verts.new((float(a_), float(b_), float(c_))) for a_, b_, c_ in zip(vx, vy, vz)]
-    bm.verts.ensure_lookup_table()
-    uvl = bm.loops.layers.uv.new("UVMap")
-    for f in caras:
-        cara = bm.faces.new([vs[i] for i in f])
-        for lo, i in zip(cara.loops, f):  # los vértices nuevos de bmesh no tienen índice todavía
-            lo[uvl].uv = (uv_u[i], uv_v[i])
-    bm.to_mesh(me)
-    bm.free()
-    ob = bpy.data.objects.new(pid, me)
-    bpy.context.scene.collection.objects.link(ob)
-    for p in me.polygons:
-        p.use_smooth = True
-    mi = ob.modifiers.new("dorso", "MIRROR")
-    mi.use_axis = (False, True, False)
-    mi.use_mirror_merge = True
-    mi.merge_threshold = 1e-5
-    mi.use_mirror_u = True  # el dorso lee la etiqueta al derecho
-    de = ob.modifiers.new("liviano", "DECIMATE")
-    de.ratio = min(1.0, CARAS / (len(caras) * 4))
-    mat = bpy.data.materials.new("envase")
-    if bpy.app.version < (5, 0):
-        mat.use_nodes = True
-    bsdf = mat.node_tree.nodes["Principled BSDF"]
-    bsdf.inputs["Metallic"].default_value = 0
-    bsdf.inputs["Roughness"].default_value = .5
-    tx = mat.node_tree.nodes.new("ShaderNodeTexImage")
-    tx.image = img
-    tx.extension = "EXTEND"
-    mat.node_tree.links.new(tx.outputs["Color"], bsdf.inputs["Base Color"])
-    me.materials.append(mat)
+    uv = np.stack([(pos[:, 0] + .5) / w, 1 - (pos[:, 1] + .5) / h], 1)
+    ob = cuerpo(np.stack([vx, vz], 1), zz * esc, caras, uv, liso, img, FRENTE_BALDE if balde else FRENTE)
     destino = carpeta / f"{pid}.glb"
     bpy.ops.object.select_all(action="DESELECT")
     ob.select_set(True)
@@ -418,7 +577,7 @@ def main(args):
 
 
 def demo():
-    """Máscara, hueco de manija y alturas sobre una foto sintética."""
+    """Máscara, limpieza, alturas y malla cerrada (manifold) sobre una foto sintética."""
     a = np.ones((120, 100, 4), np.float32)
     a[20:110, 20:80, :3] = (.1, .2, .7)          # envase azul sobre blanco
     a[30:50, 30:50, :3] = 1.0                    # hueco de manija (arriba, color del fondo)
@@ -431,6 +590,36 @@ def demo():
     assert z[5, 5] == 0 and z[60, 50] > 10 and z[60, 21] < z[60, 50]
     pos, zz, caras = malla(m, z)
     assert len(caras) and zz.min() == 0 and caras.max() < len(pos)
+    # limpieza: una mordida en el borde, una isla y un agujero de ruido se arreglan; la manija (agujero grande) queda
+    s_ = np.zeros((100, 80), bool)
+    s_[10:95, 10:70] = True
+    s_[20:40, 45:60] = False      # manija: agujero cerrado y grande
+    s_[50:53, 40:43] = False      # ruido: agujero chico
+    s_[10:25, 10:30] = False      # mordida abierta en una esquina de 15 x 20
+    s_[10:14, 10:30] = True       # (queda una solapa fina arriba)
+    s_[2:6, 2:6] = True           # isla suelta
+    s_[66:69, 50:70] = False      # grieta fina abierta al costado (brillo confundido con el fondo)
+    c = limpiar(s_)
+    assert not c[3, 3] and c[51, 41] and not c[30, 52], "isla fuera, ruido relleno, manija abierta"
+    assert c[67, 60], "la grieta fina del borde se cierra"
+    # pellizco: dos celdas que se tocan solo en una esquina no dejan un vértice no-manifold
+    d = np.zeros((8, 8), bool)
+    d[1:4, 1:4] = True
+    d[3:6, 3:6] = True
+    d[3, 3] = d[3, 3]
+    p_, zd, cd = malla(np.pad(d, 1), np.ones((10, 10), np.float32) * 3)
+    import bmesh
+    bm = solido(np.c_[p_[:, 0], -p_[:, 1]] * .1, zd * .1, cd, np.zeros((len(p_), 2)))
+    chequeo(bm, foto=-1)
+    bm.free()
+    # cuerpo completo: cerrado, una pieza, foto solo al frente, dorso y costados lisos
+    ob = cuerpo(np.c_[pos[:, 0] * .01, -pos[:, 1] * .01], zz * .01, caras, np.zeros((len(pos), 2)), (.2, .3, .6), None)
+    bm = bmesh.new()
+    bm.from_mesh(ob.data)
+    assert chequeo(bm) == (0, 0, 1)
+    assert any(f.material_index == 0 for f in bm.faces) and any(f.material_index == 1 for f in bm.faces)
+    assert all(f.material_index == 1 for f in bm.faces if f.normal.y > 0), "el dorso no lleva foto"
+    bm.free()
     b = a.copy()
     b[:, :, :3] = 1.0
     b[10:50, 10:40, :3] = .2
