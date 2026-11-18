@@ -28,7 +28,7 @@ El relevamiento que fundamenta todo esto está en `docs/relevamiento/`
   `LUB_CLAVE`, el server no arranca. Nunca una clave en la URL.
 - **Única excepción a "solo stdlib": three.js vendorizado** (`site/vendor/three.module.min.js` y `GLTFLoader.js` + `BufferGeometryUtils.js`, three@0.170.0, licencia MIT en
   `site/vendor/three.LICENSE`; `three` se resuelve con un importmap en `index.html`), solo para el modo presentación y cargado on-demand (import dinámico) para que el resto del visor no lo
-  pague. Versión fijada, nada de CDN en runtime; `server.py` sirve los `.js`/`.mjs` de `site/` como `text/javascript` (`immutable` de un año solo en `vendor/`, el resto revalida a los 60 s) y los `.glb` de `site/modelos/` como `model/gltf-binary` (`max-age=86400`, sin `immutable`). Los GLB (`site/modelos/<producto_id>.glb`) los genera `tools/modelos3d.py` en la Action `.github/workflows/modelos3d.yml` (Blender headless: silueta de la foto inflada, con la foto de textura; Blender no entra en el server ni en la corrida diaria).
+  pague. Versión fijada, nada de CDN en runtime; `server.py` sirve los `.js`/`.mjs` de `site/` como `text/javascript` (`immutable` de un año solo en `vendor/`, el resto revalida a los 60 s) y los `.glb` de `site/modelos/` como `model/gltf-binary` (`max-age=86400`, sin `immutable`). Los GLB (`site/modelos/<producto_id>.glb`) los genera `tools/modelos3d.py` en la Action `.github/workflows/modelos3d.yml` (Blender headless: silueta de la foto inflada y cerrada atrás, con la foto de textura solo en el frente y un color liso en costados y dorso, porque las fotos no tienen dorso; la malla es manifold y de una pieza y cada generación lo verifica; Blender no entra en el server ni en la corrida diaria).
 - **Geometría vendorizada**: `site/vendor/ar-provincias.js` (Natural Earth, dominio público; ver «Geometría del mapa»). Es datos, no código de terceros.
 - Lógica nueva → su `assert` en el `demo()` de ese módulo
   (`python <modulo>.py test` tiene que dar `OK`).
@@ -45,7 +45,7 @@ sepa.py            # Precios Claros (SEPA): zip diario en streaming, filtra lubr
 normalizar.py      # aviso → (marca, sae, litros, unidades, producto_id, match)
 macro.py           # `series`: series de datos.gob.ar → data/macro/series.csv; `energia`: ventas de lubricantes de la SE (CSV de 770 MB en streaming) → data/macro/energia.csv; `fx`: dólar PTAX del BCB → data/fx.csv
 server.py          # http.server: visor estático site/ + /api/* calculado desde data/ y seed/
-tools/modelos3d.py # foto → GLB (script de Blender; local: `blender -b --factory-startup -P tools/modelos3d.py -- [--limite N] [--solo ID] [--forzar]`, `-- test` = self-test), en la Action modelos3d.yml; site/presentacion.js: modo presentación 3D
+tools/modelos3d.py # foto → GLB (script de Blender; local: `blender -b --factory-startup -P tools/modelos3d.py -- [--limite N] [--solo ID] [--forzar]`, `-- test` = self-test con el assert de malla cerrada; las fotos que no sirven van a `DESCARTES` con su motivo), en la Action modelos3d.yml; site/presentacion.js: modo presentación 3D
 site/index.html    # visor: Mapa, Cobertura, Comparador, Evolución, Índice, Fuentes (JS vanilla, SVG propio)
 seed/productos.csv     # catálogo normalizado YPF + competencia (a mano)
 seed/alias.csv         # EAN / regex de título → producto_id
