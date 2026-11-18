@@ -1,0 +1,9 @@
+Natural Earth (https://www.naturalearthdata.com), "Admin 1 - States, Provinces", escala 1:10m.
+Dominio público: "All versions of Natural Earth raster + vector map data found on this website are in the public domain.
+You may use the maps in any manner, including modifying the content and design, electronic dissemination, and offset
+printing. The primary authors, Tom Patterson and Nathaniel Vaughn Kelso, and all other contributors renounce all claim
+to copyright interest in the original works." (https://www.naturalearthdata.com/about/terms-of-use/)
+Copia usada: github.com/nvkelso/natural-earth-vector, geojson/ne_10m_admin_1_states_provinces.geojson (24 jurisdicciones de Argentina).
+Modificaciones: proyección equirectangular (longitud x cos 40 grados), simplificación Douglas-Peucker a 0,03 grados,
+islas menores a 0,1 grados cuadrados descartadas, solo anillos exteriores. Script: tools/geo_provincias.py.
+Nota: son los límites de Natural Earth, no una posición oficial del IGN.

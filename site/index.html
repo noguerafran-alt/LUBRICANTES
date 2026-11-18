@@ -366,6 +366,27 @@ th.n { text-align: right; }
   }
   #mk-tip { box-shadow: 0 6px 18px rgba(0, 0, 0, .5); }
 }
+
+/* ---------- Mapa y Cobertura ---------- */
+.mp-cuerpo { display: grid; grid-template-columns: minmax(0, 330px) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 760px) { .mp-cuerpo { grid-template-columns: minmax(0, 1fr); } }
+.mp-mapa { background: var(--panel); border: 1px solid var(--borde); border-radius: 8px; padding: 8px; box-shadow: var(--sombra); }
+.mp-mapa svg { display: block; width: 100%; height: auto; max-height: 70vh; margin: 0 auto; }
+.mp-prov { stroke: var(--panel); stroke-width: 1; vector-effect: non-scaling-stroke; cursor: pointer; }
+.mp-prov:hover, .mp-prov:focus-visible { stroke: var(--tx); stroke-width: 2; outline: none; }
+.mp-prov.sel { stroke: var(--tx); stroke-width: 3; }
+.mp-sd { fill: url(#mp-raya); }
+.mp-ley { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: 12px; color: var(--mut); margin: 8px 2px 0; }
+.mp-grad { width: 120px; height: 10px; border-radius: 3px; background: linear-gradient(90deg, #d6e4fb, #0b3d91); border: 1px solid var(--borde-ctl); }
+.mp-chip { display: inline-block; width: 14px; height: 14px; vertical-align: -2px; border: 1px solid var(--borde-ctl); margin-right: 4px; background: repeating-linear-gradient(45deg, #b8bec7 0 3px, #eef0f3 3px 6px); }
+.mp-panel { background: var(--panel); border: 1px solid var(--borde); border-radius: 8px; padding: 10px 14px; box-shadow: var(--sombra); margin-bottom: 12px; }
+.mp-panel h3 { margin: 0 0 6px; font-size: 16px; }
+.mp-panel ul { list-style: none; margin: 0; padding: 0; }
+.mp-panel li { padding: 6px 0; border-top: 1px solid var(--borde); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.mp-panel li:first-child { border-top: 0; }
+.mp-panel .v { font-weight: 600; }
+.mp-panel .m { color: var(--mut); font-size: 12px; display: block; }
+.mp-sin { color: var(--mut); font-style: italic; }
 </style>
 </head>
 <body>
@@ -374,6 +395,8 @@ th.n { text-align: right; }
   <nav role="tablist">
     <button role="tab" data-tab="vitrina">Vitrina YPF</button>
     <button role="tab" data-tab="mercado">Mercado</button>
+    <button role="tab" data-tab="mapa">Mapa</button>
+    <button role="tab" data-tab="cobertura">Cobertura</button>
     <button role="tab" data-tab="comparador">Comparador</button>
     <button role="tab" data-tab="evolucion">Evolución</button>
     <button role="tab" data-tab="indice">Índice</button>
@@ -413,6 +436,42 @@ th.n { text-align: right; }
     <div id="mk-out">Cargando…</div>
     <div id="mk-tip" role="tooltip" hidden></div>
     <p class="sr" id="mk-vivo" aria-live="polite" aria-atomic="true"></p>
+  </section>
+
+  <section id="mapa" hidden>
+    <div class="vt-cab"><div>
+      <h2 class="vt-titulo">Mapa de precios de reventa</h2>
+      <p class="nota" id="mp-fecha"></p>
+    </div></div>
+    <div class="filtros">
+      <label>Producto YPF <select id="mp-ypf"></select></label>
+      <label>Producto a mostrar <select id="mp-prod"></select></label>
+      <label>Fuente <select id="mp-fuente"></select></label>
+      <label>Ver por <select id="mp-nivel"><option value="provincia">Provincia</option><option value="region">Región</option></select></label>
+    </div>
+    <p class="nota" id="mp-aviso"></p>
+    <div class="mp-cuerpo">
+      <div>
+        <div class="mp-mapa" id="mp-mapa"></div>
+        <div class="mp-ley" id="mp-ley"></div>
+      </div>
+      <div>
+        <div class="mp-panel" id="mp-panel"><p class="nota">Tocá una provincia para ver todas las fuentes que tienen precio ahí, cada una por separado.</p></div>
+        <div class="mp-panel" id="mp-online"></div>
+      </div>
+    </div>
+    <h2>Detalle por provincia</h2>
+    <div id="mp-tabla"></div>
+  </section>
+
+  <section id="cobertura" hidden>
+    <div class="vt-cab"><div>
+      <h2 class="vt-titulo">Cobertura de productos YPF</h2>
+      <p class="nota" id="cob-fecha"></p>
+    </div></div>
+    <div id="cob-resumen"></div>
+    <div class="filtros"><label><span><input type="checkbox" id="cob-faltan"> Solo los que faltan (sin precio o sin equivalencia)</span></label></div>
+    <div id="cob-out">Cargando…</div>
   </section>
 
   <section id="comparador" hidden>
@@ -475,10 +534,11 @@ obs = pd.read_csv("<span class="origen"></span>/api/obs?mes=2026-11&amp;formato=
 </main>
 <div id="pz" class="pz" role="dialog" aria-modal="true" aria-label="Modo presentación" hidden></div>
 
+<script src="/vendor/ar-provincias.js?v=1"></script>
 <script>
 const NOMBRE_FUENTE = { ypf_gql: "YPF catálogo", vtex_carrefour: "Carrefour", vtex_masonline: "Masonline", vtex_easy: "Easy",
   vtex_jumbo: "Jumbo", vtex_norauto: "Norauto", shopify_datri: "Tienda D'Atri", tn_lspalermo: "LS Palermo", tn_spch: "Casa González",
-  sepa: "Precios Claros", ml_cat: "ML categorías", ml: "Mercado Libre" };
+  sepa: "Precios Claros (SEPA)", ml_cat: "ML categorías", ml: "Mercado Libre" };
 const MAYORISTAS = ["shopify_datri"]; // precio por caja o tambor, IVA no verificado: el índice no los usa
 const SEGMENTO = { pcmo: "Autos (PCMO)", hddo: "Pesados (HDDO)", moto4t: "Moto 4T", moto2t: "Moto 2T", transmision: "Transmisión",
   grasa: "Grasa", industrial: "Industrial", marino: "Marino", gas: "Gas", otro: "Otro" };
@@ -1489,9 +1549,149 @@ function pintarCompuestos() {
   </div>`;
 }
 
+// ---------- Mapa de precios de reventa por provincia ----------
+// Una sola fuente por mapa: el color nunca mezcla fuentes. Sin dato = gris rayado, nunca un color de la escala.
+const MP = { datos: null, sel: null };
+const num2 = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 });
+const pl = v => v == null ? "" : "$ " + num2.format(v) + "/L";
+const NS = "http://www.w3.org/2000/svg";
+const mezcla = t => { // 0 = claro, 1 = oscuro (mismo degradado que la leyenda)
+  const a = [214, 228, 251], b = [11, 61, 145];
+  return "rgb(" + a.map((x, i) => Math.round(x + (b[i] - x) * t)).join(",") + ")";
+};
+
+function mpFuentes(celdas) {
+  const m = new Map();
+  for (const c of celdas) if (c.provincia !== "online") m.set(c.fuente, (m.get(c.fuente) || 0) + 1);
+  return [...m.entries()].sort((a, b) => b[1] - a[1]);
+}
+
+function initMapa() {
+  if (MP.listo) return;
+  MP.listo = true;
+  opciones($("#mp-ypf"), ypfs().map(p => p.producto_id), "", id => { const p = prod(id); return `${p.nombre} ${p.sae || ""}`.trim(); });
+  $("#mp-ypf").onchange = () => { opcionesEquiv(); mpCargar(); };
+  $("#mp-prod").onchange = mpCargar;
+  $("#mp-fuente").onchange = mpPintar;
+  $("#mp-nivel").onchange = mpPintar;
+  opcionesEquiv();
+  mpCargar();
+}
+
+function opcionesEquiv() {
+  const id = $("#mp-ypf").value, eqs = equivDe(id);
+  const et = i => { const p = prod(i); return `${p.marca} ${p.nombre} ${p.sae || ""}`.trim(); };
+  $("#mp-prod").innerHTML = `<option value="${esc(id)}">${esc(et(id))} (YPF)</option>` +
+    eqs.map(e => `<option value="${esc(e.comp_id)}">${esc(et(e.comp_id))} · ${esc(TIPO[e.tipo] || e.tipo)}</option>`).join("");
+}
+
+async function mpCargar() {
+  const id = $("#mp-prod").value;
+  if (!id) { $("#mp-mapa").textContent = "No hay productos YPF cargados."; return; }
+  $("#mp-mapa").textContent = "Cargando…";
+  try {
+    MP.datos = await api("provincias?producto_id=" + encodeURIComponent(id));
+  } catch (e) { $("#mp-mapa").textContent = "No se pudo leer: " + e.message; return; }
+  const fs = mpFuentes(MP.datos.celdas), ant = $("#mp-fuente").value;
+  const soloOnline = [...new Set(MP.datos.celdas.map(c => c.fuente))].filter(f => !fs.some(x => x[0] === f));
+  $("#mp-fuente").innerHTML = fs.map(([f, n]) => `<option value="${esc(f)}">${esc(nf(f))} · ${n} ${n === 1 ? "provincia" : "provincias"}</option>`).join("") +
+    soloOnline.map(f => `<option value="${esc(f)}">${esc(nf(f))} · solo online</option>`).join("");
+  if ([...$("#mp-fuente").options].some(o => o.value === ant)) $("#mp-fuente").value = ant;  // default: la fuente con más provincias
+  MP.sel = null;
+  mpPintar();
+}
+
+function mpPintar() {
+  const M = MP.datos, f = $("#mp-fuente").value, reg = $("#mp-nivel").value === "region";
+  $("#mp-fecha").textContent = M.hasta ? `Datos hasta el ${fechaAR(M.hasta)} (últimos ${M.dias} días). ${M.nota}` : M.nota;
+  $("#mp-aviso").textContent = reg ? "Región: mediana de todos los avisos de las provincias de la región, dentro de la misma fuente." :
+    "Provincia: mediana de $/L de los avisos de esa fuente en la provincia (SEPA: mediana entre sucursales). Cada color es de UNA fuente.";
+  const prov = Object.fromEntries(M.celdas.filter(c => c.fuente === f && c.provincia !== "online").map(c => [c.provincia, c]));
+  const regs = Object.fromEntries(M.regiones.filter(c => c.fuente === f).map(c => [c.region, c]));
+  const celda = iso => reg ? regs[AR_GEO.provincias[iso].r] : prov[iso];
+  const vals = Object.keys(AR_GEO.provincias).map(iso => celda(iso)?.precio_litro).filter(v => v != null);
+  const mn = Math.min(...vals), mx = Math.max(...vals);
+  const cob = Object.keys(AR_GEO.provincias).filter(iso => celda(iso)).length;
+  if (!M.celdas.length) { $("#mp-mapa").innerHTML = '<p class="mp-sin">Sin precios con provincia para este producto en el período. Probá con otro producto o con su equivalente.</p>'; $("#mp-ley").innerHTML = ""; mpOnline(); mpTabla(celda); return; }
+  const [x, y, w, h] = AR_GEO.viewBox;
+  const color = c => c ? mezcla(mx === mn ? .5 : (c.precio_litro - mn) / (mx - mn)) : null;
+  const texto = iso => { const c = celda(iso); return `${AR_GEO.provincias[iso].n}: ` + (c ? `${pl(c.precio_litro)} · ${nf(c.fuente)} · ${c.n} ${c.n === 1 ? "aviso" : "avisos"} · ${fechaAR(c.fecha)}` : "sin dato"); };
+  const attrs = iso => { const c = celda(iso); return `class="mp-prov${c ? "" : " mp-sd"}${MP.sel === iso ? " sel" : ""}" data-iso="${iso}"${c ? ` fill="${color(c)}"` : ""} tabindex="0" role="button" aria-label="${esc(texto(iso))}"`; };
+  const c0 = AR_GEO.provincias["AR-C"].c;
+  $("#mp-mapa").innerHTML = `<svg viewBox="${x} ${y} ${w} ${h}" role="group" aria-label="Mapa de Argentina por provincia">
+    <defs><pattern id="mp-raya" width="90" height="90" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="90" height="90" fill="#eef0f3"/><rect width="38" height="90" fill="#b8bec7"/></pattern></defs>
+    ${Object.entries(AR_GEO.provincias).map(([iso, g]) => `<path d="${g.d}" ${attrs(iso)}><title>${esc(texto(iso))}</title></path>`).join("")}
+    <circle cx="${c0[0]}" cy="${c0[1]}" r="70" ${attrs("AR-C")}><title>${esc(texto("AR-C"))} (círculo para poder tocarla)</title></circle>
+  </svg>`;
+  $("#mp-mapa").querySelectorAll("[data-iso]").forEach(e => {
+    e.onclick = () => { MP.sel = e.dataset.iso; mpPintar(); };
+    e.onkeydown = ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); e.onclick(); } };
+  });
+  const fMax = M.celdas.filter(c => c.fuente === f).map(c => c.fecha).sort().pop();
+  const escala = mn === mx ? `<span>todas las que tienen dato: ${esc(pl(mn))}</span>` : `<span>${esc(pl(mn))}</span><span class="mp-grad" aria-hidden="true"></span><span>${esc(pl(mx))}</span>`;
+  $("#mp-ley").innerHTML = vals.length ? `<span><i class="mp-chip"></i>sin dato (${24 - cob} de 24)</span>${escala}
+    <span>${esc(nf(f))} · dato más nuevo ${fechaAR(fMax)} · más claro = más barato dentro de esta fuente</span>` : `<span><i class="mp-chip"></i>sin dato</span>`;
+  mpPanel(celda);
+  mpOnline();
+  mpTabla(celda);
+}
+
+function lineaCelda(c) {
+  const grok = c.canal === "grok";
+  return `<li><span class="v">${esc(pl(c.precio_litro))}</span> · ${grok ? nfh(c.fuente) : esc(nf(c.fuente))}
+    <span class="m">precio mediano ${esc(pesos.format(c.precio))} · ${c.n} ${c.n === 1 ? "aviso" : "avisos"} · dato del ${fechaAR(c.fecha)}${c.vendedores.length ? " · " + esc(c.vendedores.join(", ")) : ""}</span>
+    ${grok ? `<span class="m">${sello(c.verificado)} ${linkUrl(c.url, "ver página")} · cargado ${esc((c.cargado || "").slice(0, 10).split("-").reverse().join("/"))}</span>` : ""}</li>`;
+}
+
+function mpPanel() {
+  const M = MP.datos, iso = MP.sel;
+  if (!iso) return;
+  const g = AR_GEO.provincias[iso], cs = M.celdas.filter(c => c.provincia === iso);
+  const rg = $("#mp-nivel").value === "region" ? M.regiones.filter(c => c.region === g.r) : [];
+  $("#mp-panel").innerHTML = `<h3>${esc(g.n)} <span class="nota">· región ${esc(g.r)}</span></h3>` +
+    (cs.length ? `<ul>${cs.map(lineaCelda).join("")}</ul>` : '<p class="mp-sin">Ninguna fuente tiene precio con provincia en ' + esc(g.n) + ' para este producto: sin dato.</p>') +
+    (rg.length ? `<h3>Región ${esc(g.r)}</h3><ul>${rg.map(lineaCelda).join("")}</ul>` : "");
+}
+
+function mpOnline() {
+  const cs = (MP.datos?.celdas || []).filter(c => c.provincia === "online");
+  $("#mp-online").innerHTML = `<h3>Online (alcance nacional)</h3><p class="nota">No es una provincia: tiendas que venden a todo el país. No entra al mapa.</p>` +
+    (cs.length ? `<ul>${cs.map(lineaCelda).join("")}</ul>` : '<p class="mp-sin">Sin precios online para este producto en el período.</p>');
+}
+
+function mpTabla(celda) {
+  const filas = Object.entries(AR_GEO.provincias).sort((a, b) => a[1].n.localeCompare(b[1].n, "es")).map(([iso, g]) => {
+    const c = celda(iso);
+    return `<tr><td>${esc(g.n)}</td><td>${esc(g.r)}</td>` + (c ? `<td class="n">${esc(pl(c.precio_litro))}</td><td class="n">${esc(pesos.format(c.precio))}</td><td class="n">${c.n}</td><td>${fechaAR(c.fecha)}</td><td>${esc(c.vendedores.join(", "))}</td>`
+      : '<td colspan="5" class="mp-sin">sin dato</td>') + "</tr>";
+  });
+  $("#mp-tabla").innerHTML = `<div class="tabla"><table><tr><th>Provincia</th><th>Región</th><th>$/L</th><th>Precio mediano</th><th>Avisos</th><th>Fecha del dato</th><th>Vendedores</th></tr>${filas.join("")}</table></div>`;
+}
+
+// ---------- Cobertura ----------
+async function abrirCobertura() {
+  let v;
+  try { v = await api("cobertura"); } catch (e) { $("#cob-out").textContent = "No se pudo leer: " + e.message; return; }
+  const t = v.total;
+  $("#cob-fecha").textContent = `Precios de los últimos 7 días hasta el ${fechaAR(v.hasta)}. ${v.nota}`;
+  $("#cob-resumen").innerHTML = `<div class="mp-panel"><p><strong>${t.productos_ypf}</strong> productos YPF en el catálogo · <strong>${t.con_equivalencia}</strong> con equivalencia en la competencia ·
+    <strong>${t.con_precio_7d}</strong> con precio en los últimos 7 días. Faltan ${t.productos_ypf - t.con_precio_7d} sin precio y ${t.productos_ypf - t.con_equivalencia} sin equivalente.</p></div>`;
+  const pintar = () => {
+    const falta = $("#cob-faltan").checked;
+    const ps = v.productos.filter(p => !falta || !p.fuentes_7d || !p.tiene_equivalencia).sort((a, b) => (a.fuentes_7d > 0) - (b.fuentes_7d > 0) || a.nombre.localeCompare(b.nombre, "es"));
+    $("#cob-out").innerHTML = `<div class="tabla"><table><tr><th>Producto</th><th>SAE</th><th>Segmento</th><th>Equivalentes</th><th>Fuentes (7 d)</th><th>Provincias (7 d)</th><th>Último precio</th></tr>` +
+      ps.map(p => `<tr><td>${esc(p.linea)} ${esc(p.nombre)}</td><td>${esc(p.sae)}</td><td>${esc(SEGMENTO[p.segmento] || p.segmento)}</td>
+        <td class="n">${p.tiene_equivalencia ? p.equivalencias : '<span class="mp-sin">sin equivalente</span>'}</td>
+        <td class="n">${p.fuentes_7d || '<span class="mp-sin">sin precio</span>'}</td><td class="n">${p.fuentes_7d ? p.provincias_7d : ""}</td>
+        <td>${p.ultima_fecha ? fechaAR(p.ultima_fecha) : '<span class="mp-sin">nunca</span>'}</td></tr>`).join("") + "</table></div>";
+  };
+  $("#cob-faltan").onchange = pintar;
+  pintar();
+}
+
 // ---------- pestañas ----------
 // la vitrina se carga sola (su propia ruta): no depende de que lleguen los demás datos
-const vistas = { vitrina: () => { if (VT.pista) vtIr(VT.pos, false); }, mercado: abrirMercado, comparador: () => {}, evolucion, indice: () => {}, fuentes: () => {}, cargar: mesCargado };
+const vistas = { vitrina: () => { if (VT.pista) vtIr(VT.pos, false); }, mercado: abrirMercado, mapa: initMapa, cobertura: abrirCobertura, comparador: () => {}, evolucion, indice: () => {}, fuentes: () => {}, cargar: mesCargado };
 function ir(tab) {
   if (!vistas[tab]) tab = "vitrina";
   document.querySelectorAll("nav button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === tab));

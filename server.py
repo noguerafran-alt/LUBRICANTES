@@ -27,7 +27,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import normalizar
 from ml import UA
-from recolectar import relacionados  # mismo filtro "solo lo relacionado con YPF" que el recolector
+from recolectar import OBS as OBS_F, relacionados  # mismo filtro "solo lo relacionado con YPF" que el recolector
 from tiendas import MAYORISTAS  # fuentes de precio mayorista: fuera del índice salvo ?mayoristas=1
 
 RAIZ = Path(__file__).resolve().parent
@@ -36,11 +36,11 @@ INDEX = SITE / "index.html"
 
 PRODUCTOS_F = "producto_id,marca,linea,nombre,segmento,sae,base,api,acea,ilsac,jaso,oem,fuente_specs,verificado".split(",")
 EQUIV_F = "eq_id,ypf_id,comp_id,tipo,criterio,evidencia,fuente".split(",")
-OBS_F = "fecha,fuente,url,ean,titulo,marca,precio,precio_lista,stock,vendedor,sucursal,litros,unidades,producto_id,match".split(",")
 FUENTES_F = "fecha,fuente,http,n_items,n_con_precio,n_sin_stock,n_sin_match,error,n_descartados".split(",")
 OFERTA_F = "fecha,categoria_id,categoria,total_items".split(",")
 GROK_F = "fecha,fuente,url,titulo,marca,precio,precio_lista,litros,unidades,tipo,detalle".split(",")  # lo que devuelve la Task de Grok
-GROK_ALM_F = GROK_F + ["verificado", "producto_id", "match", "cargado"]  # lo que se guarda en data/grok/
+GROK_PROV_F = GROK_F + ["provincia"]  # encabezado nuevo que también acepta /api/cargar (el de 11 columnas sigue valiendo)
+GROK_ALM_F = GROK_F + ["verificado", "producto_id", "match", "cargado", "provincia"]  # lo que se guarda en data/grok/
 SITIOS_F = ["fuente", "host", "descripcion"]
 VITRINA_F = ("fecha,producto_id,nombre,linea,segmento,sae,base,imagen,imagen_fuente,ypf_n,ypf_promedio_litro,ypf_min_litro,"
              "ypf_max_litro,ypf_mediana_litro,presentacion_comun_l,promedio_presentacion,ypf_mas_barato_fuente,"
@@ -132,13 +132,13 @@ def integrar_grok(d):
     """Las filas Grok de tipo producto entran a `obs` como cualquier fuente; los servicios nunca (no son $/L)."""
     d["grok"] = [r for filas in d["grok_meses"].values() for r in filas]
     d["obs"] = d["obs_base"] + [
-        {**dict.fromkeys(OBS_F, ""), **{k: r.get(k) or "" for k in GROK_ALM_F if k in OBS_F or k == "verificado"}}
+        {**dict.fromkeys(OBS_F, ""), **{k: r.get(k) or "" for k in GROK_ALM_F if k in OBS_F or k in ("verificado", "cargado")}}
         for r in d["grok"] if r["tipo"] == "producto"]
 
 
 def clave_grok(r):
-    """Una fila Grok es la misma solo si coincide también `detalle`: combos de una URL que cambian solo por filtro o vehículo son filas distintas."""
-    return r["fuente"], r["fecha"], r["url"], r["titulo"], r["detalle"]
+    """Una fila Grok es la misma solo si coincide también `detalle` y `provincia`: combos de una URL que cambian solo por filtro, vehículo o zona son filas distintas."""
+    return r["fuente"], r["fecha"], r["url"], r["titulo"], r["detalle"], r.get("provincia") or ""
 
 
 def litro_servicio(r):
@@ -383,6 +383,147 @@ def sin_match(obs):
 
 
 # ---------- Mercado: share oficial (Secretaría de Energía), actividad (datos.gob.ar) y compuestos propios ----------
+# ---------- precio de reventa por provincia y región, reventa y cobertura ----------
+PROVINCIAS, REGIONES, ONLINE = normalizar.PROVINCIAS, normalizar.REGIONES, normalizar.ONLINE
+NOTA_FRESCURA = ("No es tiempo real: la recolección es diaria y SEPA (Precios Claros) llega con ~1 día de atraso. "
+                 "Cada número lleva la fecha de su última observación.")
+CELDA_F = ["fuente", "canal", "precio_litro", "precio", "n", "fecha", "vendedores", "url", "verificado", "cargado"]
+REVENTA_OBS_F = ["fecha", "fuente", "canal", "vendedor", "provincia", "region", "url", "precio", "precio_litro", "litros", "unidades",
+                 "verificado", "cargado"]
+CAMPOS["provincias"] = ["producto_id", "provincia", "region", "provincias", "nombre"] + CELDA_F
+CAMPOS["reventa"] = ["rol", "producto_id", "marca", "nombre", "tipo"] + REVENTA_OBS_F
+CAMPOS["cobertura"] = ["producto_id", "nombre", "linea", "segmento", "sae", "equivalencias", "tiene_equivalencia", "fuentes_7d",
+                       "provincias_7d", "ultima_fecha"]
+
+
+def canal(fuente):
+    """Canal derivado de la fuente (no hay columna): mayorista, grok (relevamiento cargado por la Task) o publico."""
+    return "mayorista" if fuente in MAYORISTAS else "grok" if fuente.startswith("grok_") else "publico"
+
+
+def desde_hasta(d, dias):
+    """Ventana de `dias` días que termina en el último día con datos (no en hoy: si la Action se atrasa, no queda vacía)."""
+    hasta = max((r["fecha"] for r in d["obs"]), default="")
+    if not hasta:
+        return "", ""
+    return (date.fromisoformat(hasta) - timedelta(days=dias - 1)).isoformat(), hasta
+
+
+def _avisos(d, dias, pids):
+    """→ (hasta, {producto_id: avisos}): cada aviso una vez, con su observación más reciente de la ventana (misma idea que la vitrina,
+    más la provincia en la clave: SEPA trae un aviso por comercio × bandera × provincia × EAN)."""
+    desde, hasta = desde_hasta(d, dias)
+    ult = {}
+    for r in d["obs"]:
+        if r["producto_id"] in pids and r["fecha"] >= desde:
+            k = (r["producto_id"], r["fuente"], r["url"], r["ean"], r["titulo"], r["vendedor"], r["litros"], r["unidades"], r.get("provincia", ""))
+            if k not in ult or r["fecha"] >= ult[k]["fecha"]:
+                ult[k] = r
+    por = defaultdict(list)
+    for r in ult.values():
+        por[r["producto_id"]].append({**r, "pl": precio_litro(r)})
+    return hasta, por
+
+
+def _filtrar(rs, fuente, mayoristas):
+    """Con la fuente pedida explícitamente se devuelve esa aunque sea mayorista; si no, los mayoristas solo con ?mayoristas=1."""
+    return [r for r in rs if r["pl"] is not None and (r["fuente"] == fuente if fuente else mayoristas or r["fuente"] not in MAYORISTAS)]
+
+
+def _celda(rs, **clave):
+    """Mediana de $/L y de precio de avisos de UNA sola fuente. Grok lleva url, verificado y cargado de su observación más nueva."""
+    ult = max(rs, key=lambda r: (r["fecha"], r.get("cargado") or ""))
+    f = rs[0]["fuente"]
+    grok = canal(f) == "grok"
+    return {**clave, "fuente": f, "canal": canal(f), "precio_litro": round(median(r["pl"] for r in rs), 2),
+            "precio": round(median(num(r["precio"]) for r in rs), 2), "n": len(rs), "fecha": ult["fecha"],
+            "vendedores": [v for v, _ in Counter(r["vendedor"] for r in rs if r["vendedor"]).most_common(5)],
+            "url": ult["url"] if grok else "", "verificado": ("1" if all(r.get("verificado") == "1" for r in rs) else "0") if grok else "",
+            "cargado": (ult.get("cargado") or "") if grok else ""}
+
+
+def provincias(d, pid, dias=30, fuente="", mayoristas=False):
+    """Celdas por (provincia, fuente) y por (región, fuente) de un producto. Una celda nunca mezcla fuentes; `online` no es provincia
+    (va en `celdas` con region vacía y no entra a `regiones`); los avisos sin provincia solo se cuentan en `n_sin_provincia`."""
+    hasta, por = _avisos(d, dias, {pid})
+    rs = _filtrar(por.get(pid, []), fuente, mayoristas)
+    por_prov, por_reg = defaultdict(list), defaultdict(list)
+    for r in rs:
+        prov = r.get("provincia", "")
+        if prov in PROVINCIAS or prov == ONLINE:
+            por_prov[(prov, r["fuente"])].append(r)
+        if prov in PROVINCIAS:
+            por_reg[(REGIONES[prov], r["fuente"])].append(r)
+    return {"producto_id": pid, "dias": dias, "hasta": hasta, "nota": NOTA_FRESCURA,
+            "celdas": [_celda(g, provincia=p, region=REGIONES.get(p, "")) for (p, _), g in sorted(por_prov.items())],
+            "regiones": [_celda(g, region=rg, provincias=sorted({r["provincia"] for r in g})) for (rg, _), g in sorted(por_reg.items())],
+            "n_sin_provincia": sum(1 for r in rs if r.get("provincia", "") not in PROVINCIAS and r.get("provincia", "") != ONLINE)}
+
+
+def provincias_resumen(d, dias=30, fuente="", mayoristas=False):
+    """Sin producto_id: por cada producto YPF y fuente, $/L mediano, avisos, cuántas provincias distintas y fecha (sin detalle por provincia)."""
+    ypf = [p for p in d["productos"] if p["marca"] == "YPF"]
+    hasta, por = _avisos(d, dias, {p["producto_id"] for p in ypf})
+    out = []
+    for p in ypf:
+        rs = _filtrar(por.get(p["producto_id"], []), fuente, mayoristas)
+        out.append({"producto_id": p["producto_id"], "nombre": p["nombre"], "fuentes": [
+            _celda(g, provincias=len({r.get("provincia") for r in g} & set(PROVINCIAS)))
+            for f in sorted({r["fuente"] for r in rs}) for g in [[r for r in rs if r["fuente"] == f]]]})
+    return {"dias": dias, "hasta": hasta, "nota": NOTA_FRESCURA, "productos": out}
+
+
+def reventa(d, pid, dias=30):
+    """Observaciones del período (todas, no solo la última por aviso) del producto YPF y de cada equivalente que no sea no_equivalente."""
+    desde, hasta = desde_hasta(d, dias)
+    prod = {p["producto_id"]: p for p in d["productos"]}
+    eqs = [e for e in d["equivalencias"] if e["ypf_id"] == pid and e["tipo"] != "no_equivalente"]
+    ids = {pid} | {e["comp_id"] for e in eqs}
+    por = defaultdict(list)
+    for r in d["obs"]:
+        if r["producto_id"] in ids and r["fecha"] >= desde:
+            pl, prov = precio_litro(r), r.get("provincia", "")
+            por[r["producto_id"]].append({
+                "fecha": r["fecha"], "fuente": r["fuente"], "canal": canal(r["fuente"]), "vendedor": r["vendedor"], "provincia": prov,
+                "region": REGIONES.get(prov, ""), "url": r["url"], "precio": num(r["precio"]), "precio_litro": round(pl, 2) if pl else None,
+                "litros": num(r["litros"]), "unidades": num(r["unidades"]) or 1,
+                "verificado": r.get("verificado") or "", "cargado": r.get("cargado") or ""})
+    obs = lambda i: sorted(por.get(i, []), key=lambda o: (o["fecha"], o["fuente"]), reverse=True)
+    ficha = lambda i: {"producto_id": i, "marca": prod.get(i, {}).get("marca", ""), "nombre": prod.get(i, {}).get("nombre", ""), "observaciones": obs(i)}
+    return {"producto_id": pid, "dias": dias, "hasta": hasta, "nota": NOTA_FRESCURA, "ypf": ficha(pid),
+            "equivalentes": [{**ficha(e["comp_id"]), "tipo": e["tipo"], "evidencia": e["evidencia"]} for e in eqs]}
+
+
+def aplanar_reventa(v):
+    fichas = [("ypf", v["ypf"], "")] + [("equivalente", e, e["tipo"]) for e in v["equivalentes"]]
+    return [{"rol": rol, "producto_id": f["producto_id"], "marca": f["marca"], "nombre": f["nombre"], "tipo": tipo, **o}
+            for rol, f, tipo in fichas for o in f["observaciones"]]
+
+
+def cobertura(d):
+    """Por producto YPF del seed: equivalencias (sin no_equivalente), fuentes y provincias con precio en los últimos 7 días y última fecha.
+    Cuenta solo el precio del propio producto YPF; Grok sin verificar no cuenta."""
+    desde, hasta = desde_hasta(d, 7)
+    neq = Counter(e["ypf_id"] for e in d["equivalencias"] if e["tipo"] != "no_equivalente")
+    fu, pr, ult = defaultdict(set), defaultdict(set), {}
+    for r in d["obs"]:
+        pid = r["producto_id"]
+        if pid and (num(r["precio"]) or 0) > 0 and r.get("verificado") != "0":
+            ult[pid] = max(ult.get(pid, ""), r["fecha"])
+            if r["fecha"] >= desde:
+                fu[pid].add(r["fuente"])
+                if r.get("provincia") in PROVINCIAS:
+                    pr[pid].add(r["provincia"])
+    prods = [{"producto_id": p["producto_id"], "nombre": p["nombre"], "linea": p["linea"], "segmento": p["segmento"], "sae": p["sae"],
+              "equivalencias": neq[p["producto_id"]], "tiene_equivalencia": neq[p["producto_id"]] > 0,
+              "fuentes_7d": len(fu[p["producto_id"]]), "provincias_7d": len(pr[p["producto_id"]]),
+              "ultima_fecha": ult.get(p["producto_id"])} for p in d["productos"] if p["marca"] == "YPF"]
+    return {"hasta": hasta, "nota": NOTA_FRESCURA,
+            "total": {"productos_ypf": len(prods), "con_equivalencia": sum(p["tiene_equivalencia"] for p in prods),
+                      "con_precio_7d": sum(p["fuentes_7d"] > 0 for p in prods)},
+            "productos": prods}
+
+
 PRODUCTOS_SHARE = {"automotrices": "Lubricantes automotrices(m3)", "industriales": "Lubricantes industriales(m3)",
                    "marinos": "Lubricantes marinos(m3)", "grasas": "Grasas(Ton)"}
 TOP_EMPRESAS, MESES_SHARE, PUNTOS_ACTIVIDAD = 7, 36, 60
@@ -682,6 +823,8 @@ def error_fila(r, hoy, sitios):
             e.append(f"{c} tiene que ser un número > 0 o vacío")
     if r["tipo"] not in ("producto", "servicio"):
         e.append("tipo tiene que ser producto o servicio")
+    if r.get("provincia") and not normalizar.provincia_iso(r["provincia"]):
+        e.append(f"provincia {r['provincia']!r} no es una provincia (ISO AR-X, nombre, online o vacío)")
     if not r["titulo"]:
         e.append("falta titulo")
     return "; ".join(e)
@@ -693,20 +836,22 @@ def validar_csv(texto, hoy, sitios):
         crudas = [f for f in csv.reader(io.StringIO(texto.lstrip("﻿"))) if any(c.strip() for c in f)]
     except csv.Error as e:
         return [], [], f"CSV ilegible: {e}"
-    if not crudas or [c.strip() for c in crudas[0]] != GROK_F:
-        return [], [], "encabezado inválido: tiene que ser exactamente " + ",".join(GROK_F)
+    cab = [c.strip() for c in crudas[0]] if crudas else []
+    if cab not in (GROK_F, GROK_PROV_F):
+        return [], [], "encabezado inválido: tiene que ser exactamente " + ",".join(GROK_F) + " o, con provincia al final, " + ",".join(GROK_PROV_F)
     if len(crudas) - 1 > MAX_FILAS:
         return [], [], f"más de {MAX_FILAS} filas por carga"
     filas, errores = [], []
     for i, f in enumerate(crudas[1:], 1):
-        if len(f) != len(GROK_F):
-            errores.append({"fila": i, "error": f"tiene {len(f)} columnas, esperaba {len(GROK_F)} (¿comas sin comillas en un campo?)"})
+        if len(f) != len(cab):
+            errores.append({"fila": i, "error": f"tiene {len(f)} columnas, esperaba {len(cab)} (¿comas sin comillas en un campo?)"})
             continue
-        r = dict(zip(GROK_F, (c.strip() for c in f)))
+        r = {"provincia": "", **dict(zip(cab, (c.strip() for c in f)))}
         e = error_fila(r, hoy, sitios)
         if e:
             errores.append({"fila": i, "titulo": r["titulo"], "error": e})
         else:
+            r["provincia"] = normalizar.provincia_iso(r["provincia"])  # ISO u "online"; vacío sigue vacío
             r["_fila"] = i
             filas.append(r)
     return filas, errores, ""
@@ -825,7 +970,7 @@ def procesar_carga(d, raiz, texto, hoy=None, ahora=None):
         if not r["unidades"] and n["unidades"]:
             r["unidades"] = str(n["unidades"])
         resultado.append({"fila": r.pop("_fila"), "titulo": r["titulo"], "tipo": r["tipo"], "verificado": r["verificado"] == "1",
-                          "producto_id": r["producto_id"]})
+                          "producto_id": r["producto_id"], "provincia": r["provincia"]})
     if not por_clave:
         return 400, {"error": "ninguna fila relacionada con YPF", "errores": errores}
     token, repo = os.environ.get("GH_CARGA_TOKEN", ""), os.environ.get("GH_REPO") or "noguerafran-alt/LUBRICANTES"
@@ -901,6 +1046,8 @@ class Handler(BaseHTTPRequestHandler):
         nombre = u.path[5:]
         if nombre in ("mercado", "mercado/share", "macro"):
             return self.mercado(nombre, q)
+        if nombre in ("provincias", "reventa", "cobertura"):
+            return self.analisis(nombre, q)
         if nombre == "vitrina":
             v = self.calc["vitrina_con_mayoristas" if q.get("mayoristas") == "1" else "vitrina"]
             if q.get("formato") == "csv":
@@ -929,6 +1076,40 @@ class Handler(BaseHTTPRequestHandler):
         if q.get("formato") == "csv":
             return self.enviar(200, a_csv(nombre, filas), "text/csv; charset=utf-8")
         self.json(200, filas)
+
+    def analisis(self, nombre, q):
+        """/api/provincias, /api/reventa y /api/cobertura: se calculan por pedido sobre `obs` (ventana de días y filtros varían)."""
+        d = self.datos
+        try:
+            dias = int(q.get("dias") or 30)
+        except ValueError:
+            dias = 0
+        if not 1 <= dias <= 366:
+            return self.json(400, {"error": "dias tiene que ser un entero entre 1 y 366"})
+        pid = q.get("producto_id", "")
+        marca = {p["producto_id"]: p["marca"] for p in d["productos"]}
+        if pid and pid not in marca:
+            return self.json(404, {"error": f"producto_id desconocido: {pid!r}"})
+        csv_ = q.get("formato") == "csv"
+        if nombre == "cobertura":
+            v = cobertura(d)
+            return self.enviar(200, a_csv("cobertura", v["productos"]), "text/csv; charset=utf-8") if csv_ else self.json(200, v)
+        if nombre == "reventa":
+            if not pid:
+                return self.json(400, {"error": "falta producto_id (un producto de marca YPF)"})
+            if marca[pid] != "YPF":
+                return self.json(400, {"error": f"{pid} no es un producto YPF: /api/reventa parte de un YPF y trae sus equivalentes"})
+            v = reventa(d, pid, dias)
+            return self.enviar(200, a_csv("reventa", aplanar_reventa(v)), "text/csv; charset=utf-8") if csv_ else self.json(200, v)
+        fuente, may = q.get("fuente", ""), q.get("mayoristas") == "1"
+        if pid:
+            v = provincias(d, pid, dias, fuente, may)
+            filas = [{**c, "producto_id": pid, "vendedores": ";".join(c["vendedores"])} for c in v["celdas"]]
+        else:
+            v = provincias_resumen(d, dias, fuente, may)
+            filas = [{**c, "producto_id": p["producto_id"], "nombre": p["nombre"], "vendedores": ";".join(c["vendedores"])}
+                     for p in v["productos"] for c in p["fuentes"]]
+        self.enviar(200, a_csv("provincias", filas), "text/csv; charset=utf-8") if csv_ else self.json(200, v)
 
     def mercado(self, nombre, q):
         d = self.datos
@@ -1212,6 +1393,53 @@ def demo():
     assert not autorizado({"Authorization": "Basic %%%"}, "s3cr3t")
     assert not autorizado({"X-API-Key": "ñ"}, "s3cr3t")
 
+    # ---------- provincias, reventa y cobertura (sin red ni archivos) ----------
+    dp = {"productos": [P("ypf-a", "YPF"), P("ypf-b", "YPF"), P("shell-s", "Shell"), P("gulf-g", "Gulf")],
+          "equivalencias": [E("shell-s", "match_total"), E("gulf-g", "no_equivalente")],
+          "obs": [O("2026-11-05", "sepa", "ypf-a", "4000", url="a1", vendedor="Carrefour", provincia="AR-X"),
+                  O("2026-11-05", "sepa", "ypf-a", "5000", url="a2", vendedor="Jumbo", provincia="AR-X"),
+                  O("2026-11-04", "sepa", "ypf-a", "1", url="a1", vendedor="Carrefour", provincia="AR-X"),   # mismo aviso, más viejo: lo pisa el de hoy
+                  O("2026-11-05", "sepa", "ypf-a", "6000", url="a3", provincia="AR-B"), O("2026-11-05", "sepa", "ypf-a", "8000", url="a4", provincia="AR-C"),
+                  O("2026-11-05", "sepa", "ypf-a", "7000", url="a5", provincia="AR-Y"),
+                  O("2026-10-01", "sepa", "ypf-a", "1", url="a6", provincia="AR-X"),                          # fuera de los 30 días
+                  O("2026-11-05", "vtex_easy", "ypf-a", "20000", "4", url="e1", provincia="online"),
+                  O("2026-11-05", "vtex_easy", "ypf-a", "100", url="e2"),                                     # sin provincia: no cae en ninguna celda
+                  O("2026-11-05", "shopify_datri", "ypf-a", "36000", "1", "12", url="m1", provincia="online"),
+                  O("2026-11-05", "grok_helix", "ypf-a", "5200", url="g1", provincia="AR-X", verificado="1", cargado="T1"),
+                  O("2026-11-05", "grok_helix", "ypf-a", "5300", url="g2", provincia="AR-B", verificado="0", cargado="T2"),
+                  O("2026-11-05", "sepa", "shell-s", "6000", url="s1", provincia="AR-X")]}
+    pv_ = provincias(dp, "ypf-a")
+    cel = {(c["provincia"], c["fuente"]): c for c in pv_["celdas"]}
+    assert pv_["hasta"] == "2026-11-05" and "tiempo real" in pv_["nota"] and pv_["n_sin_provincia"] == 1
+    assert cel[("AR-X", "sepa")]["precio_litro"] == 4500 and cel[("AR-X", "sepa")]["n"] == 2 and cel[("AR-X", "sepa")]["canal"] == "publico"
+    assert cel[("AR-X", "sepa")]["region"] == "Pampeana" and cel[("AR-X", "sepa")]["fecha"] == "2026-11-05" and cel[("AR-X", "sepa")]["url"] == ""
+    assert cel[("AR-X", "grok_helix")]["precio_litro"] == 5200 and cel[("AR-X", "grok_helix")]["canal"] == "grok"                      # Grok no se mezcla con SEPA
+    assert (cel[("AR-X", "grok_helix")]["url"], cel[("AR-X", "grok_helix")]["verificado"], cel[("AR-X", "grok_helix")]["cargado"]) == ("g1", "1", "T1")
+    assert cel[("AR-B", "grok_helix")]["verificado"] == "0"
+    assert cel[("online", "vtex_easy")]["precio_litro"] == 5000 and cel[("online", "vtex_easy")]["region"] == "" and ("online", "shopify_datri") not in cel
+    assert all(len({c["fuente"]}) == 1 for c in pv_["celdas"]) and len(pv_["celdas"]) == 7
+    rg = {(c["region"], c["fuente"]): c for c in pv_["regiones"]}
+    assert rg[("Pampeana", "sepa")]["precio_litro"] == 5500 and rg[("Pampeana", "sepa")]["n"] == 4 and rg[("Pampeana", "sepa")]["provincias"] == ["AR-B", "AR-C", "AR-X"]
+    assert rg[("NOA", "sepa")]["precio_litro"] == 7000 and not any(c["region"] == "" for c in pv_["regiones"])
+    assert ("online", "shopify_datri") in {(c["provincia"], c["fuente"]) for c in provincias(dp, "ypf-a", mayoristas=True)["celdas"]}
+    assert {c["fuente"] for c in provincias(dp, "ypf-a", fuente="grok_helix")["celdas"]} == {"grok_helix"}
+    assert provincias(dp, "ypf-a", fuente="shopify_datri")["celdas"][0]["canal"] == "mayorista"  # pedida a propósito: sí sale
+    assert provincias(dp, "ypf-a", dias=1)["celdas"] and provincias(dp, "ypf-b")["celdas"] == [] and provincias(dp, "ypf-b")["hasta"] == "2026-11-05"
+    rs_ = {p["producto_id"]: p for p in provincias_resumen(dp)["productos"]}
+    assert rs_["ypf-b"]["fuentes"] == [] and {f["fuente"]: f["provincias"] for f in rs_["ypf-a"]["fuentes"]}["sepa"] == 4 and "shell-s" not in rs_
+    co = cobertura(dp)
+    assert co["total"] == {"productos_ypf": 2, "con_equivalencia": 1, "con_precio_7d": 1}, co["total"]
+    ca_ = {x["producto_id"]: x for x in co["productos"]}
+    assert (ca_["ypf-a"]["equivalencias"], ca_["ypf-a"]["tiene_equivalencia"], ca_["ypf-a"]["fuentes_7d"], ca_["ypf-a"]["provincias_7d"]) == (1, True, 4, 4), ca_["ypf-a"]
+    assert (ca_["ypf-b"]["tiene_equivalencia"], ca_["ypf-b"]["fuentes_7d"], ca_["ypf-b"]["ultima_fecha"]) == (False, 0, None)
+    rv = reventa(dp, "ypf-a")
+    assert [e["producto_id"] for e in rv["equivalentes"]] == ["shell-s"] and len(rv["ypf"]["observaciones"]) == 11   # todas las del período, no solo la última por aviso
+    og = [o for o in rv["ypf"]["observaciones"] if o["url"] == "g1"][0]
+    assert og["canal"] == "grok" and og["verificado"] == "1" and og["cargado"] == "T1" and og["region"] == "Pampeana" and og["precio_litro"] == 5200
+    assert rv["ypf"]["observaciones"][0]["fecha"] == "2026-11-05" and len(aplanar_reventa(rv)) == 12 and aplanar_reventa(rv)[-1]["rol"] == "equivalente"
+    assert a_csv("reventa", aplanar_reventa(rv)).decode().startswith("rol,producto_id,marca,nombre,tipo,fecha,fuente,canal,vendedor,provincia,region,url,precio,")
+    assert [canal(f) for f in ("sepa", "shopify_datri", "grok_x")] == ["publico", "mayorista", "grok"]
+
     Handler.datos, Handler.calc, Handler.clave = d, c, "s3cr3t"
     srv = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     Handler.log_message = lambda *a: None
@@ -1254,6 +1482,20 @@ def demo():
     assert get("/api/serie?p=nada", {"X-API-Key": "s3cr3t"})[0] == 404
     assert get("/../server.py", {"X-API-Key": "s3cr3t"})[0] == 404
     assert get("/site/index.html", {"X-API-Key": "s3cr3t"})[0] == 404
+    # ---------- /api/provincias, /api/reventa, /api/cobertura por HTTP: con y sin clave ----------
+    for ruta in ("/api/provincias?producto_id=ypf-a-10w40", "/api/provincias", "/api/reventa?producto_id=ypf-a-10w40", "/api/cobertura"):
+        assert get(ruta)[0] == 401, ruta
+    cod, cuerpo = get("/api/provincias?producto_id=ypf-a-10w40", k)
+    assert cod == 200 and json.loads(cuerpo)["celdas"] == [] and json.loads(cuerpo)["n_sin_provincia"] > 0   # el CSV de prueba es de antes de la columna: sin provincia, sin celda
+    assert get("/api/provincias?producto_id=nada", k)[0] == 404 and get("/api/provincias?dias=0", k)[0] == 400 and get("/api/provincias?dias=x", k)[0] == 400
+    assert json.loads(get("/api/provincias", k)[1])["productos"][0]["producto_id"] == "ypf-a-10w40"
+    cod, cuerpo = get("/api/reventa?producto_id=ypf-a-10w40", k)
+    assert cod == 200 and [e["producto_id"] for e in json.loads(cuerpo)["equivalentes"]] == ["shell-b-10w40"] and len(json.loads(cuerpo)["ypf"]["observaciones"]) > 0
+    assert get("/api/reventa", k)[0] == 400 and get("/api/reventa?producto_id=shell-b-10w40", k)[0] == 400 and get("/api/reventa?producto_id=nada", k)[0] == 404
+    assert get("/api/reventa?producto_id=ypf-a-10w40&formato=csv", k)[1].startswith(b"rol,producto_id,marca")
+    cod, cuerpo = get("/api/cobertura", k)
+    assert cod == 200 and json.loads(cuerpo)["total"]["productos_ypf"] == 1 and get("/api/cobertura?formato=csv", k)[1].startswith(b"producto_id,nombre")
+    assert get("/api/provincias?producto_id=ypf-a-10w40&formato=csv", k)[1].startswith(b"producto_id,provincia,region,")
     # ---------- carga de Grok (sin red: BAJAR y GH son fakes) ----------
     global BAJAR, GH
     hoy_s = date.today().isoformat()
@@ -1271,7 +1513,7 @@ def demo():
         w = csv.writer(buf, lineterminator="\n")
         w.writerow(cab)
         for r in filas:
-            w.writerow([r.get(c, "") for c in GROK_F])
+            w.writerow([r.get(c, "") for c in cab])
         return buf.getvalue()
 
     hoy_d = date.today()
@@ -1291,6 +1533,13 @@ def demo():
     assert validar_csv(csv_de(fila(fecha=(hoy_d - timedelta(days=3)).isoformat())), hoy_d, sit)[0]
     assert validar_csv(csv_de(fila()).replace("84999", "84999,5"), hoy_d, sit)[1][0]["fila"] == 1  # coma sin comillas: columnas de más
 
+    f_, e_, fatal = validar_csv(csv_de(fila(provincia="Córdoba"), fila(titulo="o", provincia="online"), fila(titulo="v"), cab=GROK_PROV_F), hoy_d, sit)
+    assert not fatal and not e_ and [x["provincia"] for x in f_] == ["AR-X", "online", ""]            # encabezado de 12: nombre → ISO, online, vacío
+    f_, e_, fatal = validar_csv(csv_de(fila()), hoy_d, sit)
+    assert not fatal and not e_ and f_[0]["provincia"] == ""                                         # encabezado de 11 (la Task diaria): sigue valiendo
+    f_, e_, fatal = validar_csv(csv_de(fila(provincia="Narnia"), fila(titulo="b", provincia="GBA"), fila(titulo="c", provincia="AR-S"), cab=GROK_PROV_F), hoy_d, sit)
+    assert [x["fila"] for x in e_] == [1, 2] and "provincia" in e_[0]["error"] and [x["provincia"] for x in f_] == ["AR-S"]   # inválida: se rechaza con motivo
+    assert len(clave_grok(fila(provincia="AR-S"))) == 6 and clave_grok(fila(provincia="AR-S")) != clave_grok(fila(provincia="AR-X"))
     for t, p in [("$ 84.999", 84999), ("  84999  ", 84999), ("84999,00", 84999), ("84.999,00", 84999), ("84,999", 84999),
                  ("precio 84999.00", 84999), ("$84.999,50", 84999.5)]:
         assert precio_en_texto(p, t), (t, p)
@@ -1411,6 +1660,15 @@ def demo():
     assert len(json.loads(get("/api/grok?mes=" + mes, k)[1])) == 3 and get("/api/grok?mes=1999-01", k)[0] == 404
     assert [x["titulo"] for x in json.loads(get("/api/servicios", k)[1])] == ["Combo Castrol"] and get("/api/servicios?formato=csv", k)[1].startswith(b"fecha,fuente,url")
     assert json.loads(get("/api/grok_sitios", k)[1])[0]["fuente"] == "grok_helix"
+    cod, rsp = post(csv_de(fila(titulo="Combo HX7 zona", provincia="Mendoza"), cab=GROK_PROV_F), kc)
+    assert cod == 200 and rsp["ok"] == 1 and rsp["filas"][0]["provincia"] == "AR-M", rsp                # header nuevo
+    cod, rsp = post(csv_de(fila(titulo="Combo HX7 zona2", provincia="Narnia"), fila(titulo="Combo HX7 zona3", provincia="online"), cab=GROK_PROV_F), kc)
+    assert cod == 200 and rsp["ok"] == 1 and "provincia" in rsp["errores"][0]["error"] and rsp["errores"][0]["fila"] == 1   # inválida rechazada con motivo
+    assert post(csv_de(fila(titulo="Combo HX7 zona4")), kc)[0] == 200                                    # header viejo, sin provincia
+    cg = json.loads(get("/api/provincias?producto_id=shell-b-10w40&fuente=grok_helix", k)[1])["celdas"]
+    assert {c["provincia"] for c in cg} == {"AR-M", "online"} and all(c["url"] == U and c["verificado"] == "1" and c["cargado"].endswith("Z") for c in cg), cg
+    assert "Narnia" not in json.dumps(json.loads(get("/api/provincias?producto_id=shell-b-10w40", k)[1]))
+    assert list(leer_csv(Path(raiz) / "data" / "grok" / (hoy_s[:7] + ".csv"))[0]) == GROK_ALM_F and GROK_ALM_F[-1] == "provincia"
     assert any(r["fuente"] == "grok_helix" for r in json.loads(get("/api/fuentes", k)[1]))
     shutil.rmtree(raiz / "data" / "grok")
     BAJAR, GH, normalizar.normalizar = bajar, gh_api, norm_real
