@@ -2,6 +2,12 @@
 
 Actualizado 2026-11-05 (mercado: share de la SE y series de datos.gob.ar). Remoto privado `noguerafran-alt/LUBRICANTES`; la Action corre a diario.
 
+## Países limítrofes: relevamiento de fuentes (2026-11-18, rama docs/limitrofes, solo documentación)
+- `docs/relevamiento/limitrofes.md`: CL, UY, PY, BO y BR. Cada fuente se probó con curl y otro agente la volvió a probar. Sin código ni `data/`.
+- ML: los 5 sitios existen. MPY y MBO tienen 0 avisos en Lubricantes y Fluidos. Con precio, todo pide token. No se probó si la app MLA lee otros sitios: la receta para la Action está en §1, sin implementar.
+- Automatizable hoy: Brasil (Pitstop y Altese VTEX con Elaion y EAN; Nota Paraná, el SEPA estadual, con cautela) y Chile (SP Trade y Autopartes Santiago, WooCommerce, sin YPF). UY: YPF solo por HTML (Benco, en USD; Feyvi). PY y BO: sin fuente útil; en BO se vende YPFB, que no es YPF.
+- FX sin registro: PTAX (BRL), BCU SOAP (UYU), BCB Bolivia y BCP (HTML). CLP pide usuario BDE. Esquema propuesto: `pais,moneda` al final de `obs`, `data/fx.csv` e índice solo dentro de un país. **No implementado.**
+
 ## Precio de reventa por provincia y región (2026-11-18, rama lub-provincia)
 - **Contrato**: columna `provincia` al final de `data/obs` y `data/grok` (ISO 3166-2:AR / `online` / vacío), tablas `PROVINCIAS` y `REGIONES` en `normalizar.py`, canal derivado de la fuente (`server.canal`). Detalle en `CLAUDE.md`.
 - **SEPA por provincia**: se confirmó contra un zip real (2026-11-17, 321 MB) que `sucursales.csv` trae `sucursales_provincia` ya en ISO. Corrida real de `sepa.py`: **878 filas/día** (antes ~63 nacionales), **24 provincias**, **32 filas sin provincia** (44 de 3210 filas de sucursal); 165 s. Se arregló un `SyntaxError` en `sepa.demo()` (string partido). `data/` se revirtió: no va en el cambio.
