@@ -2,6 +2,14 @@
 
 Actualizado 2026-11-18 (export a Power BI; modelos 3D con Blender y modo presentación con GLB; Brasil; antes: mercado: share de la SE y series de datos.gob.ar). Remoto privado `noguerafran-alt/LUBRICANTES`; la Action corre a diario.
 
+## Nota Paraná y la SE pasan a la PC (2026-11-18)
+- Causa (run 44369713447): desde GitHub Nota Paraná da 200 con 0 productos y `datos.energia.gob.ar` da timeout (CKAN y URL directa); desde la PC responden.
+- `tools/sepa_pc.py` (mismo nombre y ruta; la tarea `LUBRICANTES-SEPA` 11:00 no cambia) corre ahora tres pasos en un ciclo fetch/reset, pasos, add `data/`, un commit, push (3 intentos): `sepa.py`, `recolectar.py --solo oficial_br_notaparana` y `macro.py energia` solo si no hay una fila `macro_energia` sin error en los últimos 28 días. Un paso que falla no frena a los demás. Commit `datos AAAA-MM-DD: pc (sepa, notaparana[, energia])`. Asserts sin red: regla de 28 días (fila OK reciente / vencida / solo error / sin filas) y paso fallido contra un remoto git local.
+- `recolectar.py`: `FUENTES_PC` (Nota Paraná) se saltea en el recorrido por defecto con `GITHUB_ACTIONS=true` (`fuentes_por_defecto`, con assert); `--solo` la corre igual. Su error con 0 productos ahora dice `API devolvió 0 productos (¿bloqueo de IP?)`.
+- `recolectar.yml`: sin job `mercado`, sin cron `0 12 28 * *`, sin el `if` del job `recolectar`.
+- Límite: PC apagada = sin esas fuentes ese día; la SE se actualiza cuando la PC esté prendida a las 11:00 pasados 28 días. Un reintento de push re-corre los pasos (re-baja la SE si tocaba).
+- Sin probar: push real a GitHub con los tres pasos; el YAML solo se revisó a ojo.
+
 ## ¿Dónde perdemos share? (2026-11-18, rama lub-share-se)
 - **API**: `/api/mercado/perdidas` (descomposición exacta share + mercado de la variación de YPF por segmento producto × canal × provincia, ranking por m3 perdidos por share con piso de volumen, «con quién» por empresa del segmento, agregados por producto/canal/provincia/competidor) y `/api/mercado/filas` (CSV con BOM de las filas de `energia.csv` detrás de cada número). Contrato en `CLAUDE.md`, sección Mercado.
 - **Pestaña Mercado**: sección nueva «¿Dónde perdemos share?» con selectores producto/canal/provincia/ventana/piso, frase resumen, «con quién» con los avisos al lado, tabla clickeable con detalle (descomposición, competidores, serie mensual), agregados y bloque «De dónde sale cada número» con links.
@@ -88,7 +96,7 @@ Actualizado 2026-11-18 (export a Power BI; modelos 3D con Blender y modo present
 - Recolección: `recolectar.py` (YPF GraphQL, VTEX Carrefour/Mas/Easy/Jumbo/Norauto, ML categorías), `tiendas.py` (Shopify D'Atri, Tiendanube LS Palermo y Casa González), `sepa.py` (Precios Claros), `ml.py` (ML con token activo: products/search + products/{id}/items).
 - `normalizar.py` + `seed/` (productos, alias, equivalencias). `python recolectar.py --renormalizar` recalcula el matcheo de `data/obs/` y `data/grok/` sin tocar precios (usarlo cada vez que cambie el seed).
 - `server.py` + `site/index.html`: visor (Comparador, Evolución, Índice, Fuentes) y API con clave.
-- `.github/workflows/recolectar.yml`: corrida diaria (recolectar + series de mercado, luego sepa) y job mensual `mercado` (ventas de la SE).
+- `.github/workflows/recolectar.yml`: corrida diaria (recolectar + series de mercado + fx). SEPA, Nota Paraná y las ventas de la SE corren desde la PC (`tools/sepa_pc.py`).
 
 ## Verificado
 - `python normalizar.py test`, `recolectar.py test`, `server.py test` dan OK.

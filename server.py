@@ -815,13 +815,13 @@ FUENTE_PERDIDAS = {
     "csv": "https://datos.energia.gob.ar/dataset/5bdc436c-60d4-4c86-98ab-59834d047700/resource/f0e4e10a-e4b8-44e6-bd16-763a43742107/download/ventas-excluye-ventas-a-empresas-del-sector-.csv",
     "dataset_nombre": "Refinación y Comercialización de petróleo, gas y derivados (Tablas Dinámicas)",
     "recurso_nombre": "Ventas, excluye ventas a empresas del sector", "licencia": "CC-BY 4.0", "norma": "Res. SE 1104/2004",
-    "actualizacion": "el job mercado baja el archivo el día 28 de cada mes"}
+    "actualizacion": "se baja desde la PC (tools/sepa_pc.py) cuando pasan 28 días de la última bajada OK"}
 NOTA_PERDIDAS = {
     "declarantes": "Share solo entre las empresas que declaran (Res. SE 1104): Mobil, Castrol, Motul, Liqui Moly y los importadores chicos no figuran, "
                    "así que una pérdida contra importadores aparece como un mercado que se achica o como ganancia de nadie.",
     "sell_in": "Es el volumen que vende la empresa (sell-in), no lo que compra el consumidor, y viene por empresa, no por marca.",
     "segmento": "La Secretaría no abre por viscosidad ni por línea (Elaion premium contra mineral): segmento = producto × canal × provincia.",
-    "atraso": "El dato llega con atraso: lo publica la Secretaría y el job mensual lo baja el día 28.",
+    "atraso": "El dato llega con atraso: lo publica la Secretaría y se baja una vez por mes desde la PC.",
     "descomposicion": "efecto_share = (s_t − s_t0) × total_t; efecto_mercado = s_t0 × (total_t − total_t0); la suma es exactamente la variación de volumen de YPF. "
                       "Los efectos por celda suman distinto del efecto del agregado (cambio de mezcla entre celdas).",
     "nulos": "Una empresa sin fila en un período no declaró (no es 0). Si empieza o deja de declarar entre períodos va aparte (entró / salió de la declaración) y no cuenta como ganancia ni pérdida de share. "

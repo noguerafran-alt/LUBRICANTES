@@ -3,7 +3,6 @@ name: recolectar
 on:
   schedule:
     - cron: "0 9 * * *"  # 06:00 ART
-    - cron: "0 12 28 * *"  # 09:00 ART del 28: ventas de lubricantes de la SE (job mercado)
   workflow_dispatch:
 
 permissions:
@@ -15,7 +14,6 @@ concurrency:
 
 jobs:
   recolectar:
-    if: github.event.schedule != '0 12 28 * *'  # el cron mensual corre solo el job mercado
     runs-on: ubuntu-latest
     timeout-minutes: 30  # ML con token tarda ~14 min
     steps:
@@ -69,32 +67,6 @@ jobs:
           git pull --rebase
           git push
 
-  # SEPA no corre acá: datos.produccion.gob.ar da 403 a IP de datacenter desde 2026-11-16 (ver CLAUDE.md, «SEPA desde la PC»).
-
-  # Mensual: el CSV de ventas de la SE pesa ~770 MB y se lee en streaming (~2,5 min). Aparte del diario por tamaño y porque el dato es mensual.
-  # También corre a mano (workflow_dispatch). Si la fuente falla no escribe nada y lo deja en data/fuentes.csv.
-  # needs: recolectar, así en una corrida manual no se pisa con los otros jobs al comitear data/ (en el cron mensual los otros se saltean).
-  mercado:
-    needs: recolectar
-    if: always() && (github.event_name == 'workflow_dispatch' || github.event.schedule == '0 12 28 * *')
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.ref_name }}
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Ventas de lubricantes (SE)
-        run: python macro.py energia
-      - name: Comitear data/macro
-        if: always()
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/
-          git diff --cached --quiet && exit 0
-          git commit -m "datos $(date -u +%F): mercado"
-          git pull --rebase
-          git push
+  # SEPA, Nota Paraná y las ventas de la SE (macro.py energia, ~770 MB) no corren acá: bloquean IP de datacenter (SEPA 403, Nota Paraná
+  # 0 productos, datos.energia.gob.ar timeout). Las corre tools/sepa_pc.py desde la PC (tarea LUBRICANTES-SEPA; ver CLAUDE.md, «Fuentes desde
+  # la PC»). Nota Paraná además se saltea sola en este recorrido (recolectar.FUENTES_PC con GITHUB_ACTIONS=true) para no dejar una fila de error.

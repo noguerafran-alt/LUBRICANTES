@@ -432,8 +432,19 @@ def correr(fuente, fecha, rel=None, imgs=None):
             obs, fila["n_sin_stock"], fila["n_sin_match"], fila["n_descartados"] = a_obs(fuente, fecha, avisos, rel, imgs)
             fila["n_con_precio"] = len(obs)
     if not fila["error"] and fila["n_items"] == 0 and fila["http"] and 200 <= int(fila["http"]) < 300:
-        fila["error"] = "categoria vacia, revisar fq"
+        fila["error"] = ("API devolvió 0 productos (¿bloqueo de IP?)" if fuente == "oficial_br_notaparana"
+                         else "categoria vacia, revisar fq")
     return fila, obs
+
+
+# Fuentes que bloquean IP de datacenter: las corre tools/sepa_pc.py desde la PC. En GitHub Actions el recorrido por defecto las saltea
+# (así no escriben una fila de error que el visor mostraría como caída aunque la PC la traiga); `--solo` las corre igual.
+FUENTES_PC = {"oficial_br_notaparana"}
+
+
+def fuentes_por_defecto(env=os.environ):
+    todas = ["ypf_gql", *VTEX, *tiendas.SHOPIFY, *tiendas.TIENDANUBE, "oficial_br_notaparana", "ml_cat", "ml"]
+    return [f for f in todas if not (env.get("GITHUB_ACTIONS") == "true" and f in FUENTES_PC)]
 
 
 def main(args):
@@ -442,7 +453,7 @@ def main(args):
     if "--podar" in args:
         return podar()
     fecha = datetime.now(timezone(timedelta(hours=-3))).date().isoformat()
-    fuentes = ["ypf_gql", *VTEX, *tiendas.SHOPIFY, *tiendas.TIENDANUBE, "oficial_br_notaparana", "ml_cat", "ml"]
+    fuentes = fuentes_por_defecto()
     if "--fecha" in args:
         fecha = args[args.index("--fecha") + 1]
     if "--solo" in args:
@@ -476,6 +487,8 @@ def demo():
               dict(url="u", ean="", titulo="Aceite Elaion mi 1540 x 1 lt", marca_cruda="Elaion", precio=0.0, precio_lista="", stock=0, vendedor="C"),
               dict(url="u", ean="", titulo="Lubricante Helix Hx7 X1l", marca_cruda="SHELL", precio=66.29, precio_lista="", stock=0, vendedor="J"),
               dict(url="u", ean="", titulo="Aceite Gulf max 20w-50 x 1l", marca_cruda="Gulf", precio=10560.0, precio_lista=10560.0, stock=None, vendedor="C")]
+    assert "oficial_br_notaparana" in fuentes_por_defecto({}) and "oficial_br_notaparana" not in fuentes_por_defecto({"GITHUB_ACTIONS": "true"})
+    assert "ml" in fuentes_por_defecto({"GITHUB_ACTIONS": "true"})
     filas, sin_stock, _, desc = a_obs("vtex_x", "2026-11-03", avisos)
     assert sin_stock == 2 and len(filas) == 2 and desc == 0, (sin_stock, filas)
     assert filas[0]["precio"] == "159999" and filas[0]["litros"] == "4" and filas[0]["stock"] == 1
