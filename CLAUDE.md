@@ -50,7 +50,7 @@ site/index.html    # visor: Mapa, Cobertura, Comparador, Evolución, Índice, Fu
 seed/productos.csv     # catálogo normalizado YPF + competencia (a mano)
 seed/alias.csv         # EAN / regex de título → producto_id
 seed/equivalencias.csv # pares YPF ↔ competidor (a mano)
-tools/sepa_pc.py   # SEPA desde la PC (tarea programada de Windows): corre sepa.py en un clon dedicado y pushea data/ a main
+tools/sepa_pc.py   # fuentes desde la PC (tarea programada de Windows): sepa.py, Nota Paraná y (cada 28 días) macro.py energia en un clon dedicado; pushea data/ a main
 tools/geo_provincias.py # regenera site/vendor/ar-provincias.js desde Natural Earth (solo a mano; ver Geometría)
 seed/grok_sitios.csv   # lista blanca de sitios que puede cargar Grok: fuente,host,descripcion
 data/obs/AAAA-MM.csv   # observaciones de precio, append-only
@@ -153,7 +153,7 @@ data/macro/energia.csv # ventas de lubricantes y gasoil de la Secretaría de Ene
   `n_con_precio` cuenta solo lo guardado. Ya **no** se puede deducir "sin precios con stock" de `n_con_precio == 0`: eso solo vale
   si también `n_descartados` está vacío o es 0. En `ml` los productos ajenos se descartan antes de pedir sus publicaciones y
   no figuran en ninguno de los contadores (el log de la corrida dice cuántos).
-- `n_items == 0` con HTTP 200 es error: `"categoria vacia, revisar fq"`.
+- `n_items == 0` con HTTP 200 es error: `"categoria vacia, revisar fq"` (Nota Paraná: `"API devolvió 0 productos (¿bloqueo de IP?)"`).
 - `n_items > 0` y `n_con_precio == 0` sin error (Jumbo, todo sin stock): no es caída;
   el visor dice "sin precios con stock" solo si `n_sin_stock == n_items`; si hay `n_descartados` muestra "n guardados · m descartados" (no aplica a `ypf_gql` ni `ml_cat`, que no traen precio).
 
@@ -168,15 +168,16 @@ data/macro/energia.csv # ventas de lubricantes y gasoil de la Secretaría de Ene
   El ítem del catálogo oficial se une al producto del seed por título (sin espacios ni signos) contra `nombre`, `nombre+sae` o
   `linea+nombre`; si hay 0 o más de un candidato, no se une (no se adivina).
 
-## SEPA desde la PC (no corre en la Action)
+## Fuentes desde la PC (no corren en la Action)
 
 Desde 2026-11-16 `datos.produccion.gob.ar` (portal de SEPA) responde **HTTP 403 a toda IP de datacenter** (probado desde GitHub Actions y desde VMs de Oracle:
 API CKAN, zip y home; el User-Agent no cambia nada). Desde una IP residencial responde 200. No se esquiva el bloqueo (ni proxies ni rotación de IP), así que el
-job `sepa` salió de `recolectar.yml` y SEPA se baja **desde la PC del usuario**: tarea programada diaria de Windows `LUBRICANTES-SEPA` (11:00) que corre
+job `sepa` salió de `recolectar.yml` y SEPA se baja **desde la PC del usuario**. Desde 2026-11-18 también van por la PC **Nota Paraná** (desde GitHub devuelve 200 con 0 productos) y las **ventas de la SE** (`macro.py energia`: `datos.energia.gob.ar` da timeout desde GitHub): tarea programada diaria de Windows `LUBRICANTES-SEPA` (11:00) que corre
 `tools/sepa_pc.py` en un **clon dedicado** `%USERPROFILE%\lub-sepa` (fuera de OneDrive, con el marcador `.sepa_pc` en la raíz; el script aborta sin él porque hace `reset --hard`).
-El script hace fetch + `reset --hard origin/main`, corre `sepa.py`, comitea `data/` (`datos AAAA-MM-DD: sepa (pc)`) y pushea; si la Action pushea en el medio reintenta hasta 3 veces.
-Si `sepa.py` falla igual pushea `data/fuentes.csv` (la fila de error), para que el visor muestre la caída. Log en `sepa_pc.log` del clon.
-**Límite:** PC apagada o sin red = sin SEPA ese día (sin fila, no se arrastran precios; el visor lo dice con `/api/fuentes`).
+El script hace fetch + `reset --hard origin/main`, corre los pasos (a) `sepa.py`, (b) `recolectar.py --solo oficial_br_notaparana`, (c) `macro.py energia` **solo si no hay** en `data/fuentes.csv` una fila `macro_energia` sin error de los últimos 28 días (el CSV pesa ~770 MB), comitea `data/` en un solo commit (`datos AAAA-MM-DD: pc (sepa, notaparana[, energia])`) y pushea; si la Action pushea en el medio reintenta hasta 3 veces (cada reintento re-corre los pasos tras el reset).
+Un paso que falla no frena a los demás; su fila de error igual se pushea, para que el visor muestre la caída. Log en `sepa_pc.log` del clon.
+En GitHub, `recolectar.py` saltea por defecto las `FUENTES_PC` (hoy Nota Paraná) cuando `GITHUB_ACTIONS=true`, así la Action no escribe una fila de error que contradiga a la de la PC; `--solo` la corre igual.
+**Límite:** PC apagada o sin red = sin esas fuentes ese día (sin fila, no se arrastran precios; el visor lo dice con `/api/fuentes`). La SE se actualiza cuando la PC esté prendida a las 11:00 después de pasados 28 días de la última corrida buena.
 Reinstalar la tarea: `schtasks /Create /TN LUBRICANTES-SEPA /SC DAILY /ST 11:00 /TR "<python> <clon>\tools\sepa_pc.py" /F`
 (clon: `git clone` del repo en `%USERPROFILE%\lub-sepa`, crear el archivo vacío `.sepa_pc`; `<python>` = ruta completa a python 3.12).
 
@@ -194,7 +195,7 @@ Reinstalar la tarea: `schtasks /Create /TN LUBRICANTES-SEPA /SC DAILY /ST 11:00 
 | `shopify_datri` | `https://tiendadatri.com.ar/products.json?limit=250&page=N` hasta página vacía; `product_type` LUBRICANTES, SINTÉTICO, SEMISINTÉTICO, MINERAL, MULTIGRADO, MONOGRADO. **Mayorista.** Marca solo si el título la dice (`vendor` es D'ATRI) |
 | `tn_lspalermo`, `tn_spch` | Tiendanube: `sitemap.xml` → URLs `/productos/` cuyo slug pasa `aceite\|lubric\|elaion\|helix\|castrol\|quartz\|mobil` y no es filtro/kit/aerosol/etc. → en cada HTML, `LS.variants[].price_number` del producto principal (el JSON-LD `Product` es de los relacionados: no se usa). Páginas con más de una variante no se leen. Tope 150 páginas por tienda y día (`TOPE_PAGINAS`); si el sitemap tiene más, se rota por `sha1(url)` en k = ceil(n/150) grupos, hoy toca el `ordinal del día % k`: cada URL se lee cada k días |
 | `vtex_br_pitstop`, `vtex_br_altese` | **Brasil** (BRL, `pais=BR`, `provincia=online`). `https://www.pitstop.com.br/…` y `https://www.altese.com.br/api/catalog_system/pub/products/search?ft=<término>&_from=&_to=`: la categoría da `[]`, se barre por texto con `oleo elaion`, `elaion` y `oleo <marca>` de las marcas BR del seed (`recolectar.terminos_br`); espacios como `%20`, nunca `+` (da 400 "Scripts are not allowed"). Dedupe por `itemId` entre términos; stock 0 fuera; `AvailableQuantity` 100 y 99999 son relleno (stock vacío); lotes y kits (`kit|combo|revisão`, "12 ÓLEO…", "(24 Un)") no entran y `24X1L` = 1 L × 24 (`tiendas.envase`); si el nombre no trae litros, `litros` queda vacío (sin $/L). robots.txt chequeado (`tiendas.permitido`) |
-| `oficial_br_notaparana` | **Brasil, Nota Paraná / Menor Preço (Sefaz-PR)**, precio de nota fiscal por establecimiento (se trata como SEPA, no online). `GET https://menorpreco.notaparana.pr.gov.br/api/v1/produtos?termo=<t>&offset=<n>&raio=100&data=-1&ordem=0&gtin=0&local=6gkzmg1v4` (`local` = geohash de Curitiba; sin él da 500). Pagina sumando lo devuelto (las páginas se solapan y `total` cuenta repetidas), dedupe por `id`, tope de 25 páginas por término. Solo NCM `27101932` y GTIN no vacío (sin GTIN son cajas de distribuidor 12X1); GTIN a 13 dígitos (los de caja con indicador 1 quedan como vienen). `fecha` = fecha de la nota (UTC → hora argentina), cada fila al archivo de su mes, idempotente por fila (`clave_fila`), nunca por fecha de corrida; `vendedor` = nombre fantasía → razón social → dirección, `sucursal` = dirección, `provincia` = `BR-<uf>` de la fila. **Con cautela: API interna no documentada, sin términos publicados** (sin robots.txt, 404: se tomó como permitido). Solo Paraná |
+| `oficial_br_notaparana` | **Corre desde la PC** (`tools/sepa_pc.py`; la Action la saltea: desde GitHub da 0 productos). **Brasil, Nota Paraná / Menor Preço (Sefaz-PR)**, precio de nota fiscal por establecimiento (se trata como SEPA, no online). `GET https://menorpreco.notaparana.pr.gov.br/api/v1/produtos?termo=<t>&offset=<n>&raio=100&data=-1&ordem=0&gtin=0&local=6gkzmg1v4` (`local` = geohash de Curitiba; sin él da 500). Pagina sumando lo devuelto (las páginas se solapan y `total` cuenta repetidas), dedupe por `id`, tope de 25 páginas por término. Solo NCM `27101932` y GTIN no vacío (sin GTIN son cajas de distribuidor 12X1); GTIN a 13 dígitos (los de caja con indicador 1 quedan como vienen). `fecha` = fecha de la nota (UTC → hora argentina), cada fila al archivo de su mes, idempotente por fila (`clave_fila`), nunca por fecha de corrida; `vendedor` = nombre fantasía → razón social → dirección, `sucursal` = dirección, `provincia` = `BR-<uf>` de la fila. **Con cautela: API interna no documentada, sin términos publicados** (sin robots.txt, 404: se tomó como permitido). Solo Paraná |
 | `fx_bcb_ptax` (`macro.py fx`) | `https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarPeriodo(…)?@dataInicial='MM-DD-AAAA'&@dataFinalCotacao='MM-DD-AAAA'&$format=json` → `data/fx.csv`; `cotacaoVenda`, una fila por fecha de `dataHoraCotacao`, ventana de 10 días, idempotente por fecha+moneda. Día sin cotización = sin fila, nunca se arrastra. La Action corre a las 06:00 ART y la PTAX del día sale después de las 13 h |
 | `ml_cat` | `https://api.mercadolibre.com/categories/{id}` sin token (MLA375007 y hermanas) |
 | `ml` | con token: `/products/search` + `/products/{id}/items` (un aviso por publicación nueva; atributos del producto: BRAND, GTIN, VISCOSITY_GRADE, NET_VOLUME, UNITS_PER_PACK). `/items/bulk` da `[{}]`, `/items?ids=` 403, `/sites/MLA/search` 403: no se usan. `/highlights` (top 20 por categoría, ids de producto) queda fuera: no hay forma de unirlos a `obs` |
@@ -339,7 +340,7 @@ Relevamiento y fuentes en `docs/relevamiento/mercado.md`. Dos fuentes, dos corri
   120 (diarias) / 150 (mensuales) / 300 (trimestrales) días: una serie vacía o cortada **no se escribe** (conserva lo que ya tenía) y queda en
   `data/fuentes.csv` como `macro_<id con _>` con el error; además una fila `macro_series` por corrida (`n_items` = series pedidas, `n_con_precio` = con datos).
   Cuando una serie se recupera, `macro.py` escribe una fila buena de esa fuente que limpia el error.
-- **`python macro.py energia`** (mensual, job `mercado`, cron `0 12 28 * *` + `workflow_dispatch`, ~2,5 min): resuelve la URL por CKAN `package_show`
+- **`python macro.py energia`** (mensual, **desde la PC**: `tools/sepa_pc.py` la corre si pasaron 28 días de la última corrida buena; ya no hay job `mercado` ni cron en la Action; ~12 min desde la PC, medido 2026-11-18): resuelve la URL por CKAN `package_show`
   (dataset `5bdc436c-…`, recurso `f0e4e10a-…`; si falla, la URL directa), lee el CSV de ~770 MB **en streaming** (sin guardarlo), valida el encabezado,
   se queda con `ubric`/`Grasas`/`Gasoil*` (no `Bases Lubricantes`: es insumo entre empresas) y escribe **`data/macro/energia.csv`**
   `mes,empresa,producto,canal,provincia,cantidad` (`mes` AAAA-MM; `canal` = `subtipodecomercializacion`; ~130 mil filas, 9 MB).
