@@ -2,6 +2,11 @@
 
 Actualizado 2026-11-05 (mercado: share de la SE y series de datos.gob.ar). Remoto privado `noguerafran-alt/LUBRICANTES`; la Action corre a diario.
 
+## SEPA pasa a correr desde la PC (2026-11-18)
+- Causa: desde 2026-11-16 `datos.produccion.gob.ar` da 403 a IP de datacenter (GitHub y Oracle). Se sacó el job `sepa` de `recolectar.yml`; `mercado` ahora es `needs: recolectar`. Nuevo `tools/sepa_pc.py` (assert en `python tools/sepa_pc.py test`), tarea `LUBRICANTES-SEPA` diaria 11:00, clon dedicado `%USERPROFILE%\lub-sepa`. Detalle, límite (PC apagada = sin SEPA) y comando `schtasks` en CLAUDE.md.
+- Sin probar: el push real y el reintento por rechazo (solo la lógica pura con assert); el `if` de `mercado` sin el job `sepa` no corrió en GitHub. Se probó que aborta sin el marcador.
+- Diferido: existe el dataset `precios-claros-sepa-mayorista` en datos.gob.ar (precio mayorista); está en el mismo portal bloqueado, no se evaluó.
+
 ## Países limítrofes: relevamiento de fuentes (2026-11-18, rama docs/limitrofes, solo documentación)
 - `docs/relevamiento/limitrofes.md`: CL, UY, PY, BO y BR. Cada fuente se probó con curl y otro agente la volvió a probar. Sin código ni `data/`.
 - ML: los 5 sitios existen. MPY y MBO tienen 0 avisos en Lubricantes y Fluidos. Con precio, todo pide token. No se probó si la app MLA lee otros sitios: la receta para la Action está en §1, sin implementar.
