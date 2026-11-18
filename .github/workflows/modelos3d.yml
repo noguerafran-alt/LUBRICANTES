@@ -1,6 +1,6 @@
 name: modelos3d
 
-# Foto → GLB con TripoSR en CPU. Va aparte de recolectar: sus dependencias pesan y no hacen falta a diario.
+# Foto → GLB con Blender headless (tools/modelos3d.py). Va aparte de recolectar: no hace falta a diario.
 on:
   workflow_dispatch:
     inputs:
@@ -10,6 +10,10 @@ on:
       solo:
         description: producto_id puntual (opcional)
         default: ""
+      forzar:
+        description: Regenerar aunque el GLB ya exista
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -21,36 +25,34 @@ concurrency:
 jobs:
   modelos:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"  # TripoSR fija transformers 4.35, que no anda bien en 3.12
-      - name: TripoSR
+      - name: Blender 5.3.0
         run: |
-          git clone -q https://github.com/VAST-AI-Research/TripoSR.git /tmp/triposr
-          git -C /tmp/triposr checkout -q 107cefd
-          pip install -q torch==2.2.2 --index-url https://download.pytorch.org/whl/cpu
-          pip install -q "numpy<2" setuptools wheel scikit-build-core cmake ninja pybind11
-          pip install -q --no-build-isolation git+https://github.com/tatsy/torchmcubes.git
-          pip install -q "numpy<2" omegaconf==2.3.0 Pillow==10.1.0 einops==0.7.0 transformers==4.35.0 trimesh==4.0.5 "rembg[cpu]" huggingface-hub  # rembg suelto trae numpy 2, que rompe torch 2.2
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/huggingface
-            ~/.u2net
-          key: pesos-triposr-v1
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libxkbcommon0 libsm6 libegl1
+          curl -fsSL -o /tmp/blender.tar.xz https://download.blender.org/release/Blender5.3/blender-5.3.0-linux-x64.tar.xz
+          echo "dacb8264197a3f7fda6001285a5a506fc97ee943881261c2c3bd63c882f22e05  /tmp/blender.tar.xz" | sha256sum -c -
+          mkdir /tmp/blender && tar -xf /tmp/blender.tar.xz -C /tmp/blender --strip-components=1
+      - name: Self-test
+        run: /tmp/blender/blender -b --factory-startup -P tools/modelos3d.py -- test
       - name: Generar
         env:
-          PYTHONPATH: /tmp/triposr
-        run: python tools/modelos3d.py --limite "${{ inputs.limite }}" --solo "${{ inputs.solo }}"
+          LIMITE: ${{ inputs.limite }}
+          SOLO: ${{ inputs.solo }}
+          FORZAR: ${{ inputs.forzar }}
+        run: |
+          args=(--limite "$LIMITE")
+          [ -n "$SOLO" ] && args+=(--solo "$SOLO")
+          [ "$FORZAR" = "true" ] && args+=(--forzar)
+          /tmp/blender/blender -b --factory-startup -P tools/modelos3d.py -- "${args[@]}"
       - name: Comitear site/modelos
         if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          mkdir -p site/modelos && git add site/modelos
+          mkdir -p site/modelos && git add -A site/modelos
           git diff --cached --quiet && exit 0
           git commit -m "modelos 3D $(date -u +%F)"
           git pull --rebase

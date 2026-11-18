@@ -26,9 +26,9 @@ El relevamiento que fundamenta todo esto está en `docs/relevamiento/`
   7.5/7.6). Solo API: categorías sin token, precios con OAuth de app propia.
 - **Clave obligatoria en Render.** Si `RENDER` está definida y falta
   `LUB_CLAVE`, el server no arranca. Nunca una clave en la URL.
-- **Única excepción a "solo stdlib": three.js vendorizado** (`site/vendor/three.module.min.js`, three@0.170.0, licencia MIT en
-  `site/vendor/three.LICENSE`), solo para el modo presentación y cargado on-demand (import dinámico) para que el resto del visor no lo
-  pague. Versión fijada, nada de CDN en runtime; `server.py` sirve cualquier `.js`/`.mjs` de `site/` como `text/javascript` con cache largo.
+- **Única excepción a "solo stdlib": three.js vendorizado** (`site/vendor/three.module.min.js` y `GLTFLoader.js` + `BufferGeometryUtils.js`, three@0.170.0, licencia MIT en
+  `site/vendor/three.LICENSE`; `three` se resuelve con un importmap en `index.html`), solo para el modo presentación y cargado on-demand (import dinámico) para que el resto del visor no lo
+  pague. Versión fijada, nada de CDN en runtime; `server.py` sirve los `.js`/`.mjs` de `site/` como `text/javascript` (`immutable` de un año solo en `vendor/`, el resto revalida a los 60 s) y los `.glb` de `site/modelos/` como `model/gltf-binary` (`max-age=86400`, sin `immutable`). Los GLB (`site/modelos/<producto_id>.glb`) los genera `tools/modelos3d.py` en la Action `.github/workflows/modelos3d.yml` (Blender headless: silueta de la foto inflada, con la foto de textura; Blender no entra en el server ni en la corrida diaria).
 - **Geometría vendorizada**: `site/vendor/ar-provincias.js` (Natural Earth, dominio público; ver «Geometría del mapa»). Es datos, no código de terceros.
 - Lógica nueva → su `assert` en el `demo()` de ese módulo
   (`python <modulo>.py test` tiene que dar `OK`).
@@ -45,6 +45,7 @@ sepa.py            # Precios Claros (SEPA): zip diario en streaming, filtra lubr
 normalizar.py      # aviso → (marca, sae, litros, unidades, producto_id, match)
 macro.py           # `series`: series de datos.gob.ar → data/macro/series.csv; `energia`: ventas de lubricantes de la SE (CSV de 770 MB en streaming) → data/macro/energia.csv; `fx`: dólar PTAX del BCB → data/fx.csv
 server.py          # http.server: visor estático site/ + /api/* calculado desde data/ y seed/
+tools/modelos3d.py # foto → GLB (script de Blender; local: `blender -b --factory-startup -P tools/modelos3d.py -- [--limite N] [--solo ID] [--forzar]`, `-- test` = self-test), en la Action modelos3d.yml; site/presentacion.js: modo presentación 3D
 site/index.html    # visor: Mapa, Cobertura, Comparador, Evolución, Índice, Fuentes (JS vanilla, SVG propio)
 seed/productos.csv     # catálogo normalizado YPF + competencia (a mano)
 seed/alias.csv         # EAN / regex de título → producto_id
@@ -293,7 +294,7 @@ simplificada con `tools/geo_provincias.py` (Douglas-Peucker 0,03°, equirectangu
 ### Vitrina — `/api/vitrina`
 `{"fecha": último día con datos, "productos": [...]}`: un elemento por producto de marca YPF de `seed/productos.csv`, primero los
 que tienen precio hoy (por `ypf.n` desc), después los que no. Cada uno:
-`producto_id, nombre, linea, segmento, sae, base, imagen, imagen_fuente` (de `data/imagenes.csv`; `null` si no hay),
+`producto_id, nombre, linea, segmento, sae, base, imagen, imagen_fuente` (de `data/imagenes.csv`; `null` si no hay), `modelo` (`"modelos/<producto_id>.glb"` si el archivo existe en `site/modelos/`, si no `null`; también en cada equivalente),
 `ypf{n, promedio_litro, min_litro, max_litro, mediana_litro, presentacion_comun_l, promedio_presentacion, mas_barato{fuente, vendedor, precio, litros, precio_litro, url}, por_fuente[{fuente, n, promedio_litro}]}`,
 `competencia{n, promedio_litro, min_litro, max_litro, equivalentes[{producto_id, marca, nombre, tipo, evidencia, en_promedio, imagen, n, promedio_litro, min_litro, mas_barato}]}`,
 `specs{api, acea, ilsac, jaso, oem[], base, sae, segmento, verificado: confirmado|inferido, fuente_specs}` (de `seed/productos.csv`; campo vacío = `null`, `oem` separado por `;` → lista, `[]` si no hay), también en cada equivalente,

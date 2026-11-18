@@ -23,7 +23,7 @@ const precio = x => typeof x?.promedio_litro === "number" ? x.promedio_litro : n
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const suave = t => 1 - Math.pow(1 - clamp(t, 0, 1), 3);
 
-const S = { lista: [], i: 0, abierto: false, play: false, timer: null, origen: null, alCerrar: null, inertes: [] };
+const S = { tok: 0, lista: [], i: 0, abierto: false, play: false, timer: null, origen: null, alCerrar: null, inertes: [] };
 let dlg, escenaEl, panel, vivo, rotulosEl, btnPlay, posEl, avanceEl, notaEl;
 // 3D
 let R = null, escena, camara, reloj, grupo = null, rotulos = [], heroe = null, intro = 0;
@@ -33,6 +33,11 @@ const cam = { th: .4, ph: 1.22, r: 1, tTh: .12, tPh: 1.22, tR: 1, base: 9 };
 const OBJ = new THREE.Vector3(.95, .8, 0);
 const v3 = new THREE.Vector3();
 let arrastre = null;
+// modelos GLB (Blender): un solo GLTFLoader, plantillas cacheadas por URL mientras el modo está abierto
+const ALTO_GRANDE = { g: 1.99, c: 1.79 }, ALTO_CHICO = .645;  // misma altura que los bidones generados (4 L / 1 L; podio = 1 L a .36)
+const GLB = new Map();
+let cargador = null, giro = 0, oscT = 0;
+const OSC = .7;  // ±40°: el dorso repite la etiqueta del frente; de espaldas se ve girando a mano
 
 export function abrir(lista, i0, origen, alCerrar) {
   if (S.abierto || !lista.length) return;
@@ -82,7 +87,8 @@ function armar() {
   escenaEl.addEventListener("pointerdown", e => { arrastre = { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, t: performance.now() }; escenaEl.setPointerCapture(e.pointerId); escenaEl.classList.add("agarra"); });
   escenaEl.addEventListener("pointermove", e => {
     if (!arrastre) return;
-    cam.tTh = clamp(cam.tTh - (e.clientX - arrastre.x) * .006, -1.1, 1.3);
+    if (hayGlb()) giro += (e.clientX - arrastre.x) * .01;  // con modelos reales el arrastre gira los modelos, sin tope
+    else cam.tTh = clamp(cam.tTh - (e.clientX - arrastre.x) * .006, -1.1, 1.3);
     cam.tPh = clamp(cam.tPh - (e.clientY - arrastre.y) * .004, .9, 1.45);
     arrastre.x = e.clientX; arrastre.y = e.clientY;
   });
@@ -102,6 +108,7 @@ function cerrar() {
   if (!S.abierto) return;
   S.abierto = false; S.play = false; clearTimeout(S.timer);
   if (R) { R.setAnimationLoop(null); limpiar(); }
+  S.tok++; liberarGlb();
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   dlg.hidden = true;
   S.inertes.forEach(e => e.inert = false);
@@ -301,6 +308,7 @@ function etiqueta(p, col, lw, lh) {
 
 function soltar(o) {
   o.traverse(m => {
+    if (m.userData.compartido) return;  // geometría y materiales de una plantilla GLB: se liberan al salir del modo
     m.geometry?.dispose();
     for (const mt of [].concat(m.material || [])) {
       for (const k of ["map", "alphaMap"]) if (mt[k] && !COMPARTIDAS.has(mt[k])) { mt[k].userData.muerta = true; mt[k].dispose(); }
@@ -309,13 +317,64 @@ function soltar(o) {
   });
 }
 
+const hayGlb = () => !!(heroe?.userData.glb || rotulos.some(q => q.glb));
+
+// GLB → plantilla cacheada; un fallo queda en null (cae al bidón generado, no rompe nada)
+function cargarGlb(url) {
+  if (!GLB.has(url)) {
+    cargador ??= import("./vendor/GLTFLoader.js").then(m => new m.GLTFLoader());  // on-demand: three.js ya está cargado, el loader recién acá
+    GLB.set(url, cargador.then(l => l.loadAsync(location.origin + "/" + url)).then(g => {
+      g.scene.traverse(m => {
+        m.userData.compartido = true;
+        // el glTF de trimesh hereda metallicFactor=1 y con color por vértice se ve negro
+        if (m.isMesh) for (const mt of [].concat(m.material)) { mt.metalness = 0; mt.roughness = .55; mt.metalnessMap = mt.roughnessMap = null; }
+      });
+      return g.scene;
+    }).catch(() => null));
+  }
+  return GLB.get(url);
+}
+
+function liberarGlb() {
+  const ps = [...GLB.values()]; GLB.clear();
+  Promise.all(ps).then(ts => ts.forEach(t => t?.traverse(m => {
+    m.geometry?.dispose();
+    for (const mt of [].concat(m.material || [])) { for (const k of ["map", "alphaMap"]) mt[k]?.dispose(); mt.dispose(); }
+  })));
+}
+
+// Orientación de tools/modelos3d.py (glTF): Y arriba, base en y=0, frente a +Z (ya mira a la cámara, sin rotar);
+// se centra por caja y se apoya en el piso a la altura pedida. Devuelve un grupo que gira sobre su eje vertical.
+function instancia(plantilla, alto) {
+  const g = new THREE.Group(), pivote = new THREE.Group(), m = plantilla.clone(true);
+  pivote.add(m); g.add(pivote);
+  g.updateMatrixWorld(true);
+  const caja = new THREE.Box3().setFromObject(pivote), t = caja.getSize(new THREE.Vector3()), c = caja.getCenter(new THREE.Vector3()), k = alto / (t.y || 1);
+  pivote.scale.setScalar(k); pivote.position.set(-c.x * k, -caja.min.y * k, -c.z * k);
+  const ancho = Math.max(t.x, t.z) * k * 2.2;
+  const so = new THREE.Mesh(new THREE.PlaneGeometry(ancho, ancho), new THREE.MeshBasicMaterial({ color: 0x000000, alphaMap: S.sombra, transparent: true, depthWrite: false, opacity: .85 }));
+  so.rotation.x = -Math.PI / 2; so.position.y = .003; g.add(so);
+  g.userData.glb = true;
+  return g;
+}
+
+// pide el GLB de `url`; si sigue vigente la escena `tok` y cargó, llama a `ok(instancia)`; si no cargó, `falla()`
+function conGlb(url, tok, alto, ok, falla) {
+  return cargarGlb(url).then(t => {
+    if (tok !== S.tok) return;
+    if (t) ok(instancia(t, alto)); else falla?.();
+  });
+}
+
 function limpiar() {
   if (grupo) { escena.remove(grupo); soltar(grupo); grupo = null; }
-  rotulosEl.innerHTML = ""; rotulos = []; heroe = null;
+  rotulosEl.innerHTML = ""; rotulos = []; heroe = null; S.tok++;
 }
 
 function escena3d(p, animar) {
   limpiar();
+  const tok = S.tok, pend = [];
+  giro = 0; oscT = 0;
   grupo = new THREE.Group();
   const col = colorLinea(p), litros = p.ypf?.presentacion_comun_l || 1;
   heroe = envase(litros, col, true);
@@ -325,11 +384,18 @@ function escena3d(p, animar) {
   heroe.position.set(-1.35, 0, .7);
   heroe.rotation.y = .35;
   grupo.add(heroe);
+  const aviso = txt => rotulosEl.insertAdjacentHTML("afterbegin", `<p class="pz-modelo">${txt}</p>`);
+  if (p.modelo) {
+    pend.push(conGlb(p.modelo, tok, litros >= 3 ? ALTO_GRANDE.g : ALTO_GRANDE.c, m => {
+      grupo.remove(heroe); soltar(heroe);
+      heroe = m; m.position.set(-1.2, 0, .7); grupo.add(m);
+    }, () => aviso("modelo 3D no disponible")));
+  } else aviso("modelo 3D pendiente");
 
   // rótulos al pie de cada podio (misma línea de base para todos); cuadro() los reparte en filas para que no se pisen
   // podios: YPF y cada equivalente que entra al promedio; altura proporcional al $/L, sin precio = sin podio
   const eqs = (p.competencia?.equivalentes || []).filter(q => q.tipo !== "no_equivalente" && !q.excluido);
-  const items = [{ ypf: true, marca: "YPF", nombre: nombreVt(p), v: precio(p.ypf) }, ...eqs.map(q => ({ marca: q.marca, nombre: q.nombre, v: precio(q) }))]
+  const items = [{ ypf: true, marca: "YPF", nombre: nombreVt(p), v: precio(p.ypf), modelo: p.modelo }, ...eqs.map(q => ({ marca: q.marca, nombre: q.nombre, v: precio(q), modelo: q.modelo }))]
     .sort((a, b) => (a.v ?? Infinity) - (b.v ?? Infinity));
   const max = Math.max(...items.map(q => q.v || 0)) || 1, n = items.length, apretado = n > (escenaEl.clientWidth < 600 ? 3 : 5);
   const x0 = .15, x1 = 3.5, xc = (x0 + x1) / 2, sep = n > 1 ? (x1 - x0) / (n - 1) : 0;
@@ -352,13 +418,21 @@ function escena3d(p, animar) {
     div.className = "pz-rot" + (q.ypf ? " ypf" : "") + (apretado ? " apretado" : "");
     div.innerHTML = `<b>${esc(q.marca)}</b><span>${esc(q.nombre)}</span>${q.v ? `<span class="v">${pesos.format(q.v)}/L</span>` : '<span class="sin">sin precio hoy</span>'}`;
     rotulosEl.append(div);
-    rotulos.push({ div, ancla, barra, chico, h, k, sx: 0, sy: 0, w: 0, alto: 0 });
+    const r = { div, ancla, barra, chico, h, k, sx: 0, sy: 0, w: 0, alto: 0, glb: false };
+    rotulos.push(r);
+    if (q.modelo) pend.push(conGlb(q.modelo, tok, ALTO_CHICO, m => { ancla.remove(r.chico); soltar(r.chico); ancla.add(m); r.chico = m; r.glb = true; }));
   });
   escena.add(grupo);
   const conPrecio = items.filter(q => q.v).length;
   R.domElement.setAttribute("aria-label", `Envase de ${nombreVt(p)} en primer plano y ${n} podios de precio por litro (${conPrecio} con precio hoy), de menor a mayor.`);
+  // con las cargas resueltas, se pide por adelantado lo del producto siguiente
+  Promise.allSettled(pend).then(() => { if (tok === S.tok && S.lista.length > 1) precargar(S.lista[(S.i + 1) % S.lista.length]); });
   intro = animar ? performance.now() : -1e6;
   if (animar) { cam.th = cam.tTh + .45; cam.r = cam.tR * 1.12; }
+}
+
+function precargar(p) {
+  for (const u of new Set([p.modelo, ...(p.competencia?.equivalentes || []).filter(q => q.tipo !== "no_equivalente" && !q.excluido).map(q => q.modelo)])) if (u) cargarGlb(u);
 }
 
 function ajustar() {
@@ -378,7 +452,8 @@ function cuadro() {
   camara.lookAt(OBJ);
   const t = performance.now() - intro;
   if (heroe) {
-    if (!reducido.matches && !arrastre) heroe.rotation.y += dt * .3;
+    if (!reducido.matches && !arrastre) { oscT += dt; if (!heroe.userData.glb) heroe.rotation.y += dt * .3; }
+    if (heroe.userData.glb) heroe.rotation.y = giro + OSC * Math.sin(oscT * .7);
     const a = suave(t / 700);
     heroe.scale.setScalar(.9 + .1 * a); heroe.position.y = .3 * (1 - a);
   }
@@ -387,6 +462,7 @@ function cuadro() {
     const a = suave((t - 150 - q.k * 90) / 650), alto = q.h * a;
     if (q.barra) q.barra.scale.y = Math.max(.001, alto);
     q.chico.position.y = alto;
+    if (q.glb) q.chico.rotation.y = giro + OSC * Math.sin(oscT * .7) - .1;
     v3.set(0, 0, .3); q.ancla.localToWorld(v3); v3.project(camara);
     q.div.style.opacity = v3.z > 1 || a <= 0 ? 0 : a;
     q.sx = (v3.x + 1) / 2 * w; q.sy = (1 - v3.y) / 2 * h;
