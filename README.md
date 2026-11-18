@@ -40,3 +40,5 @@ Una Task diaria de SuperGrok devuelve un CSV que se pega en la pestaña **Cargar
 
 ## Reglas de matcheo
 Si cambia `seed/`, correr `python recolectar.py --renormalizar`.
+
+Power BI: `/api/bi/{precios,productos,equivalencias,fuentes,provincias}` dan el modelo estrella en CSV (UTF-8 con BOM, misma clave). Guía, consultas M y relaciones en [docs/powerbi.md](docs/powerbi.md). `data/obs` suma la columna `capturado` (hora UTC de captura; vacía en el histórico).

@@ -1,6 +1,13 @@
 # ESTADO
 
-Actualizado 2026-11-18 (modelos 3D con Blender y modo presentación con GLB; Brasil; antes: mercado: share de la SE y series de datos.gob.ar). Remoto privado `noguerafran-alt/LUBRICANTES`; la Action corre a diario.
+Actualizado 2026-11-18 (export a Power BI; modelos 3D con Blender y modo presentación con GLB; Brasil; antes: mercado: share de la SE y series de datos.gob.ar). Remoto privado `noguerafran-alt/LUBRICANTES`; la Action corre a diario.
+
+## Export a Power BI y hora de captura (2026-11-18, rama lub-powerbi)
+- **`capturado`**: columna nueva al final de `data/obs` (`recolectar.OBS`), ISO 8601 UTC. La estampan `a_obs` (todas las fuentes, incluidas ML y Brasil) y `sepa.agregar`; en Grok es la hora del POST (`cargado`), copiada por `server.integrar_grok`. El histórico queda con la columna vacía (no se reescribe ni se deriva una hora); los lectores aceptan archivos con y sin ella. El archivo de cada mes gana la columna en la próxima escritura.
+- **`/api/bi/{precios,productos,equivalencias,fuentes,provincias}`**: CSV UTF-8 con BOM, mismo Basic Auth. Reusan `canal`, `precio_litro`, `con_usd`/`tabla_fx`, `normalizar.SUBDIVISIONES/REGIONES`. `precios` lleva `?desde=AAAA-MM-DD`. Grok entra con su columna `verificado` (criterio de `/api/reventa`: se marca, no se oculta), no se excluye el `0`.
+- **Guía**: `docs/powerbi.md` (conexión, consulta M por tabla, relaciones, incremental).
+- **Verificado**: asserts en `server.demo()` (BOM, `desde`, `capturado` vacío en filas viejas, 401 sin clave, dimensiones, Grok) y en `recolectar`/`sepa`; `precios` sobre los datos reales: 33.643 filas en 0,7 s.
+- **No verificado**: ninguna conexión con un Power BI real (las consultas M no se corrieron), ni la actualización incremental programada; sin corrida real de fuentes (se evitó tocar `data/`). Con `?desde` la cantidad de filas del servidor no baja de lo que ya carga en memoria: sirve para acotar la descarga.
 
 ## Brasil, primer país limítrofe (2026-11-18, rama lub-brasil)
 - **Esquema**: columnas `pais,moneda` al final de `data/obs` (`recolectar.OBS`) y `data/grok`. Filas viejas sin ellas = AR/ARS (no se reescribió el histórico). Todas las fuentes argentinas escriben AR/ARS (`recolectar.pais_fuente`: el nombre con `_br_` es Brasil). `/api/cargar` acepta los encabezados de 11, 12 y 14 columnas; `pais` y `moneda` se validan contra conjuntos cerrados (países del relevamiento, monedas ISO 4217) y entran a la clave de idempotencia. `provincia` se valida contra el país de la fila (`BR-PR` solo con `pais=BR`, `normalizar.SUBDIVISIONES`).

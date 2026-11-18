@@ -97,7 +97,8 @@ data/macro/energia.csv # ventas de lubricantes y gasoil de la Secretaría de Ene
 - `evidencia`: `confirmada|inferida`. Sin puntajes de confianza inventados.
 
 **data/obs/AAAA-MM.csv** —
-`fecha,fuente,url,ean,titulo,marca,precio,precio_lista,stock,vendedor,sucursal,litros,unidades,producto_id,match,provincia,pais,moneda`
+`fecha,fuente,url,ean,titulo,marca,precio,precio_lista,stock,vendedor,sucursal,litros,unidades,producto_id,match,provincia,pais,moneda,capturado`
+- `capturado` (al final): hora de captura, ISO 8601 UTC (`2026-11-18T14:05:00Z`). La estampan `recolectar.a_obs` (todas las fuentes salvo SEPA y Grok; ML y Brasil pasan por ahí) y `sepa.agregar`; en Grok es `cargado` (la hora del POST de `/api/cargar`; `server.integrar_grok` la copia, el CSV de Grok no cambia). **Las filas anteriores quedan vacías: nunca se inventa ni se deriva una hora.** Una fila reescrita (Nota Paraná por `clave_fila`, o una re-corrida del día) lleva la hora de la última captura. Sigue siendo una fila por captura, no hay fotos horarias. Los lectores toleran archivos con y sin la columna.
 - `pais,moneda` (al final, después de `provincia`): `pais` ISO 3166-1 alfa-2 (`AR`, `BR`) y `moneda` ISO 4217 **de publicación** (`ARS`, `BRL`; un distribuidor que publica en USD va `USD`).
   Filas anteriores a estas columnas (o vacías) = `AR`/`ARS`: no se reescriben. Todas las fuentes argentinas escriben `AR`/`ARS`; las de Brasil llevan `_br_` en el nombre y escriben `BR`/`BRL`
   (`recolectar.pais_fuente`). **Nunca se mezclan países ni monedas** en una mediana, un promedio ni el índice.
@@ -239,7 +240,7 @@ en `fuentes.csv` con `error="sin token"`. Búsquedas por marca/línea (`BUSQUEDA
 ## API (server.py)
 
 Autenticación: header `X-API-Key: <LUB_CLAVE>` o Basic Auth (usuario cualquiera,
-contraseña `LUB_CLAVE`). Respuestas JSON; `?formato=csv` devuelve CSV.
+contraseña `LUB_CLAVE`). Respuestas JSON; `?formato=csv` devuelve CSV. `/api/bi/*` es siempre CSV.
 
 | ruta | contenido |
 |---|---|
@@ -263,6 +264,8 @@ contraseña `LUB_CLAVE`). Respuestas JSON; `?formato=csv` devuelve CSV.
 | `/api/provincias?producto_id=<id>` | $/L y precio medianos por (provincia, fuente) y por (región, fuente), con `canal`, `n`, `fecha`; ver abajo |
 | `/api/reventa?producto_id=<id YPF>` | todas las observaciones del período del producto YPF y de cada equivalente (el endpoint para cruzar con datos internos); ver abajo |
 | `/api/cobertura` | por producto YPF del seed: equivalencias, fuentes y provincias con precio en 7 días, última fecha; ver abajo |
+| `/api/bi/precios[?desde=AAAA-MM-DD]` | **Power BI, tabla de hechos** (CSV UTF-8 con BOM): una fila por observación con `producto_id` (`fecha,capturado,producto_id,fuente,canal,vendedor,sucursal,provincia,pais,moneda,precio,litros,unidades,precio_litro,precio_usd_litro,url,match,verificado`). Incluye Grok como `/api/reventa`: `verificado` `0`/`1` solo en Grok y vacío en el resto, el modelo decide si filtra `0`. `precio_usd_litro` con la cotización de ese día exacto (vacío si no hay). `desde` = `fecha >=`, para carga incremental; mal formado = 400 |
+| `/api/bi/productos` · `/api/bi/equivalencias` · `/api/bi/fuentes` · `/api/bi/provincias` | dimensiones del modelo estrella, CSV con BOM: `seed/productos.csv` + `es_ypf` (1/0); `ypf_id,comp_id,tipo,criterio,evidencia,fuente`; `fuente,canal,pais,tipo,ultima_fecha` (`tipo` = tienda\|mayorista\|grok\|sepa\|ml; las `oficial_*` de Brasil cuentan como `sepa`; solo fuentes con observaciones); `codigo,nombre,region,pais,online` (AR, BR y la fila `online`, con `online=1`). Guía en `docs/powerbi.md` |
 | `/salud` | sin clave, `{"ok":true}` para el health check de Render |
 
 **País y USD** (`pais`, `usd`): `indice`, `vitrina`, `ultimo`, `serie`, `provincias`, `reventa` y `cobertura` filtran `?pais=AR` por defecto; `?pais=BR` muestra Brasil en BRL; cualquier otro valor da 400. Cada respuesta lleva `pais` y `moneda`

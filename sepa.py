@@ -18,7 +18,7 @@ from datetime import date
 from pathlib import Path
 
 from normalizar import normalizar, provincia_iso
-from recolectar import OBS as OBS_F  # una sola definición del encabezado
+from recolectar import OBS as OBS_F, ahora_utc  # una sola definición del encabezado
 
 RAIZ = Path(__file__).parent
 CKAN = "https://datos.produccion.gob.ar/api/3/action/package_show?id=sepa-precios"
@@ -127,6 +127,7 @@ def agregar(fecha, grupos, rel=None):
     Con `rel` (producto_id relacionados con YPF, ver recolectar.relacionados) lo ajeno no se escribe: se cuenta en descartados.
     """
     filas, sin_precio, descartados = [], 0, 0
+    capturado = ahora_utc()
     for (comercio, bandera, provincia, ean), g in sorted(grupos.items()):
         ps = sorted(p for p in g["precios"] if p > 0)
         if not ps:
@@ -142,7 +143,7 @@ def agregar(fecha, grupos, rel=None):
             "vendedor": g["vendedor"] or f"comercio {comercio}-{bandera}",
             "sucursal": f"n={len(ps)};min={ps[0]:.2f};max={ps[-1]:.2f}",
             "litros": n["litros"], "unidades": n["unidades"], "producto_id": n["producto_id"], "match": n["match"],
-            "provincia": provincia, "pais": "AR", "moneda": "ARS",  # SEPA es Argentina
+            "provincia": provincia, "pais": "AR", "moneda": "ARS", "capturado": capturado,  # SEPA es Argentina
         })
     return filas, sin_precio, descartados
 
@@ -257,7 +258,7 @@ def demo():
     f4 = agregar("2026-11-02", g2)[0]
     assert [(f["provincia"], f["precio"], f["sucursal"]) for f in f4] == [
         ("AR-C", "91000.00", "n=2;min=90000.00;max=92000.00"), ("AR-X", "80000.00", "n=1;min=80000.00;max=80000.00")], f4
-    assert OBS_F[-3:] == ["provincia", "pais", "moneda"] and set(f4[0]) == set(OBS_F) and f4[0]["pais"] == "AR" and f4[0]["moneda"] == "ARS"
+    assert OBS_F[-4:] == ["provincia", "pais", "moneda", "capturado"] and f4[0]["capturado"].endswith("Z") and set(f4[0]) == set(OBS_F) and f4[0]["pais"] == "AR" and f4[0]["moneda"] == "ARS"
 
     # filtro YPF: solo se escribe lo relacionado; lo demás se cuenta
     f2, sp2, d2 = agregar("2026-11-02", grupos, {filas[0]["producto_id"]} - {""})

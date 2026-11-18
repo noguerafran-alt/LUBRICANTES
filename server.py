@@ -86,6 +86,12 @@ CAMPOS = {
     "oferta_ml": OFERTA_F,
     "vitrina": VITRINA_F,
 }
+CAMPOS["bi_precios"] = ["fecha", "capturado", "producto_id", "fuente", "canal", "vendedor", "sucursal", "provincia", "pais", "moneda", "precio", "litros", "unidades",
+                        "precio_litro", "precio_usd_litro", "url", "match", "verificado"]
+CAMPOS["bi_productos"] = PRODUCTOS_F + ["es_ypf"]
+CAMPOS["bi_equivalencias"] = EQUIV_F[1:]  # ypf_id, comp_id, tipo, criterio, evidencia, fuente
+CAMPOS["bi_fuentes"] = ["fuente", "canal", "pais", "tipo", "ultima_fecha"]
+CAMPOS["bi_provincias"] = ["codigo", "nombre", "region", "pais", "online"]
 CAMPOS["indice_con_mayoristas"] = CAMPOS["indice"]
 CAMPOS["macro"] = MACRO_F = ["fecha", "id", "valor", "signo"]
 CAMPOS["mercado_share"] = ["mes", "empresa", "volumen", "total", "share"]
@@ -197,6 +203,8 @@ def integrar_grok(d):
     d["obs"] = d["obs_base"] + [
         {**dict.fromkeys(OBS_F, ""), **{k: r.get(k) or "" for k in GROK_ALM_F if k in OBS_F or k in ("verificado", "cargado")}}
         for r in d["grok"] if r["tipo"] == "producto"]
+    for r in d["obs"][len(d["obs_base"]):]:
+        r["capturado"] = r.get("cargado", "")  # hora del POST de /api/cargar (ya viene ISO UTC); las filas viejas sin hora quedan vacías
 
 
 def clave_grok(r):
@@ -483,6 +491,50 @@ CAMPOS["cobertura"] = ["producto_id", "nombre", "linea", "segmento", "sae", "equ
 def canal(fuente):
     """Canal derivado de la fuente (no hay columna): mayorista, grok (relevamiento cargado por la Task) o publico."""
     return "mayorista" if fuente in MAYORISTAS else "grok" if fuente.startswith("grok_") else "publico"
+
+
+def tipo_fuente(f):
+    """Tipo de fuente para la dimensión de Power BI. Las `oficial_*` (nota fiscal de Brasil) se tratan como SEPA."""
+    return "grok" if f.startswith("grok_") else "sepa" if f == "sepa" or f.startswith("oficial_") else "ml" if f.startswith("ml") else "mayorista" if f in MAYORISTAS else "tienda"
+
+
+def bi_precios(d, desde=""):
+    """/api/bi/precios: una fila por observación con producto_id (incluye Grok con su `verificado`, como /api/reventa: se marca, no se oculta;
+    el filtro lo hace el modelo). `capturado` vacío = fila anterior a esa columna: no se inventa una hora."""
+    out = []
+    for r in d["obs"]:
+        if not r["producto_id"] or r["fecha"] < desde:
+            continue
+        pl, m = precio_litro(r), moneda_r(r)
+        usd = con_usd({"fecha": r["fecha"], "moneda": m, "precio_litro": pl}, m, d["fx_tabla"])["precio_litro_usd"]
+        out.append({**r, "capturado": r.get("capturado") or "", "canal": canal(r["fuente"]), "pais": pais_r(r), "moneda": m,
+                    "precio_litro": "" if pl is None else round(pl, 4), "precio_usd_litro": "" if usd is None else usd, "verificado": r.get("verificado") or ""})
+    return out
+
+
+def bi_fuentes(d):
+    ult = {}
+    for r in d["obs"]:
+        ult[r["fuente"]] = max(ult.get(r["fuente"], ""), r["fecha"])
+    return [{"fuente": f, "canal": canal(f), "pais": pais_de_fuente(f), "tipo": tipo_fuente(f), "ultima_fecha": u} for f, u in sorted(ult.items())]
+
+
+def bi_provincias():
+    """Código ISO, nombre, región y `online` (1 solo en la fila `online`: e-commerce nacional, no es una provincia). Otros países: solo código y nombre."""
+    filas = [{"codigo": c, "nombre": n, "region": normalizar.REGIONES.get(c, ""), "pais": p, "online": 0}
+             for p, sub in normalizar.SUBDIVISIONES.items() for c, n in sub.items()]
+    return filas + [{"codigo": normalizar.ONLINE, "nombre": "Online (e-commerce nacional)", "region": "", "pais": "", "online": 1}]
+
+
+def bi_tabla(d, nombre, q):
+    """→ filas de una tabla del modelo estrella (None si no existe)."""
+    if nombre == "precios":
+        return bi_precios(d, q.get("desde", ""))
+    if nombre == "productos":
+        return [{**p, "es_ypf": int(p["marca"] == "YPF")} for p in d["productos"]]
+    if nombre == "equivalencias":
+        return d["equivalencias"]
+    return {"fuentes": lambda: bi_fuentes(d), "provincias": bi_provincias}.get(nombre, lambda: None)()
 
 
 def desde_hasta(d, dias):
@@ -1162,6 +1214,14 @@ class Handler(BaseHTTPRequestHandler):
             return self.mercado(nombre, q)
         if nombre in ("provincias", "reventa", "cobertura"):
             return self.analisis(nombre, q)
+        if nombre.startswith("bi/"):  # modelo estrella para Power BI: CSV con BOM (para que lea los acentos), sin filtro de país
+            desde = q.get("desde", "")
+            if desde and not RX_FECHA.fullmatch(desde):
+                return self.json(400, {"error": "desde tiene que ser AAAA-MM-DD"})
+            filas = bi_tabla(self.datos, nombre[3:], q)
+            if filas is None:
+                return self.json(404, {"error": "no existe", "tablas": ["precios", "productos", "equivalencias", "fuentes", "provincias"]})
+            return self.enviar(200, chr(0xFEFF).encode() + a_csv("bi_" + nombre[3:], filas), "text/csv; charset=utf-8")
         cp = self.calc["_paises"][pais]  # lo calculado por país; el resto (productos, fuentes, …) no depende del país
         if nombre == "vitrina":
             v = cp["vitrina_con_mayoristas" if q.get("mayoristas") == "1" else "vitrina"]
@@ -1652,6 +1712,27 @@ def demo():
     assert json.loads(get("/api/vitrina?mayoristas=1", k)[1]) == json.loads(json.dumps(c["vitrina_con_mayoristas"]))
     assert get("/api/vitrina?formato=csv", k)[1].startswith(b"fecha,producto_id,nombre,") and get("/api/vitrina")[0] == 401
     assert get("/api/mercado")[0] == 401
+    # ---------- /api/bi/*: modelo estrella para Power BI ----------
+    def bi(t):
+        cod, cuerpo = get("/api/bi/" + t, k)
+        assert cod == 200 and cuerpo.startswith(chr(0xFEFF).encode()), t  # BOM: Power BI/Excel leen bien los acentos
+        return list(csv.DictReader(io.StringIO(cuerpo.decode("utf-8-sig"))))
+    for t in ("precios", "productos", "equivalencias", "fuentes", "provincias"):
+        assert get("/api/bi/" + t)[0] == 401, t
+    assert get("/api/bi/nada", k)[0] == 404 and get("/api/bi/precios?desde=ayer", k)[0] == 400
+    bp = bi("precios")
+    assert len(bp) == 8 and all(r["producto_id"] and r["capturado"] == "" for r in bp)  # filas sin hora: vacío, nunca inventada
+    assert [r["fecha"] for r in bi("precios") if r["canal"] == "mayorista"] == ["2026-11-02"] and {r["pais"] for r in bp} == {"AR"}
+    assert len(bi("precios?desde=2026-11-02")) == 5 and bi("precios?desde=2026-12-01") == []
+    assert float(next(r for r in bp if r["producto_id"] == "ypf-a-10w40" and r["litros"] == "4")["precio_litro"]) == 4000 and bp[0]["precio_usd_litro"] == ""  # sin fx: vacío
+    assert [(r["producto_id"], r["es_ypf"]) for r in bi("productos")] == [("ypf-a-10w40", "1"), ("shell-b-10w40", "0"), ("gulf-c-15w40", "0")]
+    assert [(r["ypf_id"], r["comp_id"], r["tipo"]) for r in bi("equivalencias")] == [("ypf-a-10w40", "shell-b-10w40", "match_total")]
+    assert {r["fuente"]: (r["tipo"], r["ultima_fecha"]) for r in bi("fuentes")}["shopify_datri"] == ("mayorista", "2026-11-02")
+    bpv = {r["codigo"]: r for r in bi("provincias")}
+    assert bpv["AR-X"]["nombre"] == "Córdoba" and bpv["AR-X"]["region"] == "Pampeana" and bpv["online"]["online"] == "1" and bpv["BR-PR"]["pais"] == "BR"
+    dg = {"obs_base": [], "grok_meses": {"m": [{**dict.fromkeys(GROK_ALM_F, ""), "tipo": "producto", "cargado": "2026-11-18T14:05:00Z"}]}}
+    integrar_grok(dg)
+    assert dg["obs"][0]["capturado"] == "2026-11-18T14:05:00Z"
     mj = json.loads(get("/api/mercado", k)[1])
     assert mj["share"]["producto"] == "Lubricantes automotrices(m3)" and mj["share"]["empresas"][0]["empresa"] == "YPF" and len(mj["actividad"]) == 7
     assert mj["compuestos"]["notas"]["demanda_potencial"].startswith("pesos supuestos")
