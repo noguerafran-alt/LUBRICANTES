@@ -23,6 +23,10 @@ nav { display: flex; gap: 2px; flex: 1 1 auto; min-width: 0; overflow-x: auto; s
 nav::-webkit-scrollbar { display: none; }
 nav button { background: none; border: 0; border-bottom: 3px solid transparent; color: #dbe6fb; font: inherit; padding: 8px 10px; min-height: 44px; cursor: pointer; white-space: nowrap; flex: none; }
 nav button[aria-selected="true"] { color: #fff; border-color: #fff; font-weight: 600; }
+.pais-barra { align-items: flex-end; margin: 8px 0 4px; }
+.pais-barra .nota { flex: 1 1 260px; margin: 0 0 4px; }
+.pais-barra .chk input { width: auto; }
+.pais-barra .chk span { display: flex; align-items: center; gap: 6px; min-height: 32px; font-size: 13px; color: var(--tx); }
 #banner:empty { display: none; }
 #banner { background: var(--aviso-bg); color: var(--aviso-tx); border-radius: 6px; padding: 4px 12px; margin: 8px 0; font-size: 13px; }
 #banner summary { cursor: pointer; min-height: 28px; display: flex; align-items: center; }
@@ -406,6 +410,11 @@ th.n { text-align: right; }
 </div></header>
 <main>
   <div id="banner"></div>
+  <div class="filtros pais-barra" id="pais-barra">
+    <label>País <select id="pais"><option value="AR">Argentina</option><option value="BR">Brasil</option></select></label>
+    <label class="chk"><span><input type="checkbox" id="usd"> Ver también en USD</span></label>
+    <p class="nota" id="pais-nota" aria-live="polite"></p>
+  </div>
 
   <section id="vitrina" hidden>
     <div class="vt-cab">
@@ -538,7 +547,8 @@ obs = pd.read_csv("<span class="origen"></span>/api/obs?mes=2026-11&amp;formato=
 <script>
 const NOMBRE_FUENTE = { ypf_gql: "YPF catálogo", vtex_carrefour: "Carrefour", vtex_masonline: "Masonline", vtex_easy: "Easy",
   vtex_jumbo: "Jumbo", vtex_norauto: "Norauto", shopify_datri: "Tienda D'Atri", tn_lspalermo: "LS Palermo", tn_spch: "Casa González",
-  sepa: "Precios Claros (SEPA)", ml_cat: "ML categorías", ml: "Mercado Libre" };
+  sepa: "Precios Claros (SEPA)", ml_cat: "ML categorías", ml: "Mercado Libre", vtex_br_pitstop: "Pitstop (Brasil)", vtex_br_altese: "Altese (Brasil)",
+  oficial_br_notaparana: "Nota Paraná (Brasil, notas fiscales)", fx_bcb_ptax: "BCB PTAX (tipo de cambio)" };
 const MAYORISTAS = ["shopify_datri"]; // precio por caja o tambor, IVA no verificado: el índice no los usa
 const SEGMENTO = { pcmo: "Autos (PCMO)", hddo: "Pesados (HDDO)", moto4t: "Moto 4T", moto2t: "Moto 2T", transmision: "Transmisión",
   grasa: "Grasa", industrial: "Industrial", marino: "Marino", gas: "Gas", otro: "Otro" };
@@ -558,6 +568,39 @@ const sello = v => v === "1" ? '<span class="badge confirmada">✓ verificado</s
 const linkUrl = (url, txt) => /^https:\/\//.test(url) ? `<a href="${esc(url)}" rel="noreferrer noopener" target="_blank">${esc(txt)}</a>` : esc(txt);
 const fechaAR = iso => iso ? iso.slice(8, 10) + "/" + iso.slice(5, 7) + "/" + iso.slice(0, 4) : "";
 const dia = iso => Date.parse(iso + "T00:00:00Z") / 864e5;
+
+// País elegido (?pais=BR&usd=1; Argentina por defecto). Lo usan Comparador, Vitrina, Índice y Evolución; Mapa, Cobertura y Mercado son solo Argentina.
+const Q = new URLSearchParams(location.search);
+const P = { pais: (Q.get("pais") || "AR").toUpperCase() === "BR" ? "BR" : "AR", usd: Q.get("usd") === "1" };
+const reales = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+const dolares = new Intl.NumberFormat("es-AR", { style: "currency", currency: "USD" });
+const mon = { format: v => (P.pais === "BR" ? reales : pesos).format(v) };  // moneda de publicación del país elegido
+// Conversión a USD solo para mirar: la trae la API (?usd=1) con la fecha y la fuente de ese día exacto; sin cotización ese día no se inventa ni se arrastra.
+// En tablas (celdas sin salto de línea) va compacto: "US$ 8,63 · TC 17/11/2026"; el rótulo completo está en el title y en la barra de arriba.
+const usdDe = (o, campo, sep = "<br>", largo = false) => {
+  if (!P.usd || !o) return "";
+  const v = o[campo + "_usd"];
+  const rot = "conversión a USD al tipo de cambio oficial del " + fechaAR(o.fx_fecha) + ": solo referencia";
+  return typeof v === "number"
+    ? `${sep}<span class="mut" title="${esc(rot)} (${esc(o.fx_fuente)})">${dolares.format(v)} · ${largo ? esc(rot) : "TC " + fechaAR(o.fx_fecha)}</span>`
+    : `${sep}<span class="vacio" title="Sin cotización oficial ese día: no se convierte y no se arrastra la del día anterior">${largo ? "sin tipo de cambio oficial ese día: no se convierte (no se arrastra el del día anterior)" : "sin TC ese día"}</span>`;
+};
+const apiP = ruta => api(ruta + (ruta.includes("?") ? "&" : "?") + "pais=" + P.pais + (P.usd ? "&usd=1" : ""));
+const fp = () => D.fuentes.filter(f => (f.pais || "AR") === P.pais);  // fuentes del país elegido (la pestaña Fuentes las muestra todas)
+
+function barraPais() {
+  $("#pais").value = P.pais; $("#usd").checked = P.usd;
+  const ir_ = () => { const q = new URLSearchParams(); if ($("#pais").value !== "AR") q.set("pais", $("#pais").value); if ($("#usd").checked) q.set("usd", "1"); location.search = q.toString(); };
+  $("#pais").onchange = ir_; $("#usd").onchange = ir_;
+  notaPais();
+}
+function notaPais(tab) {
+  const t = [];
+  if (P.pais === "BR") t.push("Brasil: precios en reales (R$) tal como se publican, sin mezclar con Argentina; el índice YPF = 100 se calcula solo dentro de Brasil. Nota Paraná (notas fiscales de Paraná) es una API interna sin términos publicados: se usa con cautela.");
+  if (P.usd) t.push("USD: conversión al tipo de cambio oficial de la fecha de cada precio (TC dd/mm/aaaa; BCB PTAX para R$, BCRA para $): solo referencia. Sin cotización ese día, sin conversión.");
+  if (["mercado", "mapa", "cobertura"].includes(tab)) t.push("Esta pestaña muestra solo Argentina" + (P.pais === "BR" ? ", aunque elegiste Brasil" : "") + ".");
+  $("#pais-nota").textContent = t.join(" ");
+}
 
 async function api(ruta) {
   // mismo origen: el navegador reenvía el Basic Auth con el que se abrió la página.
@@ -579,7 +622,7 @@ function motivoVacio(fuente) {
 }
 
 function caidas() {
-  return D.fuentes.filter(f => f.error || f.dias_sin_datos === null || f.dias_sin_datos > 1);
+  return fp().filter(f => f.error || f.dias_sin_datos === null || f.dias_sin_datos > 1);
 }
 
 // Fuente que responde bien pero toda su oferta está sin stock (Jumbo): no es una caída HTTP.
@@ -596,7 +639,7 @@ const TXT_SIN_PRECIOS = f => `${nf(f.fuente)}: sin precios con stock (${f.n_item
 function banner() {
   // Un sitio Grok recién habilitado que todavía no tuvo carga no es una caída: va en una sola línea, no uno por renglón.
   const todas = caidas(), gNueva = todas.filter(f => esGrok(f.fuente) && !f.ultimo_ok);
-  const c = todas.filter(f => !gNueva.includes(f)), sp = D.fuentes.filter(sinPrecios), sd = D.fuentes.filter(soloDescartados);
+  const c = todas.filter(f => !gNueva.includes(f)), sp = fp().filter(sinPrecios), sd = fp().filter(soloDescartados);
   const lGrok = gNueva.length ? `<li>${esc(`Grok: ${gNueva.length} ${gNueva.length === 1 ? "sitio habilitado todavía no tuvo" : "sitios habilitados todavía no tuvieron"} su primera carga (detalle en Fuentes)`)}</li>` : "";
   if (!c.length && !sp.length && !sd.length && !lGrok) return;
   const lis = (c.length ? "<strong>Fuentes con problemas</strong><ul>" : "<ul>") + sp.map(f => "<li>" + esc(TXT_SIN_PRECIOS(f)) + "</li>").join("") + sd.map(f => "<li>" + esc(nf(f.fuente) + ": " + TXT_GUARDADOS(f)) + "</li>").join("") + lGrok + c.map(f => "<li>" +
@@ -613,7 +656,9 @@ function opciones(sel, valores, todas, etiqueta = v => v) {
 }
 
 const prod = id => D.prodPorId[id];
-const ypfs = () => D.productos.filter(p => p.marca === "YPF");
+// YPF del país elegido: los del seed de ese país (sufijo -br = Brasil) o con algún precio en él. El mapa es solo Argentina.
+const ypfs = () => D.productos.filter(p => p.marca === "YPF" && (p.producto_id.endsWith("-br") === (P.pais === "BR") || D.ultimo.some(u => u.producto_id === p.producto_id)));
+const ypfsAR = () => D.productos.filter(p => p.marca === "YPF" && !p.producto_id.endsWith("-br"));
 const equivDe = id => D.equivalencias.filter(e => e.ypf_id === id);
 
 // ---------- Comparador ----------
@@ -656,7 +701,7 @@ function comparador() {
         dif = `<br><span class="${d > 0 ? "caro" : "barato"}">${d > 0 ? "+" : ""}${dec1.format(d)} %</span>`;
       } else dif = `<br><span class="vacio">sin YPF para comparar</span>`;
     }
-    return `<td class="n" data-l="${esc(nf(f))}"><span>${pesos.format(u.precio_litro)}/L${dif}<br><span class="mut">${fechaAR(u.fecha)}${u.n > 1 ? " · " + u.n + " precios" : ""}</span>${esGrok(u.fuente) ? `<br><span class="mut">${linkUrl(u.url, nf(u.fuente))}</span> ${sello(u.verificado)}` : ""}</span></td>`;
+    return `<td class="n" data-l="${esc(nf(f))}"><span>${mon.format(u.precio_litro)}/L${usdDe(u, "precio_litro")}${dif}<br><span class="mut">${fechaAR(u.fecha)}${u.n > 1 ? " · " + u.n + " precios" : ""}</span>${esGrok(u.fuente) ? `<br><span class="mut">${linkUrl(u.url, nf(u.fuente))}</span> ${sello(u.verificado)}` : ""}</span></td>`;
   };
   const cab = `<tr><th>Producto</th><th>Equivalencia</th>${fuentes.map(f => `<th>${nfh(f)}</th>`).join("")}</tr>`;
   out.innerHTML = filas.map(p => {
@@ -689,7 +734,7 @@ async function evolucion() {
   const ids = [id, ...equivDe(id).map(e => e.comp_id).filter(prod)];
   out.innerHTML = "Cargando…";
   try {
-    await Promise.all(ids.filter(x => !series[x]).map(async x => series[x] = await api("serie?p=" + encodeURIComponent(x))));
+    await Promise.all(ids.filter(x => !series[x]).map(async x => series[x] = await apiP("serie?p=" + encodeURIComponent(x))));
   } catch (e) { return out.innerHTML = `<div class="explica">No se pudo leer la serie: ${esc(e.message)}</div>`; }
   if ($("#e-prod").value !== id) return;
   const color = {}; ids.forEach((x, i) => color[x] = `var(${COLORES[i % COLORES.length]})`);
@@ -717,7 +762,7 @@ function grafico(lineas) {
   let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="$/L en el tiempo">`;
   for (let i = 0; i <= 3; i++) {
     const v = y0 + (y1 - y0) * i / 3;
-    s += `<line class="eje" x1="${m.l}" x2="${W - m.r}" y1="${Y(v)}" y2="${Y(v)}"/><text x="${m.l - 6}" y="${Y(v) + 4}" text-anchor="end">${pesos.format(v)}</text>`;
+    s += `<line class="eje" x1="${m.l}" x2="${W - m.r}" y1="${Y(v)}" y2="${Y(v)}"/><text x="${m.l - 6}" y="${Y(v) + 4}" text-anchor="end">${mon.format(v)}</text>`;
   }
   const fx = d => fechaAR(new Date(d * 864e5).toISOString().slice(0, 10));
   s += `<text x="${m.l}" y="${H - 6}">${fx(x0)}</text><text x="${W - m.r}" y="${H - 6}" text-anchor="end">${fx(x1)}</text>`;
@@ -730,7 +775,7 @@ function grafico(lineas) {
       tramo.push(`${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`);
     });
     cerrar();
-    l.puntos.forEach(p => s += `<circle cx="${X(p[0]).toFixed(1)}" cy="${Y(p[1]).toFixed(1)}" r="2" fill="${l.color}"><title>${esc(l.nombre)} ${fechaAR(p[0])}: ${pesos.format(p[1])}/L</title></circle>`);
+    l.puntos.forEach(p => s += `<circle cx="${X(p[0]).toFixed(1)}" cy="${Y(p[1]).toFixed(1)}" r="2" fill="${l.color}"><title>${esc(l.nombre)} ${fechaAR(p[0])}: ${mon.format(p[1])}/L</title></circle>`);
   }
   return s + "</svg>";
 }
@@ -753,7 +798,7 @@ function indice() {
       : `<td><span class="vacio">sin producto en el catálogo</span></td>`;
     const v = r.indice === null ? `<span class="vacio">sin YPF ese día</span>`
       : `<span class="${marca === "YPF" ? "" : r.indice > 100 ? "caro" : "barato"}">${dec1.format(r.indice)}</span>`;
-    return `<td class="n">${v}<br><span class="mut">${pesos.format(r.mediana_litro)}/L</span><br>${sparkline(hist[marca + "|" + g] || [], desde)}</td>`;
+    return `<td class="n">${v}<br><span class="mut">${mon.format(r.mediana_litro)}/L</span>${usdDe(r, "mediana_litro")}<br>${sparkline(hist[marca + "|" + g] || [], desde)}</td>`;
   };
   out.innerHTML = `<p class="nota">Último día con datos: <strong>${fechaAR(ultimo)}</strong>.</p><div class="tabla"><table>
     <tr><th>Marca</th>${grupos.map(g => { const [seg, sae] = g.split("|"); return `<th>${esc(SEGMENTO[seg] || seg)}<br>${esc(sae || "sin SAE")}</th>`; }).join("")}</tr>
@@ -776,8 +821,8 @@ function sparkline(filas, desde) {
 // ---------- Fuentes ----------
 function fuentes() {
   $("#fue-out").innerHTML = !D.fuentes.length ? `<div class="explica">Todavía no corrió ninguna recolección (<code>data/fuentes.csv</code> vacío).</div>` :
-    `<div class="tabla"><table><tr><th>Fuente</th><th>Última corrida</th><th>HTTP</th><th>Ítems</th><th>Con precio</th><th>Sin stock</th><th>Sin match</th><th>Último OK</th><th>Días sin datos</th><th>Error</th></tr>
-    ${D.fuentes.map(f => `<tr><td>${nfh(f.fuente)}<br><span class="mut">${esc(f.fuente)}</span></td><td>${fechaAR(f.fecha) || '<span class="vacio">sin cargas</span>'}</td><td>${esGrok(f.fuente) ? '<span class="mut">carga de Grok</span>' : esc(f.http) || '<span class="vacio">sin respuesta</span>'}</td>
+    `<div class="tabla"><table><tr><th>Fuente</th><th>País</th><th>Última corrida</th><th>HTTP</th><th>Ítems</th><th>Con precio</th><th>Sin stock</th><th>Sin match</th><th>Último OK</th><th>Días sin datos</th><th>Error</th></tr>
+    ${D.fuentes.map(f => `<tr><td>${nfh(f.fuente)}<br><span class="mut">${esc(f.fuente)}</span>${f.nota ? `<br><span class="caro">${esc(f.nota)}</span>` : ""}</td><td>${esc(f.pais || "AR")}</td><td>${fechaAR(f.fecha) || '<span class="vacio">sin cargas</span>'}</td><td>${esGrok(f.fuente) ? '<span class="mut">carga de Grok</span>' : esc(f.http) || '<span class="vacio">sin respuesta</span>'}</td>
       <td class="n">${esc(f.n_items)}</td><td class="n">${sinPrecios(f) ? '<span class="vacio" title="La fuente responde bien pero todos sus ítems están sin stock">sin precios con stock</span>' : nDesc(f) ? esc(TXT_GUARDADOS(f)) : esc(f.n_con_precio)}</td><td class="n">${esc(f.n_sin_stock)}</td><td class="n">${esc(f.n_sin_match)}</td>
       <td>${f.ultimo_ok ? fechaAR(f.ultimo_ok) : '<span class="vacio">nunca</span>'}</td>
       <td class="n${f.dias_sin_datos > 1 || f.dias_sin_datos === null ? " caro" : ""}">${f.dias_sin_datos ?? '<span class="vacio">nunca trajo datos</span>'}</td>
@@ -843,7 +888,7 @@ const reducido = matchMedia("(prefers-reduced-motion: reduce)");
 const BASE = { mineral: "Mineral", semisintetico: "Semisintético", sintetico: "Sintético" };
 const FUENTE_FOTO = { ypf_oficial: "YPF oficial", ml: "Mercado Libre" };
 const nfFoto = f => FUENTE_FOTO[f] || NOMBRE_FUENTE[f] || f;
-const porL = v => `${pesos.format(v)}<small>/L</small>`;
+const porL = v => `${mon.format(v)}<small>/L</small>`;
 const litrosTxt = l => dec1.format(l) + " L";
 const vendedorTxt = v => v && !/^\d+$/.test(String(v).split(" ")[0]) ? ` (${esc(v)})` : ""; // ML da seller_id numérico: no dice nada
 const ICONO = { prev: '<path d="M15 5l-7 7 7 7"/>', next: '<path d="M9 5l7 7-7 7"/>', pausa: '<path d="M8 5v14M16 5v14"/>', play: '<path d="M7 5l12 7-12 7z"/>', cerrar: '<path d="M6 6l12 12M18 6L6 18"/>' };
@@ -882,10 +927,10 @@ function varilla(p) {
   const X = v => ((v - lo) / (hi - lo) * 100).toFixed(2) + "%";
   const fila = (lado, clase, d) => `<span>${lado}</span>` + (typeof d.promedio_litro !== "number"
     ? `<span class="vr-sin">sin precio hoy</span>`
-    : `<div class="vr-pista ${clase}" role="img" aria-label="${lado}: de ${pesos.format(d.min_litro ?? d.promedio_litro)} a ${pesos.format(d.max_litro ?? d.promedio_litro)} por litro, promedio ${pesos.format(d.promedio_litro)}">
+    : `<div class="vr-pista ${clase}" role="img" aria-label="${lado}: de ${mon.format(d.min_litro ?? d.promedio_litro)} a ${mon.format(d.max_litro ?? d.promedio_litro)} por litro, promedio ${mon.format(d.promedio_litro)}">
         <span class="vr-rango" style="left:${X(d.min_litro ?? d.promedio_litro)};width:calc(${X(d.max_litro ?? d.promedio_litro)} - ${X(d.min_litro ?? d.promedio_litro)})"></span>
         <span class="vr-prom" style="left:${X(d.promedio_litro)}"></span></div>`);
-  return `<div class="vr">${fila("YPF", "ypf", y)}${fila("Comp.", "comp", c)}<div class="vr-escala" aria-hidden="true"><span>${pesos.format(lo)}/L</span><span>${pesos.format(hi)}/L</span></div></div>`;
+  return `<div class="vr">${fila("YPF", "ypf", y)}${fila("Comp.", "comp", c)}<div class="vr-escala" aria-hidden="true"><span>${mon.format(lo)}/L</span><span>${mon.format(hi)}/L</span></div></div>`;
 }
 
 function bloqueYpf(y) {
@@ -893,21 +938,21 @@ function bloqueYpf(y) {
     <p class="vt-vacio">Sin precio YPF en tiendas online hoy${y?.n ? "" : ": ninguna fuente lo publicó con stock en los últimos 3 días"}.</p></div>`;
   const mb = y.mas_barato;
   return `<div class="vt-bloque ypf"><h4>Precio YPF en la web</h4>
-    <p class="vt-precio">${porL(y.promedio_litro)}</p>
-    <p class="vt-rango">Promedio por litro. De ${pesos.format(y.min_litro)} a ${pesos.format(y.max_litro)}${typeof y.mediana_litro === "number" ? `, mediana ${pesos.format(y.mediana_litro)}` : ""}.</p>
+    <p class="vt-precio">${porL(y.promedio_litro)}</p>${P.usd ? `<p class="vt-rango">${usdDe(y, "promedio_litro", "", true)}</p>` : ""}
+    <p class="vt-rango">Promedio por litro. De ${mon.format(y.min_litro)} a ${mon.format(y.max_litro)}${typeof y.mediana_litro === "number" ? `, mediana ${mon.format(y.mediana_litro)}` : ""}.</p>
     <dl class="vt-dl">
-      ${y.presentacion_comun_l ? `<dt>Presentación común</dt><dd>${litrosTxt(y.presentacion_comun_l)}${typeof y.promedio_presentacion === "number" ? `, ${pesos.format(y.promedio_presentacion)} en promedio` : ""}</dd>` : ""}
+      ${y.presentacion_comun_l ? `<dt>Presentación común</dt><dd>${litrosTxt(y.presentacion_comun_l)}${typeof y.promedio_presentacion === "number" ? `, ${mon.format(y.promedio_presentacion)} en promedio` : ""}</dd>` : ""}
       <dt>Observaciones</dt><dd>${entero.format(y.n)}${y.por_fuente?.length ? ` en ${y.por_fuente.length} ${y.por_fuente.length === 1 ? "fuente" : "fuentes"}` : ""}</dd>
     </dl>
-    ${mb ? `<p class="vt-barato">Más barato en ${linkUrl(mb.url, nf(mb.fuente))}${vendedorTxt(mb.vendedor)}: ${pesos.format(mb.precio)} por ${litrosTxt(mb.litros)} (${pesos.format(mb.precio_litro)}/L)</p>` : ""}
-    ${y.por_fuente?.length > 1 ? `<details><summary>Por fuente</summary><ul>${y.por_fuente.map(f => `<li>${esc(nf(f.fuente))}: ${pesos.format(f.promedio_litro)}/L (${entero.format(f.n)})</li>`).join("")}</ul></details>` : ""}
+    ${mb ? `<p class="vt-barato">Más barato en ${linkUrl(mb.url, nf(mb.fuente))}${vendedorTxt(mb.vendedor)}: ${mon.format(mb.precio)} por ${litrosTxt(mb.litros)} (${mon.format(mb.precio_litro)}/L)</p>` : ""}
+    ${y.por_fuente?.length > 1 ? `<details><summary>Por fuente</summary><ul>${y.por_fuente.map(f => `<li>${esc(nf(f.fuente))}: ${mon.format(f.promedio_litro)}/L (${entero.format(f.n)})</li>`).join("")}</ul></details>` : ""}
   </div>`;
 }
 
 function filaEq(e) {
   const nom = `${e.marca} ${e.nombre}`;
   const precio = typeof e.promedio_litro === "number"
-    ? (e.mas_barato?.url ? `<a href="${esc(e.mas_barato.url)}" rel="noreferrer noopener" target="_blank" title="Más barato: ${esc(nf(e.mas_barato.fuente))}, ${pesos.format(e.mas_barato.precio)} por ${litrosTxt(e.mas_barato.litros)}">${pesos.format(e.promedio_litro)}/L</a>` : `${pesos.format(e.promedio_litro)}/L`)
+    ? (e.mas_barato?.url ? `<a href="${esc(e.mas_barato.url)}" rel="noreferrer noopener" target="_blank" title="Más barato: ${esc(nf(e.mas_barato.fuente))}, ${mon.format(e.mas_barato.precio)} por ${litrosTxt(e.mas_barato.litros)}">${mon.format(e.promedio_litro)}/L</a>` : `${mon.format(e.promedio_litro)}/L`)
       + `<span class="mut">${entero.format(e.n)} obs.</span>`
     : `<span class="vacio">sin precio hoy</span>`;
   return `<li class="vt-eq"><span class="mini">${foto(e.imagen, nom, false)}</span>
@@ -926,8 +971,8 @@ function bloqueComp(p) {
       ? `<p class="vt-vacio">Sin diferencia: falta el precio YPF de hoy.</p>`
       : Math.abs(d) < 0.05 ? `<p class="vt-dif">Mismo precio por litro que YPF</p>`
       : `<p class="vt-dif ${d > 0 ? "barato" : "caro"}">${d > 0 ? `YPF ${dec1.format(d)} % más barato` : `YPF ${dec1.format(-d)} % más caro`}</p>`;
-    cab = `<p class="vt-precio">${porL(c.promedio_litro)}</p>
-      <p class="vt-rango">Promedio por litro de ${entero.format(c.n)} observaciones. De ${pesos.format(c.min_litro)} a ${pesos.format(c.max_litro)}.</p>${dif}`;
+    cab = `<p class="vt-precio">${porL(c.promedio_litro)}</p>${P.usd ? `<p class="vt-rango">${usdDe(c, "promedio_litro", "", true)}</p>` : ""}
+      <p class="vt-rango">Promedio por litro de ${entero.format(c.n)} observaciones. De ${mon.format(c.min_litro)} a ${mon.format(c.max_litro)}.</p>${dif}`;
   }
   return `<div class="vt-bloque comp"><h4>Competencia equivalente</h4>${cab}
     ${dentro.length ? `<ul class="vt-eqs">${dentro.map(filaEq).join("")}</ul>` : ""}
@@ -950,11 +995,13 @@ function slideVt(p, i, n, clon) {
 async function cargarVitrina() {
   const out = $("#vt-out");
   let r;
-  try { r = await api("vitrina"); }
+  try { r = await apiP("vitrina"); }
   catch (e) { out.innerHTML = `<div class="explica">No se pudo leer la vitrina (${esc(e.message)}). El resto de las pestañas sigue funcionando.</div>`; return; }
   VT.todos = r.productos || [];
   VT.ver = false;
-  $("#vt-fecha").textContent = r.fecha ? `Precios en tiendas online del ${fechaAR(r.fecha)}, último día de cada fuente. Sin mayoristas.` : "";
+  $("#vt-fecha").textContent = !r.fecha ? "" : P.pais === "BR"
+    ? `Precios en reales (R$) del ${fechaAR(r.fecha)}, último día de cada fuente: tiendas online (Pitstop, Altese) y notas fiscales de Paraná (Nota Paraná). Sin mayoristas.`
+    : `Precios en tiendas online del ${fechaAR(r.fecha)}, último día de cada fuente. Sin mayoristas.`;
   // buscador: elegir una opción del datalist salta directo; Enter salta a la primera coincidencia. Busca en todos los productos
   const texto = p => [p.linea, p.nombre, p.sae, p.segmento && SEGMENTO[p.segmento], p.producto_id].join(" ").toLowerCase();
   const etiqueta = p => `${nombreVt(p)}${p.sae ? " " + p.sae : ""}`;
@@ -1569,7 +1616,7 @@ function mpFuentes(celdas) {
 function initMapa() {
   if (MP.listo) return;
   MP.listo = true;
-  opciones($("#mp-ypf"), ypfs().map(p => p.producto_id), "", id => { const p = prod(id); return `${p.nombre} ${p.sae || ""}`.trim(); });
+  opciones($("#mp-ypf"), ypfsAR().map(p => p.producto_id), "", id => { const p = prod(id); return `${p.nombre} ${p.sae || ""}`.trim(); });
   $("#mp-ypf").onchange = () => { opcionesEquiv(); mpCargar(); };
   $("#mp-prod").onchange = mpCargar;
   $("#mp-fuente").onchange = mpPintar;
@@ -1696,6 +1743,7 @@ function ir(tab) {
   if (!vistas[tab]) tab = "vitrina";
   document.querySelectorAll("nav button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === tab));
   document.querySelectorAll("main section").forEach(s => s.hidden = s.id !== tab);
+  notaPais(tab);
   if (location.hash !== "#" + tab) history.replaceState(null, "", "#" + tab);
   if (tab === "vitrina" || tab === "mercado") vistas[tab]();  // tienen su propia ruta: no esperan al resto
   else if (D.productos) vistas[tab]();
@@ -1709,7 +1757,7 @@ $("#c-enviar").onclick = enviar;
 async function cargarDatos() {
   try {
     const nombres = ["productos", "equivalencias", "ultimo", "indice", "fuentes", "sin_match", "servicios", "grok_sitios"];
-    const r = await Promise.all(nombres.map(api));
+    const r = await Promise.all(nombres.map(n => ["ultimo", "indice"].includes(n) ? apiP(n) : api(n)));
     nombres.forEach((n, i) => D[n] = r[i]);
   } catch (e) {
     $("#banner").textContent = "No se pudieron leer los datos: " + e.message;
@@ -1725,6 +1773,7 @@ async function cargarDatos() {
 }
 
 (async () => {
+  barraPais();
   ir(location.hash.slice(1));
   cargarVitrina();
   if (await cargarDatos()) ir(location.hash.slice(1));

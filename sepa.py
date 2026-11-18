@@ -142,7 +142,7 @@ def agregar(fecha, grupos, rel=None):
             "vendedor": g["vendedor"] or f"comercio {comercio}-{bandera}",
             "sucursal": f"n={len(ps)};min={ps[0]:.2f};max={ps[-1]:.2f}",
             "litros": n["litros"], "unidades": n["unidades"], "producto_id": n["producto_id"], "match": n["match"],
-            "provincia": provincia,
+            "provincia": provincia, "pais": "AR", "moneda": "ARS",  # SEPA es Argentina
         })
     return filas, sin_precio, descartados
 
@@ -257,7 +257,7 @@ def demo():
     f4 = agregar("2026-11-02", g2)[0]
     assert [(f["provincia"], f["precio"], f["sucursal"]) for f in f4] == [
         ("AR-C", "91000.00", "n=2;min=90000.00;max=92000.00"), ("AR-X", "80000.00", "n=1;min=80000.00;max=80000.00")], f4
-    assert OBS_F[-1] == "provincia" and set(f4[0]) == set(OBS_F)
+    assert OBS_F[-3:] == ["provincia", "pais", "moneda"] and set(f4[0]) == set(OBS_F) and f4[0]["pais"] == "AR" and f4[0]["moneda"] == "ARS"
 
     # filtro YPF: solo se escribe lo relacionado; lo demás se cuenta
     f2, sp2, d2 = agregar("2026-11-02", grupos, {filas[0]["producto_id"]} - {""})

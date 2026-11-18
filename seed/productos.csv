@@ -276,3 +276,16 @@ motul-710-2t,Motul,2T,710 2T,moto2t,,,,,,,,,inferido
 castrol-go-2t,Castrol,2T,Go 2T,moto2t,,mineral,,,,,,,inferido
 mobil-delvac-power-mx-15w40,Mobil,Delvac,Delvac Power MX 15W-40,hddo,15W-40,,,,,,,,inferido
 mobil-delvac-modern-mx-15w40,Mobil,Delvac,Delvac Modern MX 15W-40,hddo,15W-40,,CI-4,,,,,,inferido
+ypf-elaion-f50j-5w30-br,YPF,Elaion,F50J,pcmo,5W-30,sintetico,,,,,,https://www.pitstop.com.br/921296---oleo-motor-elaion-5w30-f50j-1l---sintetico-api---sn-tas---elaion-1158986/p,inferido
+ypf-elaion-mineral-20w50-br,YPF,Elaion,Mineral,pcmo,20W-50,mineral,,,,,,https://www.pitstop.com.br/oleo-elaion-20w50-mineral-1l-1199758/p,inferido
+petronas-syntium-5000-dx-5w30-br,Petronas,Syntium 5000,DX,pcmo,5W-30,sintetico,SN,,,,,https://www.altese.com.br/70264e19br-altese-oleo-motor-syntium/p,inferido
+lubrax-valora-sn-plus-5w30-br,Lubrax,Valora,SN Plus,pcmo,5W-30,sintetico,SN,,,,,https://www.pitstop.com.br/oleo-de-motor-5w30-lubrax-valora-api-sn-plus-100--sintetico-560768/p,inferido
+ipiranga-f1-master-sn-5w30-br,Ipiranga,F1 Master,SN,pcmo,5W-30,sintetico,SN,,,,,https://www.pitstop.com.br/oleo-de-motor-ipiranga-f1-master-5w30-api-sn-100--sintetico-1237285/p,inferido
+texaco-havoline-pro-ds-sn-5w30-br,Texaco,Havoline,Pro DS SN,pcmo,5W-30,sintetico,SN,,,,,https://www.altese.com.br/tx31081353-oleo-lubrificante-do-motor-havoline-5w30-flex-e-diesel/p,inferido
+mobil-super-3000-xe-5w30-br,Mobil,Super 3000,XE,pcmo,5W-30,sintetico,SN,,,,,https://www.altese.com.br/123500-oleo-lubrificante-do-motor-mobil-5w30-sintetico-diesel-gasolina-flex/p,inferido
+ipiranga-f1-master-protection-20w50-br,Ipiranga,F1 Master,Protection SL,pcmo,20W-50,mineral,SL,,,,,https://www.altese.com.br/31252653-altese-ipiranga-f1-master-protection-sae-20w50-sl-1l/p,inferido
+lubrax-essencial-sl-20w50-br,Lubrax,Essencial,SL,pcmo,20W-50,mineral,SL,,,,,https://www.pitstop.com.br/oleo-de-motor-20w50-mineral-petrobras-lubrax-essencial-sl-1l-561360/p,inferido
+texaco-havoline-superior-sl-20w50-br,Texaco,Havoline,Superior SL,pcmo,20W-50,mineral,SL,,,,,https://www.altese.com.br/tx742678nqp-altese-oleo-motor/p,inferido
+petronas-syntium-300-sl-20w50-br,Petronas,Syntium 300,SL,pcmo,20W-50,mineral,SL,,,,,https://www.pitstop.com.br/70306e19br---oleo-petronas-syntium-300-20w50-1l---universal-api-sl-mineral-sae-20w50---petronas-1194496/p,inferido
+mobil-super-sl-20w50-br,Mobil,Super,SL,pcmo,20W-50,mineral,SL,,,,,https://www.altese.com.br/123037-altese-oleo-motor-mobil-7896636550599/p,inferido
+shell-helix-hx3-sl-20w50-br,Shell,Helix HX3,SL,pcmo,20W-50,mineral,SL,,,,,https://www.altese.com.br/41064829-altese-oleo-shell/p,inferido

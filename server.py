@@ -27,7 +27,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import normalizar
 from ml import UA
-from recolectar import OBS as OBS_F, relacionados  # mismo filtro "solo lo relacionado con YPF" que el recolector
+from recolectar import OBS as OBS_F, pais_fuente, relacionados  # mismo filtro "solo lo relacionado con YPF" que el recolector
 from tiendas import MAYORISTAS  # fuentes de precio mayorista: fuera del índice salvo ?mayoristas=1
 
 RAIZ = Path(__file__).resolve().parent
@@ -40,12 +40,21 @@ FUENTES_F = "fecha,fuente,http,n_items,n_con_precio,n_sin_stock,n_sin_match,erro
 OFERTA_F = "fecha,categoria_id,categoria,total_items".split(",")
 GROK_F = "fecha,fuente,url,titulo,marca,precio,precio_lista,litros,unidades,tipo,detalle".split(",")  # lo que devuelve la Task de Grok
 GROK_PROV_F = GROK_F + ["provincia"]  # encabezado nuevo que también acepta /api/cargar (el de 11 columnas sigue valiendo)
-GROK_ALM_F = GROK_F + ["verificado", "producto_id", "match", "cargado", "provincia"]  # lo que se guarda en data/grok/
+GROK_PAIS_F = GROK_PROV_F + ["pais", "moneda"]  # el encabezado nuevo: /api/cargar acepta los de 11, 12 y 14 columnas
+GROK_ALM_F = GROK_F + ["verificado", "producto_id", "match", "cargado", "provincia", "pais", "moneda"]  # lo que se guarda en data/grok/
+# País = ISO 3166-1 alfa-2 y moneda = ISO 4217 de PUBLICACIÓN (Benco publica en USD en UY). Los países con respuesta propia en la API son PAISES.
+PAISES = {"AR": ("Argentina", "ARS"), "BR": ("Brasil", "BRL")}
+MONEDA_DEFECTO = {"AR": "ARS", "BR": "BRL", "CL": "CLP", "UY": "UYU", "PY": "PYG", "BO": "BOB"}  # países del relevamiento de limítrofes
+MONEDAS = {"ARS", "BRL", "CLP", "UYU", "PYG", "BOB", "USD"}
+NOTAS_FUENTE = {
+    "oficial_br_notaparana": "con cautela: API interna no documentada, sin términos publicados (sin robots.txt: se tomó como permitido)",
+    "fx_bcb_ptax": "tipo de cambio oficial PTAX (venta) del Banco Central do Brasil: solo para mostrar en USD",
+}
 SITIOS_F = ["fuente", "host", "descripcion"]
 VITRINA_F = ("fecha,producto_id,nombre,linea,segmento,sae,base,imagen,imagen_fuente,ypf_n,ypf_promedio_litro,ypf_min_litro,"
              "ypf_max_litro,ypf_mediana_litro,presentacion_comun_l,promedio_presentacion,ypf_mas_barato_fuente,"
              "ypf_mas_barato_vendedor,ypf_mas_barato_precio_litro,ypf_mas_barato_url,comp_n,comp_promedio_litro,comp_min_litro,"
-             "comp_max_litro,n_equivalentes,dif_pct").split(",")
+             "comp_max_litro,n_equivalentes,dif_pct,pais,moneda").split(",")
 # Sanidad del $/L en la vitrina: un aviso a más de SANIDAD veces la mediana de su producto es un envase mal leído (caja
 # como bidón, "R3" como 3 L), y un equivalente cuya mediana está a más de RANGO_EQ veces la del YPF no promedia.
 # ponytail: umbrales fijos a ojo sobre noviembre 2026; si aparecen premium reales a más de 3x, revisar RANGO_EQ.
@@ -63,14 +72,14 @@ RX_FECHA = re.compile(r"\d{4}-\d{2}-\d{2}")
 CAMPOS = {
     "productos": PRODUCTOS_F,
     "equivalencias": EQUIV_F + ["ypf_marca", "ypf_nombre", "comp_marca", "comp_nombre"],
-    "ultimo": ["producto_id", "fuente", "litros", "fecha", "precio", "precio_litro", "n", "url", "verificado"],
+    "ultimo": ["producto_id", "fuente", "litros", "fecha", "precio", "precio_litro", "n", "url", "verificado", "pais", "moneda"],
     "grok": GROK_ALM_F,
     "servicios": SERVICIOS_F,
     "grok_sitios": SITIOS_F,
     "obs": OBS_F,
-    "serie": ["fecha", "fuente", "precio_litro", "n"],
-    "indice": ["fecha", "segmento", "sae", "marca", "mediana_litro", "n", "indice"],
-    "fuentes": FUENTES_F + ["ultimo_ok", "dias_sin_datos"],
+    "serie": ["fecha", "fuente", "precio_litro", "n", "pais", "moneda"],
+    "indice": ["fecha", "segmento", "sae", "marca", "mediana_litro", "n", "indice", "pais", "moneda"],
+    "fuentes": FUENTES_F + ["ultimo_ok", "dias_sin_datos", "pais", "nota"],
     "sin_match": ["fuente", "titulo", "ean", "marca", "precio", "litros", "unidades", "url", "primera", "ultima", "veces"],
     "oferta_ml": OFERTA_F,
     "vitrina": VITRINA_F,
@@ -78,6 +87,56 @@ CAMPOS = {
 CAMPOS["indice_con_mayoristas"] = CAMPOS["indice"]
 CAMPOS["macro"] = MACRO_F = ["fecha", "id", "valor", "signo"]
 CAMPOS["mercado_share"] = ["mes", "empresa", "volumen", "total", "share"]
+
+
+def pais_r(r):
+    """País de una observación: las filas viejas (sin la columna) son Argentina."""
+    return r.get("pais") or "AR"
+
+
+def moneda_r(r):
+    return r.get("moneda") or MONEDA_DEFECTO.get(pais_r(r), "ARS")
+
+
+def de_pais(d, pais):
+    """Una vista de `d` con solo las observaciones de un país: nada se calcula mezclando países ni monedas."""
+    return {**d, "obs": [r for r in d["obs"] if pais_r(r) == pais]}
+
+
+def subdivisiones(pais):
+    """Provincias/estados válidos de un país (ISO 3166-2), sin `online`."""
+    return normalizar.SUBDIVISIONES.get(pais, {})
+
+
+def tabla_fx(d):
+    """{(moneda, AAAA-MM-DD): (unidades por USD, fuente)}. BRL sale de data/fx.csv (PTAX); ARS de series.csv (BCRA, valuación). Un día sin fila no existe."""
+    t = {(r["moneda"], r["fecha"]): (num(r["por_usd"]), r["fuente"]) for r in d.get("fx", []) if num(r["por_usd"])}
+    for pt in d.get("macro_series", {}).get(ID_TC, []):
+        if pt["valor"]:
+            t[("ARS", pt["fecha"][:10])] = (pt["valor"], "BCRA (datos.gob.ar)")
+    return t
+
+
+USD_CAMPOS = ("precio", "precio_litro", "mediana_litro", "promedio_litro", "min_litro", "max_litro", "promedio_presentacion")
+
+
+def con_usd(o, moneda, tabla, fecha=""):
+    """?usd=1: agrega `<campo>_usd` junto a cada precio, con `fx_fecha` y `fx_fuente` de ESE día exacto (sin cotización ese día = null, nunca el
+    día anterior). La fecha es la del propio objeto o, si no tiene, la del que lo contiene. Solo para visualizar: lo guardado sigue en su moneda."""
+    if isinstance(o, list):
+        return [con_usd(x, moneda, tabla, fecha) for x in o]
+    if not isinstance(o, dict):
+        return o
+    f = o["fecha"] if isinstance(o.get("fecha"), str) else fecha
+    m = o.get("moneda") or moneda
+    out = {k: con_usd(v, m, tabla, f) for k, v in o.items()}
+    campos = [k for k in USD_CAMPOS if k in o and not isinstance(o[k], (dict, list))]
+    if campos:
+        fx = tabla.get((m, f)) if m != "USD" else (1.0, "USD")
+        for k in campos:
+            out[k + "_usd"] = round(o[k] / fx[0], 3) if fx and isinstance(o[k], (int, float)) else None
+        out["fx_fecha"], out["fx_fuente"] = (f, fx[1]) if fx else (None, None)
+    return out
 
 
 def leer_csv(path):
@@ -118,6 +177,7 @@ def cargar(raiz):
         "macro": leer_csv(raiz / "data" / "macro" / "series.csv"),
         "macro_seed": leer_csv(raiz / "seed" / "macro_series.csv"),
         "energia": leer_energia(raiz / "data" / "macro" / "energia.csv"),
+        "fx": leer_csv(raiz / "data" / "fx.csv"),
     }
     integrar_grok(d)
     d["energia_por_producto"] = defaultdict(list)
@@ -125,6 +185,7 @@ def cargar(raiz):
         if not f[2].startswith("Gasoil"):
             d["energia_por_producto"][f[2]].append(f)
     d["macro_meta"], d["macro_series"] = series_macro(d)
+    d["fx_tabla"] = tabla_fx(d)
     return d
 
 
@@ -137,8 +198,8 @@ def integrar_grok(d):
 
 
 def clave_grok(r):
-    """Una fila Grok es la misma solo si coincide también `detalle` y `provincia`: combos de una URL que cambian solo por filtro, vehículo o zona son filas distintas."""
-    return r["fuente"], r["fecha"], r["url"], r["titulo"], r["detalle"], r.get("provincia") or ""
+    """Una fila Grok es la misma solo si coincide también `detalle`, `provincia`, `pais` y `moneda`: combos de una URL que cambian solo por filtro, vehículo, zona o país son filas distintas."""
+    return r["fuente"], r["fecha"], r["url"], r["titulo"], r["detalle"], r.get("provincia") or "", pais_r(r), moneda_r(r)
 
 
 def litro_servicio(r):
@@ -171,52 +232,60 @@ def equivalencias(d):
     return out
 
 
-def ultimo(obs):
+def ultimo(obs, pais="AR"):
     grupos = defaultdict(list)
     for r in obs:
         pl = precio_litro(r)
-        if r["producto_id"] and pl is not None:
-            grupos[(r["producto_id"], r["fuente"], num(r["litros"]))].append((r["fecha"], pl, num(r["precio"]), r["url"], r.get("verificado") or ""))
+        if r["producto_id"] and pl is not None and pais_r(r) == pais:
+            grupos[(r["producto_id"], r["fuente"], num(r["litros"]), moneda_r(r))].append((r["fecha"], pl, num(r["precio"]), r["url"], r.get("verificado") or ""))
     out = []
-    for (pid, fuente, litros), xs in sorted(grupos.items()):
+    for (pid, fuente, litros, moneda), xs in sorted(grupos.items()):
         fecha = max(x[0] for x in xs)
         dia = [x for x in xs if x[0] == fecha]  # varias sucursales/vendedores el mismo día → mediana
         out.append({"producto_id": pid, "fuente": fuente, "litros": litros, "fecha": fecha,
                     "precio": round(median(x[2] for x in dia), 2),
                     "precio_litro": round(median(x[1] for x in dia), 2), "n": len(dia), "url": dia[0][3],
-                    "verificado": "" if not dia[0][4] else "1" if all(x[4] == "1" for x in dia) else "0"})
+                    "verificado": "" if not dia[0][4] else "1" if all(x[4] == "1" for x in dia) else "0",
+                    "pais": pais, "moneda": moneda})
     return out
 
 
-def serie(obs, pid):
+def serie(obs, pid, pais="AR"):
     grupos = defaultdict(list)
     for r in obs:
         pl = precio_litro(r)
-        if r["producto_id"] == pid and pl is not None:
-            grupos[(r["fecha"], r["fuente"])].append(pl)
-    return [{"fecha": f, "fuente": fu, "precio_litro": round(median(v), 2), "n": len(v)}
-            for (f, fu), v in sorted(grupos.items())]
+        if r["producto_id"] == pid and pl is not None and pais_r(r) == pais:
+            grupos[(r["fecha"], r["fuente"], moneda_r(r))].append(pl)
+    return [{"fecha": f, "fuente": fu, "precio_litro": round(median(v), 2), "n": len(v), "pais": pais, "moneda": mo}
+            for (f, fu, mo), v in sorted(grupos.items())]
 
 
-def indice(d, mayoristas=False):
+def indice(d, mayoristas=False, pais="AR"):
+    """Índice YPF = 100 DENTRO de un país y una moneda: la mediana de cada marca se compara solo con la de YPF del mismo país y moneda."""
     prod = {p["producto_id"]: p for p in d["productos"]}
     grupos = defaultdict(list)
     for r in d["obs"]:
+        if pais_r(r) != pais:
+            continue
         if r["fuente"] in MAYORISTAS and not mayoristas:
             continue
         if r.get("verificado") == "0":  # Grok sin verificar: se muestra, no pesa en el índice
             continue
         p, pl = prod.get(r["producto_id"]), precio_litro(r)
         if p and pl is not None:
-            grupos[(r["fecha"], p["segmento"], p["sae"], p["marca"])].append(pl)
+            grupos[(r["fecha"], p["segmento"], p["sae"], p["marca"], moneda_r(r))].append(pl)
     med = {k: median(v) for k, v in grupos.items()}
     out = []
-    for (fecha, seg, sae, marca), m in sorted(med.items()):
-        ypf = med.get((fecha, seg, sae, "YPF"))
+    for (fecha, seg, sae, marca, mo), m in sorted(med.items()):
+        ypf = med.get((fecha, seg, sae, "YPF", mo))
         out.append({"fecha": fecha, "segmento": seg, "sae": sae, "marca": marca,
-                    "mediana_litro": round(m, 2), "n": len(grupos[(fecha, seg, sae, marca)]),
-                    "indice": round(m / ypf * 100, 1) if ypf else None})
+                    "mediana_litro": round(m, 2), "n": len(grupos[(fecha, seg, sae, marca, mo)]),
+                    "indice": round(m / ypf * 100, 1) if ypf else None, "pais": pais, "moneda": mo})
     return out
+
+
+def pais_de_fuente(f):
+    return "BR" if f.startswith("fx_bcb") else pais_fuente(f)[0]
 
 
 def fuentes(d, hoy):
@@ -230,7 +299,8 @@ def fuentes(d, hoy):
         oks = [r["fecha"] for r in filas if not r["error"]]
         ultimo_ok = oks[-1] if oks else None
         dias = (hoy - date.fromisoformat(ultimo_ok)).days if ultimo_ok else None
-        out.append({**{k: filas[-1].get(k, "") for k in FUENTES_F}, "ultimo_ok": ultimo_ok, "dias_sin_datos": dias})
+        out.append({**{k: filas[-1].get(k, "") for k in FUENTES_F}, "ultimo_ok": ultimo_ok, "dias_sin_datos": dias,
+                    "pais": pais_de_fuente(fuente), "nota": NOTAS_FUENTE.get(fuente, "")})
     return sorted(out + fuentes_grok(d, hoy), key=lambda r: r["fuente"])
 
 
@@ -243,11 +313,11 @@ def fuentes_grok(d, hoy):
     for f in sorted({s["fuente"] for s in d["grok_sitios"]} | set(por)):
         filas = por.get(f, [])
         base = {"fecha": "", "fuente": f, "http": "", "n_items": 0, "n_con_precio": 0, "n_sin_stock": 0, "n_sin_match": 0,
-                "n_descartados": 0, "error": "sin cargas todavía", "ultimo_ok": None, "dias_sin_datos": None}
+                "n_descartados": 0, "error": "sin cargas todavía", "ultimo_ok": None, "dias_sin_datos": None, "pais": "AR", "nota": ""}
         if filas:
             ult = max(r["fecha"] for r in filas)
             n = [r for r in filas if r["fecha"] == ult]
-            base.update(fecha=max(r["cargado"] for r in filas)[:10], n_items=len(n), n_con_precio=len(n), error="",
+            base.update(pais=pais_r(filas[-1]), fecha=max(r["cargado"] for r in filas)[:10], n_items=len(n), n_con_precio=len(n), error="",
                         n_sin_match=sum(not r["producto_id"] for r in n), ultimo_ok=ult,
                         dias_sin_datos=(hoy - date.fromisoformat(ult)).days)
         out.append(base)
@@ -283,10 +353,19 @@ def specs(p):
             "verificado": g("verificado"), "fuente_specs": g("fuente_specs")}
 
 
-def vitrina(d, mayoristas=False):
+def productos_de(d, pais):
+    """Productos YPF que se muestran en un país: los del seed de ese país (sufijo -br = Brasil) o con alguna observación en él."""
+    con_obs = {r["producto_id"] for r in d["obs"] if r["producto_id"]}
+    return [p for p in d["productos"] if p["marca"] == "YPF" and (normalizar.pais_producto(p["producto_id"]) == pais or p["producto_id"] in con_obs)]
+
+
+def vitrina(d, mayoristas=False, pais="AR"):
     """YPF vs competencia por producto: precios por litro del último relevamiento de cada aviso (ver CLAUDE.md, /api/vitrina).
     Cada aviso (fuente+url+ean+titulo+vendedor+envase) cuenta una vez, con su observación más reciente de los últimos
-    VENTANA_DIAS días contados desde el último día con datos. Sin mayoristas (salvo flag), sin Grok sin verificar."""
+    VENTANA_DIAS días contados desde el último día con datos. Sin mayoristas (salvo flag), sin Grok sin verificar.
+    Solo avisos de `pais` y en su moneda: nunca se mezclan países. La sanidad (SANIDAD) es la de siempre: con menos de 3 avisos de un
+    producto no protege (un lote de R$ 600 con nombre de 1 L, solo en el seed, entraría): por eso un producto sale al seed con su EAN verificado."""
+    d = de_pais(d, pais)
     validas = [(r, pl) for r in d["obs"] if r["producto_id"] and (mayoristas or r["fuente"] not in MAYORISTAS)
                and r.get("verificado") != "0" and (pl := precio_litro(r)) is not None]
     ult, vivas = None, {}
@@ -321,9 +400,7 @@ def vitrina(d, mayoristas=False):
     for e in d["equivalencias"]:
         eq[e["ypf_id"]].setdefault(e["comp_id"], e)
     productos = []
-    for p in d["productos"]:
-        if p["marca"] != "YPF":
-            continue
+    for p in productos_de(d, pais):
         pid, ypf = p["producto_id"], datos_ypf(por_pid.get(p["producto_id"], []))
         eqs, en_prom = [], []
         for cid, e in eq.get(pid, {}).items():
@@ -347,7 +424,7 @@ def vitrina(d, mayoristas=False):
             "dif_pct": round((comp["promedio_litro"] / ypf["promedio_litro"] - 1) * 100, 1)
             if comp["promedio_litro"] and ypf["promedio_litro"] else None})
     productos.sort(key=lambda x: (x["ypf"]["n"] == 0, -x["ypf"]["n"], x["linea"], x["nombre"]))
-    return {"fecha": ult, "productos": productos}
+    return {"fecha": ult, "pais": pais, "moneda": PAISES[pais][1], "productos": productos}
 
 
 def aplanar_vitrina(v):
@@ -355,7 +432,7 @@ def aplanar_vitrina(v):
     out = []
     for p in v["productos"]:
         y, c, b = p["ypf"], p["competencia"], p["ypf"]["mas_barato"] or {}
-        out.append({"fecha": v["fecha"], **{k: p[k] for k in ("producto_id", "nombre", "linea", "segmento", "sae", "base", "imagen", "imagen_fuente", "dif_pct")},
+        out.append({"fecha": v["fecha"], "pais": v["pais"], "moneda": v["moneda"], **{k: p[k] for k in ("producto_id", "nombre", "linea", "segmento", "sae", "base", "imagen", "imagen_fuente", "dif_pct")},
                     "ypf_n": y["n"], "ypf_promedio_litro": y["promedio_litro"], "ypf_min_litro": y["min_litro"], "ypf_max_litro": y["max_litro"],
                     "ypf_mediana_litro": y["mediana_litro"], "presentacion_comun_l": y["presentacion_comun_l"],
                     "promedio_presentacion": y["promedio_presentacion"], "ypf_mas_barato_fuente": b.get("fuente"),
@@ -390,10 +467,10 @@ NOTA_FRESCURA = ("No es tiempo real: la recolección es diaria y SEPA (Precios C
 CELDA_F = ["fuente", "canal", "precio_litro", "precio", "n", "fecha", "vendedores", "url", "verificado", "cargado"]
 REVENTA_OBS_F = ["fecha", "fuente", "canal", "vendedor", "provincia", "region", "url", "precio", "precio_litro", "litros", "unidades",
                  "verificado", "cargado"]
-CAMPOS["provincias"] = ["producto_id", "provincia", "region", "provincias", "nombre"] + CELDA_F
-CAMPOS["reventa"] = ["rol", "producto_id", "marca", "nombre", "tipo"] + REVENTA_OBS_F
+CAMPOS["provincias"] = ["producto_id", "provincia", "region", "provincias", "nombre"] + CELDA_F + ["pais", "moneda"]
+CAMPOS["reventa"] = ["rol", "producto_id", "marca", "nombre", "tipo"] + REVENTA_OBS_F + ["pais", "moneda"]
 CAMPOS["cobertura"] = ["producto_id", "nombre", "linea", "segmento", "sae", "equivalencias", "tiene_equivalencia", "fuentes_7d",
-                       "provincias_7d", "ultima_fecha"]
+                       "provincias_7d", "ultima_fecha", "pais", "moneda"]
 
 
 def canal(fuente):
@@ -442,39 +519,42 @@ def _celda(rs, **clave):
             "cargado": (ult.get("cargado") or "") if grok else ""}
 
 
-def provincias(d, pid, dias=30, fuente="", mayoristas=False):
+def provincias(d, pid, dias=30, fuente="", mayoristas=False, pais="AR"):
     """Celdas por (provincia, fuente) y por (región, fuente) de un producto. Una celda nunca mezcla fuentes; `online` no es provincia
     (va en `celdas` con region vacía y no entra a `regiones`); los avisos sin provincia solo se cuentan en `n_sin_provincia`."""
+    d, validas = de_pais(d, pais), subdivisiones(pais)
     hasta, por = _avisos(d, dias, {pid})
     rs = _filtrar(por.get(pid, []), fuente, mayoristas)
     por_prov, por_reg = defaultdict(list), defaultdict(list)
     for r in rs:
         prov = r.get("provincia", "")
-        if prov in PROVINCIAS or prov == ONLINE:
+        if prov in validas or prov == ONLINE:
             por_prov[(prov, r["fuente"])].append(r)
-        if prov in PROVINCIAS:
+        if prov in REGIONES and pais == "AR":  # las regiones INDEC son solo argentinas: Brasil no tiene regiones acá
             por_reg[(REGIONES[prov], r["fuente"])].append(r)
-    return {"producto_id": pid, "dias": dias, "hasta": hasta, "nota": NOTA_FRESCURA,
+    return {"producto_id": pid, "pais": pais, "moneda": PAISES[pais][1], "dias": dias, "hasta": hasta, "nota": NOTA_FRESCURA,
             "celdas": [_celda(g, provincia=p, region=REGIONES.get(p, "")) for (p, _), g in sorted(por_prov.items())],
             "regiones": [_celda(g, region=rg, provincias=sorted({r["provincia"] for r in g})) for (rg, _), g in sorted(por_reg.items())],
-            "n_sin_provincia": sum(1 for r in rs if r.get("provincia", "") not in PROVINCIAS and r.get("provincia", "") != ONLINE)}
+            "n_sin_provincia": sum(1 for r in rs if r.get("provincia", "") not in validas and r.get("provincia", "") != ONLINE)}
 
 
-def provincias_resumen(d, dias=30, fuente="", mayoristas=False):
+def provincias_resumen(d, dias=30, fuente="", mayoristas=False, pais="AR"):
     """Sin producto_id: por cada producto YPF y fuente, $/L mediano, avisos, cuántas provincias distintas y fecha (sin detalle por provincia)."""
-    ypf = [p for p in d["productos"] if p["marca"] == "YPF"]
+    d = de_pais(d, pais)
+    ypf = productos_de(d, pais)
     hasta, por = _avisos(d, dias, {p["producto_id"] for p in ypf})
     out = []
     for p in ypf:
         rs = _filtrar(por.get(p["producto_id"], []), fuente, mayoristas)
         out.append({"producto_id": p["producto_id"], "nombre": p["nombre"], "fuentes": [
-            _celda(g, provincias=len({r.get("provincia") for r in g} & set(PROVINCIAS)))
+            _celda(g, provincias=len({r.get("provincia") for r in g} & set(subdivisiones(pais))))
             for f in sorted({r["fuente"] for r in rs}) for g in [[r for r in rs if r["fuente"] == f]]]})
-    return {"dias": dias, "hasta": hasta, "nota": NOTA_FRESCURA, "productos": out}
+    return {"pais": pais, "moneda": PAISES[pais][1], "dias": dias, "hasta": hasta, "nota": NOTA_FRESCURA, "productos": out}
 
 
-def reventa(d, pid, dias=30):
+def reventa(d, pid, dias=30, pais="AR"):
     """Observaciones del período (todas, no solo la última por aviso) del producto YPF y de cada equivalente que no sea no_equivalente."""
+    d = de_pais(d, pais)
     desde, hasta = desde_hasta(d, dias)
     prod = {p["producto_id"]: p for p in d["productos"]}
     eqs = [e for e in d["equivalencias"] if e["ypf_id"] == pid and e["tipo"] != "no_equivalente"]
@@ -487,22 +567,23 @@ def reventa(d, pid, dias=30):
                 "fecha": r["fecha"], "fuente": r["fuente"], "canal": canal(r["fuente"]), "vendedor": r["vendedor"], "provincia": prov,
                 "region": REGIONES.get(prov, ""), "url": r["url"], "precio": num(r["precio"]), "precio_litro": round(pl, 2) if pl else None,
                 "litros": num(r["litros"]), "unidades": num(r["unidades"]) or 1,
-                "verificado": r.get("verificado") or "", "cargado": r.get("cargado") or ""})
+                "verificado": r.get("verificado") or "", "cargado": r.get("cargado") or "", "moneda": moneda_r(r)})
     obs = lambda i: sorted(por.get(i, []), key=lambda o: (o["fecha"], o["fuente"]), reverse=True)
     ficha = lambda i: {"producto_id": i, "marca": prod.get(i, {}).get("marca", ""), "nombre": prod.get(i, {}).get("nombre", ""), "observaciones": obs(i)}
-    return {"producto_id": pid, "dias": dias, "hasta": hasta, "nota": NOTA_FRESCURA, "ypf": ficha(pid),
+    return {"producto_id": pid, "pais": pais, "moneda": PAISES[pais][1], "dias": dias, "hasta": hasta, "nota": NOTA_FRESCURA, "ypf": ficha(pid),
             "equivalentes": [{**ficha(e["comp_id"]), "tipo": e["tipo"], "evidencia": e["evidencia"]} for e in eqs]}
 
 
 def aplanar_reventa(v):
     fichas = [("ypf", v["ypf"], "")] + [("equivalente", e, e["tipo"]) for e in v["equivalentes"]]
-    return [{"rol": rol, "producto_id": f["producto_id"], "marca": f["marca"], "nombre": f["nombre"], "tipo": tipo, **o}
+    return [{"rol": rol, "producto_id": f["producto_id"], "marca": f["marca"], "nombre": f["nombre"], "tipo": tipo, "pais": v["pais"], **o}
             for rol, f, tipo in fichas for o in f["observaciones"]]
 
 
-def cobertura(d):
+def cobertura(d, pais="AR"):
     """Por producto YPF del seed: equivalencias (sin no_equivalente), fuentes y provincias con precio en los últimos 7 días y última fecha.
     Cuenta solo el precio del propio producto YPF; Grok sin verificar no cuenta."""
+    d = de_pais(d, pais)
     desde, hasta = desde_hasta(d, 7)
     neq = Counter(e["ypf_id"] for e in d["equivalencias"] if e["tipo"] != "no_equivalente")
     fu, pr, ult = defaultdict(set), defaultdict(set), {}
@@ -512,13 +593,13 @@ def cobertura(d):
             ult[pid] = max(ult.get(pid, ""), r["fecha"])
             if r["fecha"] >= desde:
                 fu[pid].add(r["fuente"])
-                if r.get("provincia") in PROVINCIAS:
+                if r.get("provincia") in subdivisiones(pais):
                     pr[pid].add(r["provincia"])
     prods = [{"producto_id": p["producto_id"], "nombre": p["nombre"], "linea": p["linea"], "segmento": p["segmento"], "sae": p["sae"],
               "equivalencias": neq[p["producto_id"]], "tiene_equivalencia": neq[p["producto_id"]] > 0,
               "fuentes_7d": len(fu[p["producto_id"]]), "provincias_7d": len(pr[p["producto_id"]]),
-              "ultima_fecha": ult.get(p["producto_id"])} for p in d["productos"] if p["marca"] == "YPF"]
-    return {"hasta": hasta, "nota": NOTA_FRESCURA,
+              "ultima_fecha": ult.get(p["producto_id"])} for p in productos_de(d, pais)]
+    return {"pais": pais, "moneda": PAISES[pais][1], "hasta": hasta, "nota": NOTA_FRESCURA,
             "total": {"productos_ypf": len(prods), "con_equivalencia": sum(p["tiene_equivalencia"] for p in prods),
                       "con_precio_7d": sum(p["fuentes_7d"] > 0 for p in prods)},
             "productos": prods}
@@ -736,22 +817,28 @@ def mercado(d, producto="automotrices", canal=None):
             "compuestos": compuestos(d, d["macro_series"])}
 
 
+def calc_pais(d, pais):
+    """Lo que se calcula por país (nunca mezclado): último precio, índice y vitrina, con y sin mayoristas."""
+    return {"ultimo": ultimo(d["obs"], pais), "indice": indice(d, False, pais), "indice_con_mayoristas": indice(d, True, pais),
+            "vitrina": vitrina(d, False, pais), "vitrina_con_mayoristas": vitrina(d, True, pais)}
+
+
 def calcular(d, hoy=None):
-    """Lo que no depende de parámetros se calcula una vez al arrancar."""
+    """Lo que no depende de parámetros se calcula una vez al arrancar. Argentina va en el nivel de arriba (lo de siempre);
+    `_paises` trae lo mismo por país. Mercado y mapa son solo Argentina (energia.csv y series.csv son de la SE y el INDEC)."""
+    da = de_pais(d, "AR")
+    por_pais = {p: calc_pais(d, p) for p in PAISES}
     return {
-        "mercado": mercado(d),
+        "mercado": mercado(da),
         "productos": d["productos"],
         "equivalencias": equivalencias(d),
-        "ultimo": ultimo(d["obs"]),
-        "indice": indice(d),
-        "indice_con_mayoristas": indice(d, mayoristas=True),
+        **por_pais["AR"],
+        "_paises": por_pais,
         "fuentes": fuentes(d, hoy or date.today()),
-        "sin_match": sin_match(d["obs"]),
+        "sin_match": sin_match(da["obs"]),
         "oferta_ml": d["oferta_ml"],
         "servicios": servicios(d["grok"]),
         "grok_sitios": d["grok_sitios"],
-        "vitrina": vitrina(d),
-        "vitrina_con_mayoristas": vitrina(d, mayoristas=True),
     }
 
 
@@ -823,8 +910,14 @@ def error_fila(r, hoy, sitios):
             e.append(f"{c} tiene que ser un número > 0 o vacío")
     if r["tipo"] not in ("producto", "servicio"):
         e.append("tipo tiene que ser producto o servicio")
-    if r.get("provincia") and not normalizar.provincia_iso(r["provincia"]):
-        e.append(f"provincia {r['provincia']!r} no es una provincia (ISO AR-X, nombre, online o vacío)")
+    pais = (r.get("pais") or "AR").upper()
+    if pais not in MONEDA_DEFECTO:
+        e.append(f"pais {r['pais']!r} no es un país del relevamiento (ISO 3166-1: {', '.join(MONEDA_DEFECTO)}; vacío = AR)")
+    if r.get("moneda") and r["moneda"].upper() not in MONEDAS:
+        e.append(f"moneda {r['moneda']!r} no es ISO 4217 de las del relevamiento ({', '.join(sorted(MONEDAS))}; vacío = la del país)")
+    if r.get("provincia") and pais in MONEDA_DEFECTO and not normalizar.provincia_iso(r["provincia"], pais):
+        e.append(f"provincia {r['provincia']!r} no es una provincia de {pais} (ISO {pais}-X"
+                 f"{', nombre' if pais == 'AR' else ''}, online o vacío)")
     if not r["titulo"]:
         e.append("falta titulo")
     return "; ".join(e)
@@ -837,8 +930,9 @@ def validar_csv(texto, hoy, sitios):
     except csv.Error as e:
         return [], [], f"CSV ilegible: {e}"
     cab = [c.strip() for c in crudas[0]] if crudas else []
-    if cab not in (GROK_F, GROK_PROV_F):
-        return [], [], "encabezado inválido: tiene que ser exactamente " + ",".join(GROK_F) + " o, con provincia al final, " + ",".join(GROK_PROV_F)
+    if cab not in (GROK_F, GROK_PROV_F, GROK_PAIS_F):
+        return [], [], ("encabezado inválido: tiene que ser exactamente " + ",".join(GROK_F) + " o, con provincia al final, " + ",".join(GROK_PROV_F)
+                        + " o, con pais y moneda al final, " + ",".join(GROK_PAIS_F))
     if len(crudas) - 1 > MAX_FILAS:
         return [], [], f"más de {MAX_FILAS} filas por carga"
     filas, errores = [], []
@@ -846,12 +940,14 @@ def validar_csv(texto, hoy, sitios):
         if len(f) != len(cab):
             errores.append({"fila": i, "error": f"tiene {len(f)} columnas, esperaba {len(cab)} (¿comas sin comillas en un campo?)"})
             continue
-        r = {"provincia": "", **dict(zip(cab, (c.strip() for c in f)))}
+        r = {"provincia": "", "pais": "", "moneda": "", **dict(zip(cab, (c.strip() for c in f)))}
         e = error_fila(r, hoy, sitios)
         if e:
             errores.append({"fila": i, "titulo": r["titulo"], "error": e})
         else:
-            r["provincia"] = normalizar.provincia_iso(r["provincia"])  # ISO u "online"; vacío sigue vacío
+            r["pais"] = (r["pais"] or "AR").upper()  # sin columnas (o vacías) = AR/ARS; moneda vacía = la del país
+            r["moneda"] = (r["moneda"] or MONEDA_DEFECTO[r["pais"]]).upper()
+            r["provincia"] = normalizar.provincia_iso(r["provincia"], r["pais"])  # ISO del país u "online"; vacío sigue vacío
             r["_fila"] = i
             filas.append(r)
     return filas, errores, ""
@@ -953,7 +1049,7 @@ def procesar_carga(d, raiz, texto, hoy=None, ahora=None):
         por_clave[clave_grok(r)] = r
     paginas, resultado, rel = {}, [], relacionados(raiz)
     for k, r in list(por_clave.items()):
-        n = normalizar.normalizar(r["titulo"], r["marca"], "", url=r["url"])
+        n = normalizar.normalizar(r["titulo"], r["marca"], "", url=r["url"], pais=r["pais"])
         # los servicios (combos Shell/competencia sin producto_id) van a /api/servicios y nunca al $/L: pasan igual
         if r["tipo"] == "producto" and n["producto_id"] not in rel:
             errores.append({"fila": r["_fila"], "titulo": r["titulo"], "error": "no relacionado con YPF"})
@@ -970,7 +1066,7 @@ def procesar_carga(d, raiz, texto, hoy=None, ahora=None):
         if not r["unidades"] and n["unidades"]:
             r["unidades"] = str(n["unidades"])
         resultado.append({"fila": r.pop("_fila"), "titulo": r["titulo"], "tipo": r["tipo"], "verificado": r["verificado"] == "1",
-                          "producto_id": r["producto_id"], "provincia": r["provincia"]})
+                          "producto_id": r["producto_id"], "provincia": r["provincia"], "pais": r["pais"], "moneda": r["moneda"]})
     if not por_clave:
         return 400, {"error": "ninguna fila relacionada con YPF", "errores": errores}
     token, repo = os.environ.get("GH_CARGA_TOKEN", ""), os.environ.get("GH_REPO") or "noguerafran-alt/LUBRICANTES"
@@ -1006,6 +1102,7 @@ class Handler(BaseHTTPRequestHandler):
     clave_carga = ""
     raiz = RAIZ
     candado = threading.Lock()
+    pais, usd = "AR", False  # por pedido (do_GET los fija; los handlers son por conexión)
 
     def enviar(self, codigo, cuerpo, tipo, extra=()):
         if "gzip" in self.headers.get("Accept-Encoding", "") and len(cuerpo) > 1024:
@@ -1044,18 +1141,27 @@ class Handler(BaseHTTPRequestHandler):
         if not u.path.startswith("/api/"):
             return self.json(404, {"error": "no existe"})
         nombre = u.path[5:]
+        pais = (q.get("pais") or "AR").upper()
+        if pais not in PAISES:
+            return self.json(400, {"error": f"pais inválido: {q.get('pais')!r}", "paises": list(PAISES)})
+        self.pais, self.usd = pais, q.get("usd") == "1"
+        if nombre in ("mercado", "mercado/share", "macro") and pais != "AR":
+            return self.json(400, {"error": "mercado y macro son solo Argentina (datos de la Secretaría de Energía y el INDEC)"})
         if nombre in ("mercado", "mercado/share", "macro"):
             return self.mercado(nombre, q)
         if nombre in ("provincias", "reventa", "cobertura"):
             return self.analisis(nombre, q)
+        cp = self.calc["_paises"][pais]  # lo calculado por país; el resto (productos, fuentes, …) no depende del país
         if nombre == "vitrina":
-            v = self.calc["vitrina_con_mayoristas" if q.get("mayoristas") == "1" else "vitrina"]
+            v = cp["vitrina_con_mayoristas" if q.get("mayoristas") == "1" else "vitrina"]
             if q.get("formato") == "csv":
                 return self.enviar(200, a_csv("vitrina", aplanar_vitrina(v)), "text/csv; charset=utf-8")
-            return self.json(200, v)
+            return self.salida(v)
         if nombre == "indice" and q.get("mayoristas") == "1":
-            filas = self.calc["indice_con_mayoristas"]
-        elif nombre in self.calc:
+            filas = cp["indice_con_mayoristas"]
+        elif nombre in cp:
+            filas = cp[nombre]
+        elif nombre in self.calc and not nombre.startswith("_"):
             filas = self.calc[nombre]
         elif nombre in ("obs", "grok"):  # grok: cargas de Grok con verificado/tipo, aparte de obs
             por_mes = self.datos["meses" if nombre == "obs" else "grok_meses"]
@@ -1070,12 +1176,18 @@ class Handler(BaseHTTPRequestHandler):
             pid = q.get("p", "")
             if not any(p["producto_id"] == pid for p in self.datos["productos"]):
                 return self.json(404, {"error": f"producto_id desconocido: {pid!r}"})
-            filas = serie(self.datos["obs"], pid)
+            filas = serie(self.datos["obs"], pid, pais)
         else:
             return self.json(404, {"error": "no existe"})
         if q.get("formato") == "csv":
             return self.enviar(200, a_csv(nombre, filas), "text/csv; charset=utf-8")
-        self.json(200, filas)
+        self.salida(filas)
+
+    def salida(self, obj):
+        """JSON de la respuesta; con ?usd=1 suma los campos *_usd (conversión solo para visualizar, ver con_usd)."""
+        if self.usd:
+            obj = con_usd(obj, PAISES[self.pais][1], self.datos.get("fx_tabla", {}))
+        self.json(200, obj)
 
     def analisis(self, nombre, q):
         """/api/provincias, /api/reventa y /api/cobertura: se calculan por pedido sobre `obs` (ventana de días y filtros varían)."""
@@ -1091,25 +1203,27 @@ class Handler(BaseHTTPRequestHandler):
         if pid and pid not in marca:
             return self.json(404, {"error": f"producto_id desconocido: {pid!r}"})
         csv_ = q.get("formato") == "csv"
+        pais = self.pais
         if nombre == "cobertura":
-            v = cobertura(d)
-            return self.enviar(200, a_csv("cobertura", v["productos"]), "text/csv; charset=utf-8") if csv_ else self.json(200, v)
+            v = cobertura(d, pais)
+            return self.enviar(200, a_csv("cobertura", [{**p, "pais": pais, "moneda": v["moneda"]} for p in v["productos"]]), "text/csv; charset=utf-8") if csv_ else self.salida(v)
         if nombre == "reventa":
             if not pid:
                 return self.json(400, {"error": "falta producto_id (un producto de marca YPF)"})
             if marca[pid] != "YPF":
                 return self.json(400, {"error": f"{pid} no es un producto YPF: /api/reventa parte de un YPF y trae sus equivalentes"})
-            v = reventa(d, pid, dias)
-            return self.enviar(200, a_csv("reventa", aplanar_reventa(v)), "text/csv; charset=utf-8") if csv_ else self.json(200, v)
+            v = reventa(d, pid, dias, pais)
+            return self.enviar(200, a_csv("reventa", aplanar_reventa(v)), "text/csv; charset=utf-8") if csv_ else self.salida(v)
         fuente, may = q.get("fuente", ""), q.get("mayoristas") == "1"
         if pid:
-            v = provincias(d, pid, dias, fuente, may)
+            v = provincias(d, pid, dias, fuente, may, pais)
             filas = [{**c, "producto_id": pid, "vendedores": ";".join(c["vendedores"])} for c in v["celdas"]]
         else:
-            v = provincias_resumen(d, dias, fuente, may)
+            v = provincias_resumen(d, dias, fuente, may, pais)
             filas = [{**c, "producto_id": p["producto_id"], "nombre": p["nombre"], "vendedores": ";".join(c["vendedores"])}
                      for p in v["productos"] for c in p["fuentes"]]
-        self.enviar(200, a_csv("provincias", filas), "text/csv; charset=utf-8") if csv_ else self.json(200, v)
+        filas = [{**f, "pais": pais, "moneda": v["moneda"]} for f in filas]
+        self.enviar(200, a_csv("provincias", filas), "text/csv; charset=utf-8") if csv_ else self.salida(v)
 
     def mercado(self, nombre, q):
         d = self.datos
@@ -1255,8 +1369,8 @@ def demo():
 
     assert len(c["sin_match"]) == 1 and c["sin_match"][0]["veces"] == 2 and c["sin_match"][0]["ultima"] == "2026-11-03"
     assert c["equivalencias"][0]["comp_nombre"] == "HX7"
-    assert a_csv("indice", c["indice"]).decode().startswith("fecha,segmento,sae,marca,mediana_litro,n,indice\n")
-    assert a_csv("ultimo", []).decode() == "producto_id,fuente,litros,fecha,precio,precio_litro,n,url,verificado\n"
+    assert a_csv("indice", c["indice"]).decode().startswith("fecha,segmento,sae,marca,mediana_litro,n,indice,pais,moneda\n")
+    assert a_csv("ultimo", []).decode() == "producto_id,fuente,litros,fecha,precio,precio_litro,n,url,verificado,pais,moneda\n"
 
     # ---------- vitrina: YPF vs competencia (sin red ni archivos) ----------
     P = lambda i, m, **k: {**dict.fromkeys(PRODUCTOS_F, ""), "producto_id": i, "marca": m, "linea": "L", "nombre": i, **k}
@@ -1440,6 +1554,50 @@ def demo():
     assert a_csv("reventa", aplanar_reventa(rv)).decode().startswith("rol,producto_id,marca,nombre,tipo,fecha,fuente,canal,vendedor,provincia,region,url,precio,")
     assert [canal(f) for f in ("sepa", "shopify_datri", "grok_x")] == ["publico", "mayorista", "grok"]
 
+    # ---------- países: nada se mezcla (ni países ni monedas); USD solo con la cotización de ese día ----------
+    Pb = lambda i, m, **k: {**dict.fromkeys(PRODUCTOS_F, ""), "producto_id": i, "marca": m, "linea": "L", "nombre": i, "segmento": "pcmo", "sae": "5W-30", **k}
+    Ob = lambda f, fu, pid, precio, pais="", prov="online", **k: {**dict.fromkeys(OBS_F, ""), "fecha": f, "fuente": fu, "producto_id": pid, "precio": str(precio),
+                                                                   "litros": "1", "unidades": "1", "url": f"u-{fu}-{pid}-{precio}", "pais": pais,
+                                                                   "moneda": {"BR": "BRL", "": ""}[pais], "provincia": prov, **k}
+    db = {"productos": [Pb("ypf-x", "YPF"), Pb("shell-x", "Shell"), Pb("ypf-x-br", "YPF"), Pb("lubrax-x-br", "Lubrax")],
+          "equivalencias": [E("shell-x", "sustituto_comercial", "ypf-x"), E("lubrax-x-br", "sustituto_comercial", "ypf-x-br")], "imagenes": [], "fx": [
+              {"fecha": "2026-11-17", "moneda": "BRL", "por_usd": "5", "fuente": "bcb_ptax"}],
+          "macro_series": {ID_TC: [{"fecha": "2026-11-17", "valor": 1000.0, "signo": None}]},
+          "obs": [Ob("2026-11-17", "vtex_a", "ypf-x", 1000), Ob("2026-11-17", "vtex_a", "shell-x", 1200),          # AR: fila sin pais/moneda = AR/ARS
+                  Ob("2026-11-17", "vtex_br_p", "ypf-x-br", 50, "BR"), Ob("2026-11-17", "vtex_br_p", "lubrax-x-br", 60, "BR"),
+                  Ob("2026-11-16", "oficial_br_np", "ypf-x-br", 40, "BR", "BR-PR"), Ob("2026-11-16", "oficial_br_np", "lubrax-x-br", 44, "BR", "BR-PR")]}
+    db["fx_tabla"] = tabla_fx(db)
+    assert db["fx_tabla"] == {("BRL", "2026-11-17"): (5.0, "bcb_ptax"), ("ARS", "2026-11-17"): (1000.0, "BCRA (datos.gob.ar)")}
+    ia, ib = indice(db), indice(db, pais="BR")
+    assert {(r["pais"], r["moneda"]) for r in ia} == {("AR", "ARS")} and {(r["pais"], r["moneda"]) for r in ib} == {("BR", "BRL")}
+    assert [(r["marca"], r["indice"]) for r in ia if r["fecha"] == "2026-11-17"] == [("Shell", 120.0), ("YPF", 100.0)]      # el índice AR no ve los R$
+    assert [(r["fecha"], r["marca"], r["mediana_litro"], r["indice"]) for r in ib] == [("2026-11-16", "Lubrax", 44.0, 110.0), ("2026-11-16", "YPF", 40.0, 100.0),
+                                                                                       ("2026-11-17", "Lubrax", 60.0, 120.0), ("2026-11-17", "YPF", 50.0, 100.0)]
+    assert indice({**db, "obs": [o for o in db["obs"] if o["producto_id"] != "ypf-x-br"]}, pais="BR")[-1]["indice"] is None  # sin YPF del país ese día: sin índice (no usa el de otro país)
+    ub = ultimo(db["obs"], "BR")
+    assert {(u["pais"], u["moneda"]) for u in ub} == {("BR", "BRL")} and {u["producto_id"] for u in ub} == {"ypf-x-br", "lubrax-x-br"} and ultimo(db["obs"])[0]["moneda"] == "ARS"
+    assert serie(db["obs"], "ypf-x-br") == [] and [(r["fecha"], r["precio_litro"], r["moneda"]) for r in serie(db["obs"], "ypf-x-br", "BR")] == [
+        ("2026-11-16", 40, "BRL"), ("2026-11-17", 50, "BRL")]
+    va, vb = vitrina(db), vitrina(db, pais="BR")
+    assert (va["pais"], va["moneda"], vb["pais"], vb["moneda"]) == ("AR", "ARS", "BR", "BRL")
+    assert [p["producto_id"] for p in va["productos"]] == ["ypf-x"] and [p["producto_id"] for p in vb["productos"]] == ["ypf-x-br"]   # los -br no aparecen en Argentina
+    assert vb["productos"][0]["competencia"]["promedio_litro"] == 52 and vb["productos"][0]["dif_pct"] == 15.6 and va["productos"][0]["competencia"]["promedio_litro"] == 1200
+    assert cobertura(db)["total"]["productos_ypf"] == 1 and cobertura(db, "BR")["total"] == {"productos_ypf": 1, "con_equivalencia": 1, "con_precio_7d": 1}
+    pb_ = provincias(db, "ypf-x-br", 30, pais="BR")
+    assert {(c["provincia"], c["fuente"]) for c in pb_["celdas"]} == {("online", "vtex_br_p"), ("BR-PR", "oficial_br_np")} and pb_["regiones"] == [] and pb_["moneda"] == "BRL"
+    assert provincias(db, "ypf-x-br")["celdas"] == [] and reventa(db, "ypf-x-br", 30, "BR")["moneda"] == "BRL" and len(reventa(db, "ypf-x-br", 30, "BR")["ypf"]["observaciones"]) == 2
+    assert reventa(db, "ypf-x-br")["ypf"]["observaciones"] == []
+    # USD: el día exacto o null; ARS y BRL por su fuente; nunca el día anterior
+    ux = con_usd(ub, "BRL", db["fx_tabla"])
+    hoy_u = [u for u in ux if u["fecha"] == "2026-11-17"][0]
+    ayer_u = [u for u in ux if u["fecha"] == "2026-11-16"][0]
+    assert hoy_u["precio_litro_usd"] == round(hoy_u["precio_litro"] / 5, 3) and hoy_u["fx_fecha"] == "2026-11-17" and hoy_u["fx_fuente"] == "bcb_ptax"
+    assert ayer_u["precio_litro_usd"] is None and ayer_u["precio_usd"] is None and ayer_u["fx_fecha"] is None and ayer_u["fx_fuente"] is None
+    assert [u["precio_litro_usd"] for u in con_usd(ultimo(db["obs"]), "ARS", db["fx_tabla"]) if u["producto_id"] == "ypf-x"] == [1.0] and "precio_usd" not in ultimo(db["obs"])[0]
+    vu = con_usd(vb, "BRL", db["fx_tabla"])["productos"][0]["ypf"]["mas_barato"]
+    assert vu["precio_litro_usd"] == 8.0 and vu["fx_fecha"] == "2026-11-17" and "precio_usd" in vu
+    assert pais_de_fuente("vtex_br_pitstop") == "BR" and pais_de_fuente("fx_bcb_ptax") == "BR" and pais_de_fuente("vtex_jumbo") == "AR"
+
     Handler.datos, Handler.calc, Handler.clave = d, c, "s3cr3t"
     srv = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     Handler.log_message = lambda *a: None
@@ -1539,7 +1697,19 @@ def demo():
     assert not fatal and not e_ and f_[0]["provincia"] == ""                                         # encabezado de 11 (la Task diaria): sigue valiendo
     f_, e_, fatal = validar_csv(csv_de(fila(provincia="Narnia"), fila(titulo="b", provincia="GBA"), fila(titulo="c", provincia="AR-S"), cab=GROK_PROV_F), hoy_d, sit)
     assert [x["fila"] for x in e_] == [1, 2] and "provincia" in e_[0]["error"] and [x["provincia"] for x in f_] == ["AR-S"]   # inválida: se rechaza con motivo
-    assert len(clave_grok(fila(provincia="AR-S"))) == 6 and clave_grok(fila(provincia="AR-S")) != clave_grok(fila(provincia="AR-X"))
+    assert len(clave_grok(fila(provincia="AR-S"))) == 8 and clave_grok(fila(provincia="AR-S")) != clave_grok(fila(provincia="AR-X"))
+    assert clave_grok(fila(pais="BR", moneda="BRL")) != clave_grok(fila()) and clave_grok(fila(pais="AR", moneda="ARS")) == clave_grok(fila())  # AR/ARS = lo de siempre
+    # encabezado de 14 (pais, moneda): ISO validado; sin las columnas o vacías = AR/ARS; la provincia es del país de la fila
+    f_, e_, fatal = validar_csv(csv_de(fila(provincia="BR-PR", pais="BR", moneda="BRL"), fila(titulo="b", provincia="BR-PR"), fila(titulo="c", pais="XX"),
+                                       fila(titulo="d", moneda="EUR"), fila(titulo="e", pais="BR", provincia="AR-X"), fila(titulo="f", pais="br"),
+                                       fila(titulo="g", provincia="AR-S"), cab=GROK_PAIS_F), hoy_d, sit)
+    assert not fatal and [x["fila"] for x in e_] == [2, 3, 4, 5], e_
+    assert [(x["pais"], x["moneda"], x["provincia"]) for x in f_] == [("BR", "BRL", "BR-PR"), ("BR", "BRL", ""), ("AR", "ARS", "AR-S")], f_
+    assert "pais" in e_[1]["error"] and "moneda" in e_[2]["error"] and "provincia" in e_[3]["error"] and "BR" in e_[3]["error"]
+    f_, e_, fatal = validar_csv(csv_de(fila(provincia="Córdoba"), cab=GROK_PROV_F), hoy_d, sit)
+    assert not e_ and (f_[0]["pais"], f_[0]["moneda"]) == ("AR", "ARS")                                # encabezado de 12: AR/ARS
+    f_, e_, fatal = validar_csv(csv_de(fila()), hoy_d, sit)
+    assert not e_ and (f_[0]["pais"], f_[0]["moneda"]) == ("AR", "ARS")                                # encabezado de 11: AR/ARS
     for t, p in [("$ 84.999", 84999), ("  84999  ", 84999), ("84999,00", 84999), ("84.999,00", 84999), ("84,999", 84999),
                  ("precio 84999.00", 84999), ("$84.999,50", 84999.5)]:
         assert precio_en_texto(p, t), (t, p)
@@ -1555,7 +1725,7 @@ def demo():
         return 201, {"commit": {"sha": "abc123"}}
     BAJAR, GH = (lambda url: "<html>Combo HX7 $ 84.999 con filtro</html>"), gh_fake
     norm_real = normalizar.normalizar
-    norm_fake = lambda t, m="", e="", reglas=None, url="": dict(
+    norm_fake = lambda t, m="", e="", reglas=None, url="", pais="AR": dict(
         marca="Shell", sae="10W-40", litros=4.0, unidades=1, producto_id="shell-b-10w40" if "HX7" in t else "", match="texto" if "HX7" in t else "none")
     normalizar.normalizar = norm_fake
     token_ant = os.environ.pop("GH_CARGA_TOKEN", None)
@@ -1668,8 +1838,18 @@ def demo():
     cg = json.loads(get("/api/provincias?producto_id=shell-b-10w40&fuente=grok_helix", k)[1])["celdas"]
     assert {c["provincia"] for c in cg} == {"AR-M", "online"} and all(c["url"] == U and c["verificado"] == "1" and c["cargado"].endswith("Z") for c in cg), cg
     assert "Narnia" not in json.dumps(json.loads(get("/api/provincias?producto_id=shell-b-10w40", k)[1]))
-    assert list(leer_csv(Path(raiz) / "data" / "grok" / (hoy_s[:7] + ".csv"))[0]) == GROK_ALM_F and GROK_ALM_F[-1] == "provincia"
+    cod, rsp = post(csv_de(fila(titulo="Combo HX7 br", provincia="BR-PR", pais="BR", moneda="BRL"), cab=GROK_PAIS_F), kc)   # header de 14 columnas
+    assert cod == 200 and rsp["ok"] == 1 and (rsp["filas"][0]["pais"], rsp["filas"][0]["moneda"], rsp["filas"][0]["provincia"]) == ("BR", "BRL", "BR-PR"), rsp
+    assert "Combo HX7 br" not in json.dumps(json.loads(get("/api/provincias?producto_id=shell-b-10w40", k)[1]))   # el mapa argentino no ve la fila brasileña
+    assert list(leer_csv(Path(raiz) / "data" / "grok" / (hoy_s[:7] + ".csv"))[0]) == GROK_ALM_F and GROK_ALM_F[-3:] == ["provincia", "pais", "moneda"]
     assert any(r["fuente"] == "grok_helix" for r in json.loads(get("/api/fuentes", k)[1]))
+    # países en la API: AR por defecto, BR en su moneda, inválido = 400, mercado solo AR, ?usd=1 solo suma campos
+    assert json.loads(get("/api/vitrina", k)[1])["pais"] == "AR" and json.loads(get("/api/vitrina?pais=BR", k)[1])["moneda"] == "BRL"
+    assert get("/api/vitrina?pais=CL", k)[0] == 400 and get("/api/mercado?pais=BR", k)[0] == 400 and get("/api/indice?pais=ar", k)[0] == 200
+    assert all(r["pais"] == "AR" and r["moneda"] == "ARS" for r in json.loads(get("/api/ultimo", k)[1]))
+    assert all(r["pais"] == "BR" and r["moneda"] == "BRL" for r in json.loads(get("/api/indice?pais=BR", k)[1])) and json.loads(get("/api/provincias?pais=BR", k)[1])["pais"] == "BR"
+    assert "precio_litro_usd" in json.loads(get("/api/ultimo?usd=1", k)[1])[0] and "precio_litro_usd" not in json.loads(get("/api/ultimo", k)[1])[0]
+    assert all("pais" in f and "nota" in f for f in json.loads(get("/api/fuentes", k)[1]))
     shutil.rmtree(raiz / "data" / "grok")
     BAJAR, GH, normalizar.normalizar = bajar, gh_api, norm_real
     srv.shutdown()

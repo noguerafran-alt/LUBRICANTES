@@ -43,7 +43,9 @@ def busquedas(raiz=None):
     raiz = raiz or os.path.dirname(os.path.abspath(__file__))
     leer = lambda n: list(csv.DictReader(open(os.path.join(raiz, "seed", n), encoding="utf-8", newline="")))
     prod = {p["producto_id"]: p for p in leer("productos.csv")}
-    comp = {f"{prod[e['comp_id']]['marca']} {prod[e['comp_id']]['linea']}".lower() for e in leer("equivalencias.csv") if e["comp_id"] in prod}
+    from normalizar import pais_producto  # ML corre sobre MLA: nada de líneas brasileñas
+    comp = {f"{prod[e['comp_id']]['marca']} {prod[e['comp_id']]['linea']}".lower() for e in leer("equivalencias.csv")
+            if e["comp_id"] in prod and "AR" == pais_producto(e["comp_id"]) == pais_producto(e["ypf_id"])}
     return BUSQUEDAS_YPF + sorted(comp)
 
 
@@ -276,6 +278,13 @@ def demo():
         assert len(r[1]) == 1 and r[1][0]["titulo"] == "Elaion F 50" and not any("/products/B" in x for x in pedidos), (r, pedidos)
         q = busquedas()
         assert q[:4] == BUSQUEDAS_YPF and "castrol edge" in q and "shell helix" in q and len(q) == len(set(q)) and "bardahl" not in q
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:  # un par AR y uno con comp_id -br (y otro con ypf_id -br)
+            os.mkdir(os.path.join(d, "seed"))
+            for n, t in (("productos", "producto_id,marca,linea\nc-ar,Castrol,Edge\nc-br,Lubrax,Top-br\ny-br,YPF,Elaion\n"),
+                         ("equivalencias", "eq_id,ypf_id,comp_id\n1,y,c-ar\n2,y,c-br\n3,y-br,c-ar\n")):
+                open(os.path.join(d, "seed", n + ".csv"), "w", encoding="utf-8").write(t)
+            assert busquedas(d) == BUSQUEDAS_YPF + ["castrol edge"], busquedas(d)
     finally:
         ARCHIVO_LOCAL = real
     print("OK")

@@ -43,7 +43,7 @@ tiendas.py         # lectores Shopify (D'Atri) y Tiendanube (LS Palermo, Casa Go
 ml.py              # cliente ML: categorías sin token, OAuth refresh, products/items con token
 sepa.py            # Precios Claros (SEPA): zip diario en streaming, filtra lubricantes
 normalizar.py      # aviso → (marca, sae, litros, unidades, producto_id, match)
-macro.py           # `series`: series de datos.gob.ar → data/macro/series.csv; `energia`: ventas de lubricantes de la SE (CSV de 770 MB en streaming) → data/macro/energia.csv
+macro.py           # `series`: series de datos.gob.ar → data/macro/series.csv; `energia`: ventas de lubricantes de la SE (CSV de 770 MB en streaming) → data/macro/energia.csv; `fx`: dólar PTAX del BCB → data/fx.csv
 server.py          # http.server: visor estático site/ + /api/* calculado desde data/ y seed/
 site/index.html    # visor: Mapa, Cobertura, Comparador, Evolución, Índice, Fuentes (JS vanilla, SVG propio)
 seed/productos.csv     # catálogo normalizado YPF + competencia (a mano)
@@ -55,6 +55,7 @@ seed/grok_sitios.csv   # lista blanca de sitios que puede cargar Grok: fuente,ho
 data/obs/AAAA-MM.csv   # observaciones de precio, append-only
 data/fuentes.csv       # una fila por fuente y corrida
 data/grok/AAAA-MM.csv  # relevamientos de Grok cargados por POST /api/cargar (los comitea el server)
+data/fx.csv            # tipo de cambio: fecha,moneda,por_usd,fuente (hoy BRL por USD, PTAX venta del BCB; ARS no va acá: sale de series.csv)
 data/ml_oferta.csv     # total de publicaciones por categoría ML por día
 data/catalogo_ypf.json # foto del catálogo oficial YPF (el diff de git avisa altas/bajas); cada ítem trae `imagen` (URL https absoluta o "")
 data/imagenes.csv      # una foto por producto_id (ver esquema)
@@ -70,7 +71,10 @@ data/macro/energia.csv # ventas de lubricantes y gasoil de la Secretaría de Ene
 (ej. `ypf-elaion-ts1040-10w40`, `shell-helix-hx7-10w40`).
 `producto_id,marca,linea,nombre,segmento,sae,base,api,acea,ilsac,jaso,oem,fuente_specs,verificado`
 - `marca`: canónica — `YPF, Shell, Castrol, Mobil, TotalEnergies, Elf, Gulf,
-  Petronas, Motul, Bardahl, Puma, Valvoline, Pennzoil, Liqui Moly, Goodyear`.
+  Petronas, Motul, Bardahl, Puma, Valvoline, Pennzoil, Liqui Moly, Goodyear, Lubrax, Ipiranga, Texaco` (las tres últimas, de Brasil).
+- **País del producto**: el sufijo `-br` en `producto_id` es Brasil (`normalizar.pais_producto`); todo lo demás es Argentina. Un EAN brasileño (789…) solo
+  entra como alias de un producto argentino si es el mismo producto verificado con ficha técnica; si no, se crea un producto `-br` (`verificado=inferido`).
+  El texto (`tipo=texto`) solo matchea productos del país del aviso; el EAN vale en cualquiera.
 - `segmento`: `pcmo|hddo|moto4t|moto2t|transmision|grasa|industrial|marino|gas|otro`.
 - `sae`: `5W-30` (con guion), monogrado `SAE 40`, engranaje `75W-90`; vacío si no aplica.
 - `base`: `mineral|semisintetico|sintetico` o vacío.
@@ -92,12 +96,16 @@ data/macro/energia.csv # ventas de lubricantes y gasoil de la Secretaría de Ene
 - `evidencia`: `confirmada|inferida`. Sin puntajes de confianza inventados.
 
 **data/obs/AAAA-MM.csv** —
-`fecha,fuente,url,ean,titulo,marca,precio,precio_lista,stock,vendedor,sucursal,litros,unidades,producto_id,match,provincia`
-- `provincia` (al final; única definición `recolectar.OBS`, que importan `sepa.py` y `server.py`): código ISO 3166-2:AR de la provincia donde se vende
+`fecha,fuente,url,ean,titulo,marca,precio,precio_lista,stock,vendedor,sucursal,litros,unidades,producto_id,match,provincia,pais,moneda`
+- `pais,moneda` (al final, después de `provincia`): `pais` ISO 3166-1 alfa-2 (`AR`, `BR`) y `moneda` ISO 4217 **de publicación** (`ARS`, `BRL`; un distribuidor que publica en USD va `USD`).
+  Filas anteriores a estas columnas (o vacías) = `AR`/`ARS`: no se reescriben. Todas las fuentes argentinas escriben `AR`/`ARS`; las de Brasil llevan `_br_` en el nombre y escriben `BR`/`BRL`
+  (`recolectar.pais_fuente`). **Nunca se mezclan países ni monedas** en una mediana, un promedio ni el índice.
+- `provincia` (al final de lo anterior a `pais`; única definición `recolectar.OBS`, que importan `sepa.py` y `server.py`): código ISO 3166-2:AR de la provincia donde se vende
   (`AR-X` Córdoba, `AR-C` CABA, …; las 24 en `normalizar.PROVINCIAS`), `online` (e-commerce de alcance nacional: VTEX, Shopify, Tiendanube y ML; **no es una
   provincia**) o vacío = sin dato. **Nunca se deduce de la casa central** del vendedor. SEPA la saca de `sucursales.csv` (`sucursales_provincia`, ya viene ISO;
   se cruza por `id_comercio,id_bandera,id_sucursal`); lo que no mapea queda vacío. Las filas anteriores a esta columna quedan con `provincia` vacía (no se reescriben).
-  ML: no se lee `seller_address` (el vendedor no es el lugar de venta; diferido, ver ESTADO.md).
+  ML: no se lee `seller_address` (el vendedor no es el lugar de venta; diferido, ver ESTADO.md). En otro país la provincia es la subdivisión ISO 3166-2 **de ese país**
+  (`BR-PR`; tabla `normalizar.SUBDIVISIONES`), `online` o vacío: `BR-PR` no vale con `pais=AR`. El mapa y las regiones INDEC son solo AR.
 - **Región** (`normalizar.REGIONES`, criterio INDEC con La Rioja en NOA): NOA = AR-A,F,G,K,T,Y · NEA = AR-H,N,P,W · Cuyo = AR-D,J,M · Pampeana = AR-B,C,E,L,S,X · Patagonia = AR-Q,R,U,V,Z. CABA no se separa como AMBA
   (el conurbano está en AR-B y SEPA no lo parte): cae en Pampeana. Una región es la agregación de provincias **dentro de una misma fuente**.
 - **Canal** (derivado, sin columna; `server.canal`): `mayorista` si la fuente está en `tiendas.MAYORISTAS`, `grok` si empieza con `grok_`, `publico` el resto.
@@ -122,9 +130,11 @@ data/macro/energia.csv # ventas de lubricantes y gasoil de la Secretaría de Ene
   el histórico de `data/obs/` con esta misma regla (una vez; es idempotente). `sepa.py` y `POST /api/cargar` (Grok) aplican el mismo filtro (`recolectar.relacionados`): SEPA cuenta lo ajeno en `n_descartados`; Grok rechaza el `tipo=producto` ajeno con el motivo `no relacionado con YPF` en `errores`, y acepta siempre `tipo=servicio` (va a `/api/servicios`, no al $/L).
 
 **data/grok/AAAA-MM.csv** —
-`fecha,fuente,url,titulo,marca,precio,precio_lista,litros,unidades,tipo,detalle,verificado,producto_id,match,cargado,provincia`
+`fecha,fuente,url,titulo,marca,precio,precio_lista,litros,unidades,tipo,detalle,verificado,producto_id,match,cargado,provincia,pais,moneda`
 - `provincia` (al final, después de `cargado`): ISO, `online` o vacío. `POST /api/cargar` acepta el encabezado de 11 columnas (la Task diaria) **y** el de 12 con `provincia` al final; el valor puede ser ISO, nombre
   de provincia (se pasa a ISO), `online` o vacío; cualquier otra cosa rechaza esa fila con motivo en `errores`. `provincia` entra a la clave de idempotencia (misma URL y título en dos zonas = dos filas). Los archivos viejos sin la columna se leen con provincia vacía.
+- `pais,moneda` (al final): `POST /api/cargar` acepta además el encabezado de 14 columnas (11 + `provincia,pais,moneda`); `pais` tiene que ser un país del relevamiento (`AR, BR, CL, UY, PY, BO`),
+  `moneda` ISO 4217 (`ARS, BRL, CLP, UYU, PYG, BOB, USD`), y la `provincia` se valida contra el país de la fila. Sin las columnas o vacías: `AR`/`ARS` (moneda vacía con país dado = la del país). `pais` y `moneda` entran a la clave de idempotencia.
 - Las 11 primeras son lo que devuelve la Task de Grok (`docs/grok-task.md`); `fuente = grok_<sitio>`, `tipo = producto|servicio`,
   `detalle` separado por `;`. `verificado` (`1|0`): el server bajó la URL y el precio aparece en el texto (84999, 84.999, 84999,00,
   84.999,00, $ 84.999); `0` si no aparece o la página no se pudo leer / es SPA. `cargado`: timestamp UTC de la carga.
@@ -181,6 +191,9 @@ Reinstalar la tarea: `schtasks /Create /TN LUBRICANTES-SEPA /SC DAILY /ST 11:00 
 | `vtex_norauto` | `https://www.norauto.com.ar/...` `fq=C:/3/20/` (aceites sueltos; NO `C:/4/24/`: combos con colocación). `AvailableQuantity=99999` es relleno: `stock` queda vacío. `ListPrice` = `Price` (verificado 2026-11-04), se guarda |
 | `shopify_datri` | `https://tiendadatri.com.ar/products.json?limit=250&page=N` hasta página vacía; `product_type` LUBRICANTES, SINTÉTICO, SEMISINTÉTICO, MINERAL, MULTIGRADO, MONOGRADO. **Mayorista.** Marca solo si el título la dice (`vendor` es D'ATRI) |
 | `tn_lspalermo`, `tn_spch` | Tiendanube: `sitemap.xml` → URLs `/productos/` cuyo slug pasa `aceite\|lubric\|elaion\|helix\|castrol\|quartz\|mobil` y no es filtro/kit/aerosol/etc. → en cada HTML, `LS.variants[].price_number` del producto principal (el JSON-LD `Product` es de los relacionados: no se usa). Páginas con más de una variante no se leen. Tope 150 páginas por tienda y día (`TOPE_PAGINAS`); si el sitemap tiene más, se rota por `sha1(url)` en k = ceil(n/150) grupos, hoy toca el `ordinal del día % k`: cada URL se lee cada k días |
+| `vtex_br_pitstop`, `vtex_br_altese` | **Brasil** (BRL, `pais=BR`, `provincia=online`). `https://www.pitstop.com.br/…` y `https://www.altese.com.br/api/catalog_system/pub/products/search?ft=<término>&_from=&_to=`: la categoría da `[]`, se barre por texto con `oleo elaion`, `elaion` y `oleo <marca>` de las marcas BR del seed (`recolectar.terminos_br`); espacios como `%20`, nunca `+` (da 400 "Scripts are not allowed"). Dedupe por `itemId` entre términos; stock 0 fuera; `AvailableQuantity` 100 y 99999 son relleno (stock vacío); lotes y kits (`kit|combo|revisão`, "12 ÓLEO…", "(24 Un)") no entran y `24X1L` = 1 L × 24 (`tiendas.envase`); si el nombre no trae litros, `litros` queda vacío (sin $/L). robots.txt chequeado (`tiendas.permitido`) |
+| `oficial_br_notaparana` | **Brasil, Nota Paraná / Menor Preço (Sefaz-PR)**, precio de nota fiscal por establecimiento (se trata como SEPA, no online). `GET https://menorpreco.notaparana.pr.gov.br/api/v1/produtos?termo=<t>&offset=<n>&raio=100&data=-1&ordem=0&gtin=0&local=6gkzmg1v4` (`local` = geohash de Curitiba; sin él da 500). Pagina sumando lo devuelto (las páginas se solapan y `total` cuenta repetidas), dedupe por `id`, tope de 25 páginas por término. Solo NCM `27101932` y GTIN no vacío (sin GTIN son cajas de distribuidor 12X1); GTIN a 13 dígitos (los de caja con indicador 1 quedan como vienen). `fecha` = fecha de la nota (UTC → hora argentina), cada fila al archivo de su mes, idempotente por fila (`clave_fila`), nunca por fecha de corrida; `vendedor` = nombre fantasía → razón social → dirección, `sucursal` = dirección, `provincia` = `BR-<uf>` de la fila. **Con cautela: API interna no documentada, sin términos publicados** (sin robots.txt, 404: se tomó como permitido). Solo Paraná |
+| `fx_bcb_ptax` (`macro.py fx`) | `https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarPeriodo(…)?@dataInicial='MM-DD-AAAA'&@dataFinalCotacao='MM-DD-AAAA'&$format=json` → `data/fx.csv`; `cotacaoVenda`, una fila por fecha de `dataHoraCotacao`, ventana de 10 días, idempotente por fecha+moneda. Día sin cotización = sin fila, nunca se arrastra. La Action corre a las 06:00 ART y la PTAX del día sale después de las 13 h |
 | `ml_cat` | `https://api.mercadolibre.com/categories/{id}` sin token (MLA375007 y hermanas) |
 | `ml` | con token: `/products/search` + `/products/{id}/items` (un aviso por publicación nueva; atributos del producto: BRAND, GTIN, VISCOSITY_GRADE, NET_VOLUME, UNITS_PER_PACK). `/items/bulk` da `[{}]`, `/items?ids=` 403, `/sites/MLA/search` 403: no se usan. `/highlights` (top 20 por categoría, ids de producto) queda fuera: no hay forma de unirlos a `obs` |
 
@@ -191,7 +204,7 @@ VTEX pagina de a 50 (`_from`/`_to`, máximo 2500). 1 request/s por host,
 
 ## Fuentes: en uso y candidatas
 
-**En uso** (todas las de la tabla de arriba, más Grok): Mercado Libre (API con token) · SEPA/Precios Claros · Carrefour,
+**En uso** (todas las de la tabla de arriba, más Grok; Brasil: Pitstop, Altese y Nota Paraná, la última **con cautela**): Mercado Libre (API con token) · SEPA/Precios Claros · Carrefour,
 Más Online, Easy, Jumbo, Norauto (VTEX) · D'Atri (Shopify, mayorista) · LS Palermo y Casa González (Tiendanube) ·
 catálogo YPF (GraphQL, sin precios) · categorías ML · helixturno.com.ar vía Grok (`grok_helix`, combos).
 
@@ -220,7 +233,7 @@ Corre `python recolectar.py --solo ml` con las credenciales de `.ml_local` (PC) 
 `ML_REFRESH_TOKEN` (Action). El refresh token rota en cada canje (solo vale el último):
 la Action guarda el nuevo con `gh secret set ML_REFRESH_TOKEN` usando el secret
 `GH_PAT` (el `GITHUB_TOKEN` no puede escribir secrets). Sin secrets, `ml` queda
-en `fuentes.csv` con `error="sin token"`. Búsquedas por marca/línea (`BUSQUEDAS`, tope 50 productos c/u) filtradas a dominios de aceites; `stock` queda vacío (la API no lo da); `vendedor` = `seller_id` (+ ` tienda:<official_store_id>`). Duración: ver ESTADO.md. Desde 2026-11-04 las búsquedas (`ml.busquedas()`) son las 4 líneas YPF (`BUSQUEDAS_YPF`) más "marca línea" de cada `comp_id` de `seed/equivalencias.csv`, y un producto cuyo título/GTIN no matchea con un producto relacionado no se baja (`avisos(filtro)`): no se piden sus publicaciones.
+en `fuentes.csv` con `error="sin token"`. Búsquedas por marca/línea (`BUSQUEDAS`, tope 50 productos c/u) filtradas a dominios de aceites; `stock` queda vacío (la API no lo da); `vendedor` = `seller_id` (+ ` tienda:<official_store_id>`). Duración: ver ESTADO.md. Desde 2026-11-04 las búsquedas (`ml.busquedas()`) son las 4 líneas YPF (`BUSQUEDAS_YPF`) más "marca línea" de cada `comp_id` de `seed/equivalencias.csv` (sin los pares de Brasil, sufijo `-br`: ML corre sobre MLA), y un producto cuyo título/GTIN no matchea con un producto relacionado no se baja (`avisos(filtro)`): no se piden sus publicaciones.
 
 ## API (server.py)
 
@@ -231,11 +244,11 @@ contraseña `LUB_CLAVE`). Respuestas JSON; `?formato=csv` devuelve CSV.
 |---|---|
 | `/api/productos` | `seed/productos.csv` |
 | `/api/equivalencias` | equivalencias con nombre y marca de ambos lados |
-| `/api/ultimo` | último precio por (producto_id, fuente, litros) con `precio_litro` y fecha |
+| `/api/ultimo` | último precio por (producto_id, fuente, litros) con `precio_litro` y fecha (y `pais`, `moneda`) |
 | `/api/obs?mes=AAAA-MM` | observaciones crudas del mes (insumo del análisis interno) |
 | `/api/serie?p=<producto_id>` | serie diaria: mediana de $/L por fuente |
 | `/api/indice` | índice $/L por fecha, segmento, SAE y marca (YPF = 100). Excluye fuentes mayoristas; `?mayoristas=1` las incluye |
-| `/api/fuentes` | último estado de cada fuente + días sin datos |
+| `/api/fuentes` | último estado de cada fuente + días sin datos + `pais` y `nota` (p. ej. la cautela de Nota Paraná) |
 | `/api/sin_match` | avisos sin `producto_id` (cola de revisión) |
 | `/api/oferta_ml` | `data/ml_oferta.csv` |
 | `/api/vitrina` | YPF vs competencia por producto (ver abajo). Excluye mayoristas; `?mayoristas=1` los incluye. `?formato=csv` aplana |
@@ -250,6 +263,11 @@ contraseña `LUB_CLAVE`). Respuestas JSON; `?formato=csv` devuelve CSV.
 | `/api/reventa?producto_id=<id YPF>` | todas las observaciones del período del producto YPF y de cada equivalente (el endpoint para cruzar con datos internos); ver abajo |
 | `/api/cobertura` | por producto YPF del seed: equivalencias, fuentes y provincias con precio en 7 días, última fecha; ver abajo |
 | `/salud` | sin clave, `{"ok":true}` para el health check de Render |
+
+**País y USD** (`pais`, `usd`): `indice`, `vitrina`, `ultimo`, `serie`, `provincias`, `reventa` y `cobertura` filtran `?pais=AR` por defecto; `?pais=BR` muestra Brasil en BRL; cualquier otro valor da 400. Cada respuesta lleva `pais` y `moneda`
+(los que devuelven lista, en cada fila; `?formato=csv` suma las columnas). El índice YPF = 100 se calcula **solo dentro de un país y una moneda**. `mercado`, `mercado/share` y `macro` son solo Argentina (`?pais=BR` = 400); el mapa también.
+`?usd=1` (solo JSON) agrega junto a cada precio `<campo>_usd` (`precio_usd`, `precio_litro_usd`, `mediana_litro_usd`, `promedio_litro_usd`, …) con `fx_fecha` y `fx_fuente`: BRL con `data/fx.csv` y ARS con `series.csv` (`92.2_TIPO_CAMBIION_0_0_21_24`), de la **fecha exacta** del
+objeto (en la vitrina, la del último día con datos); sin cotización ese día todo es `null` (no se arrastra). Es solo para visualizar: lo guardado y los cálculos siguen en su moneda. Rótulo en el visor: "conversión a USD al tipo de cambio oficial del <fx_fecha>: solo referencia".
 
 `/api/ultimo` suma `url` y `verificado` (vacío en las fuentes que no son Grok). `/api/fuentes` incluye una fila por cada `grok_*` de
 `seed/grok_sitios.csv` o de los datos: la "corrida" es la última carga, `ultimo_ok` la fecha del último dato.
@@ -289,7 +307,7 @@ que tienen precio hoy (por `ypf.n` desc), después los que no. Cada uno:
 - Los equivalentes de `tipo = no_equivalente` se listan con `en_promedio: false` y **no** entran en `competencia.*` ni en `dif_pct`.
   Sin datos todo es `null` (n = 0), nunca 0 ni un valor arrastrado.
 - Sanidad (`SANIDAD`, `RANGO_EQ` en `server.py`): un aviso con `precio_litro` fuera de [mediana/2,5; mediana×2,5] de su producto no
-  cuenta (envase mal leído); un equivalente cuya mediana está a más de 3× (o menos de 1/3) de la mediana YPF va con `en_promedio: false`.
+  cuenta (envase mal leído; con menos de 3 avisos de un producto no protege: lotes de Brasil como el Elaion 10W30 "1L" a R$ 638 se evitan no cargándolos al seed y sin litros en el título); un equivalente cuya mediana está a más de 3× (o menos de 1/3) de la mediana YPF va con `en_promedio: false`.
   Cada equivalente lleva `excluido`: `null`, `"no_equivalente"` o `"fuera_de_rango"`.
 - CSV: una fila por producto YPF con `ypf_*` y `comp_*` aplanados y `n_equivalentes` (sin las listas).
 
