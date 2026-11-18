@@ -10,6 +10,12 @@ La Secretaría de Energía (Res. SE 1104) publica las **ventas de lubricantes po
 - **Muestra real:** en 2026-09 se vendieron 13.430 m³ de automotrices. YPF tuvo 37,7%, Shell 23,6%, Total 13,4%, PAE (Axion) 11,5%, Petronas 9,0%, Fercol 4,0% y DAPSA 0,8%.
 - **Tendencia contra 2019-09:** YPF bajó de 42,8% a 37,7% y PAE subió de 4,3% a 11,5%. En 2025, YPF tuvo 35,2% en automotrices y 47,8% en industriales.
 
+**Links verificados con curl el 2026-11-18 (HTTP 200):**
+- Página del dataset (CC-BY 4.0): `https://datos.energia.gob.ar/dataset/5bdc436c-60d4-4c86-98ab-59834d047700`
+- Página del recurso «Ventas, excluye ventas a empresas del sector»: `https://datos.energia.gob.ar/dataset/5bdc436c-60d4-4c86-98ab-59834d047700/resource/f0e4e10a-e4b8-44e6-bd16-763a43742107` (redirige a `/archivo/`).
+- CSV: `https://datos.energia.gob.ar/dataset/5bdc436c-60d4-4c86-98ab-59834d047700/resource/f0e4e10a-e4b8-44e6-bd16-763a43742107/download/ventas-excluye-ventas-a-empresas-del-sector-.csv`
+- Res. SE 1104/2004: sin URL oficial verificada (infoleg dio 403 a curl); se cita como texto.
+
 **Cómo se arma el share:**
 - `share(e,m) = cantidad(e,m) / Σ cantidad(m)`, para cada producto.
 - Se puede abrir por canal (Al Público, Agro, Otras Empresas, Transporte de Carga) y por provincia.

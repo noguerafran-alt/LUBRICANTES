@@ -95,6 +95,7 @@ CAMPOS["bi_provincias"] = ["codigo", "nombre", "region", "pais", "online"]
 CAMPOS["indice_con_mayoristas"] = CAMPOS["indice"]
 CAMPOS["macro"] = MACRO_F = ["fecha", "id", "valor", "signo"]
 CAMPOS["mercado_share"] = ["mes", "empresa", "volumen", "total", "share"]
+CAMPOS["mercado_filas"] = ["mes", "empresa", "producto", "canal", "provincia", "cantidad"]
 
 
 def pais_r(r):
@@ -803,6 +804,165 @@ def share_filas(filas, canal=None):
             for (m, e), q in sorted(vol.items(), key=lambda x: (x[0][0], -x[1], x[0][1]))]
 
 
+# ---------- dónde pierde share YPF: /api/mercado/perdidas y /api/mercado/filas ----------
+VENTANAS = ("12m", "mes")
+# ponytail: piso de volumen por ventana (m3 o Ton, el mismo número para todos los productos); se cambia con ?min=
+MIN_DEFECTO = {"12m": 50.0, "mes": 5.0}
+TOP_GANADORES = 5
+FUENTE_PERDIDAS = {
+    "dataset": "https://datos.energia.gob.ar/dataset/5bdc436c-60d4-4c86-98ab-59834d047700",
+    "recurso": "https://datos.energia.gob.ar/dataset/5bdc436c-60d4-4c86-98ab-59834d047700/resource/f0e4e10a-e4b8-44e6-bd16-763a43742107",
+    "csv": "https://datos.energia.gob.ar/dataset/5bdc436c-60d4-4c86-98ab-59834d047700/resource/f0e4e10a-e4b8-44e6-bd16-763a43742107/download/ventas-excluye-ventas-a-empresas-del-sector-.csv",
+    "dataset_nombre": "Refinación y Comercialización de petróleo, gas y derivados (Tablas Dinámicas)",
+    "recurso_nombre": "Ventas, excluye ventas a empresas del sector", "licencia": "CC-BY 4.0", "norma": "Res. SE 1104/2004",
+    "actualizacion": "el job mercado baja el archivo el día 28 de cada mes"}
+NOTA_PERDIDAS = {
+    "declarantes": "Share solo entre las empresas que declaran (Res. SE 1104): Mobil, Castrol, Motul, Liqui Moly y los importadores chicos no figuran, "
+                   "así que una pérdida contra importadores aparece como un mercado que se achica o como ganancia de nadie.",
+    "sell_in": "Es el volumen que vende la empresa (sell-in), no lo que compra el consumidor, y viene por empresa, no por marca.",
+    "segmento": "La Secretaría no abre por viscosidad ni por línea (Elaion premium contra mineral): segmento = producto × canal × provincia.",
+    "atraso": "El dato llega con atraso: lo publica la Secretaría y el job mensual lo baja el día 28.",
+    "descomposicion": "efecto_share = (s_t − s_t0) × total_t; efecto_mercado = s_t0 × (total_t − total_t0); la suma es exactamente la variación de volumen de YPF. "
+                      "Los efectos por celda suman distinto del efecto del agregado (cambio de mezcla entre celdas).",
+    "nulos": "Una empresa sin fila en un período no declaró (no es 0). Si empieza o deja de declarar entre períodos va aparte (entró / salió de la declaración) y no cuenta como ganancia ni pérdida de share. "
+             "Sin fila de YPF en alguno de los dos períodos: sin dato YPF."}
+
+
+def unidad_se(producto):
+    """'Grasas(Ton)' → 'Ton'; 'Lubricantes automotrices(m3)' → 'm3'."""
+    return producto[producto.rfind("(") + 1:-1] if producto.endswith(")") else ""
+
+
+def acumular(filas, per):
+    """→ ({empresa: [volumen, meses con fila]}, meses con fila de alguien) de las filas dentro de los meses `per`."""
+    s, emp, meses = set(per), {}, set()
+    for mes, e, _p, _c, _pr, q in filas:
+        if mes in s:
+            x = emp.setdefault(e, [0.0, set()])
+            x[0] += q
+            x[1].add(mes)
+            meses.add(mes)
+    return emp, meses
+
+
+def segmento(filas, t, t0, minimo):
+    """Un segmento (las `filas` ya son de un producto × canal × provincia) en el período t contra t0."""
+    a, ma = acumular(filas, t)
+    b, mb = acumular(filas, t0)
+    tt, t00 = sum(v[0] for v in a.values()), sum(v[0] for v in b.values())
+    r = {"total_t": round(tt, 6), "total_t0": round(t00, 6), "meses_con_dato": {"t": len(ma), "t0": len(mb)},
+         "huecos": len(ma) < len(t) or len(mb) < len(t0), "ypf_t": None, "ypf_t0": None, "s_t": None, "s_t0": None, "delta_ypf": None,
+         "efecto_share": None, "efecto_mercado": None, "competidores": [], "entraron_salieron": []}
+    if not tt or not t00:
+        r["estado"] = "sin dato"
+    elif "YPF" not in a or "YPF" not in b:
+        r["estado"] = "sin dato YPF"
+        r["ypf_flag"] = "entró a declarar" if "YPF" in a else "salió de la declaración"
+    else:
+        yt, y0 = a["YPF"][0], b["YPF"][0]
+        st, s0 = yt / tt, y0 / t00
+        r.update(ypf_t=round(yt, 6), ypf_t0=round(y0, 6), s_t=round(st, 6), s_t0=round(s0, 6), delta_ypf=round(yt - y0, 6),
+                 efecto_share=round((st - s0) * tt, 6), efecto_mercado=round(s0 * (tt - t00), 6),
+                 estado="volumen chico" if min(tt, t00) < minimo else "ok")
+        for e in a.keys() & b.keys() - {"YPF"}:
+            ds = a[e][0] / tt - b[e][0] / t00
+            r["competidores"].append({"empresa": e, "s_t": round(a[e][0] / tt, 6), "s_t0": round(b[e][0] / t00, 6), "delta_pp": round(ds * 100, 4),
+                                      "m3_eq": round(ds * tt, 6), "meses_t": len(a[e][1]), "meses_t0": len(b[e][1])})
+        r["competidores"].sort(key=lambda c: (-c["m3_eq"], c["empresa"]))
+    for e in sorted((a.keys() ^ b.keys()) - {"YPF"}):
+        enl = e in a
+        x, tot = (a[e], tt) if enl else (b[e], t00)
+        r["entraron_salieron"].append({"empresa": e, "flag": "entró a declarar" if enl else "salió de la declaración", "volumen": round(x[0], 6),
+                                       "share": round(x[0] / tot, 6) if tot else None})
+    r["ganadores"] = [c for c in r["competidores"] if c["m3_eq"] > 0][:TOP_GANADORES]
+    return r
+
+
+def serie_segmento(filas, ultimo, empresas, n=MESES_SHARE):
+    """Share mensual de `empresas` dentro del segmento; mes o empresa sin fila = null."""
+    meses = [mes_mas(ultimo, k - n + 1) for k in range(n)]
+    vol, tot = {}, {}
+    for mes, e, _p, _c, _pr, q in filas:
+        vol[(mes, e)] = vol.get((mes, e), 0.0) + q
+        tot[mes] = tot.get(mes, 0.0) + q
+    return {"meses": meses, "empresas": [{"empresa": e, "serie": [round(vol[(m, e)] / tot[m], 6) if (m, e) in vol and tot.get(m) else None for m in meses]}
+                                         for e in empresas]}
+
+
+def perdidas(d, producto="automotrices", canal=None, provincia=None, ventana="12m", minimo=None):
+    """Dónde pierde share YPF (y con quién) en un producto: celdas canal × provincia, agregados y el foco = el filtro entero.
+    Cada producto va con su unidad (Grasas en Ton, el resto en m3): nunca se suman entre productos."""
+    minimo = MIN_DEFECTO[ventana] if minimo is None else minimo
+    clave = (producto, canal, provincia, ventana, minimo)
+    cache = d.setdefault("_cache_perdidas", {})
+    if clave in cache:
+        return cache[clave]
+    filtrar = lambda fs, c, p: [f for f in fs if (not c or f[3] == c) and (not p or f[4] == p)]
+
+    def periodos(prod_filas):
+        ult = max((f[0] for f in prod_filas), default=None)
+        n = 12 if ventana == "12m" else 1
+        t = [mes_mas(ult, k - n + 1) for k in range(n)] if ult else []
+        return ult, t, [mes_mas(m, -12) for m in t]
+    nom = PRODUCTOS_SHARE[producto]
+    todas = d["energia_por_producto"].get(nom, [])
+    ult, t, t0 = periodos(todas)
+    if not ult:
+        out = cache[clave] = {"producto": nom, "clave": producto, "unidad": unidad_se(nom), "ventana": ventana, "min": minimo, "segmentos": [], "foco": None,
+                              "fuente": FUENTE_PERDIDAS, "nota": NOTA_PERDIDAS}
+        return out
+    filas = filtrar(todas, canal, provincia)
+    cab = lambda fs: {k: v for k, v in fs.items() if k != "competidores"}
+    grupos = defaultdict(list)
+    for f in filas:
+        grupos[(f[3], f[4])].append(f)
+    orden = {"ok": 0, "volumen chico": 1, "sin dato YPF": 2, "sin dato": 3}
+    clave_orden = lambda s: (orden[s["estado"]], s["efecto_share"] if s["efecto_share"] is not None else 0)
+    segs = sorted(({"canal": c, "provincia": p, **segmento(fs, t, t0, minimo)} for (c, p), fs in grupos.items()),
+                  key=lambda s: (*clave_orden(s), s["canal"], s["provincia"]))
+
+    def agrupar(idx):
+        g = defaultdict(list)
+        for f in filas:
+            g[f[idx]].append(f)
+        return sorted(({("canal" if idx == 3 else "provincia"): k, **cab(segmento(fs, t, t0, minimo))} for k, fs in g.items()), key=clave_orden)
+    por_prod = []
+    for k, nm in PRODUCTOS_SHARE.items():
+        fs = filtrar(d["energia_por_producto"].get(nm, []), canal, provincia)
+        u, tp, t0p = periodos(fs)
+        por_prod.append({"producto": nm, "clave": k, "unidad": unidad_se(nm), "ultimo_mes": u, **(cab(segmento(fs, tp, t0p, minimo)) if u else {})})
+    comp = {}
+    for s in segs:
+        if s["estado"] != "ok":
+            continue
+        for c in s["competidores"]:
+            x = comp.setdefault(c["empresa"], {"empresa": c["empresa"], "neto_m3": 0.0, "ganado_m3": 0.0, "ganado_donde_ypf_pierde_m3": 0.0, "celdas": 0})
+            x["neto_m3"] += c["m3_eq"]
+            x["celdas"] += 1
+            if c["m3_eq"] > 0:
+                x["ganado_m3"] += c["m3_eq"]
+                if s["efecto_share"] < 0:
+                    x["ganado_donde_ypf_pierde_m3"] += c["m3_eq"]
+    por_comp = sorted(({k: round(v, 6) if isinstance(v, float) else v for k, v in x.items()} for x in comp.values()),
+                      key=lambda x: (-x["ganado_donde_ypf_pierde_m3"], x["empresa"]))
+    foco = {**segmento(filas, t, t0, minimo), "canal": canal, "provincia": provincia}
+    foco["serie"] = serie_segmento(filas, ult, ["YPF"] + [c["empresa"] for c in foco["ganadores"]])
+    out = cache[clave] = {
+        "producto": nom, "clave": producto, "unidad": unidad_se(nom), "ventana": ventana, "min": minimo, "ultimo_mes": ult,
+        "opciones": {"canales": sorted({f[3] for f in todas}), "provincias": sorted({f[4] for f in todas})}, "periodo_t": [t[0], t[-1]], "periodo_t0": [t0[0], t0[-1]], "foco": foco, "segmentos": [cab(s) | {"ganadores": s["ganadores"]} for s in segs],
+        "por_producto": por_prod, "por_canal": agrupar(3), "por_provincia": agrupar(4), "por_competidor": por_comp,
+        "perdido_por_share_m3": round(sum(s["efecto_share"] for s in segs if s["estado"] == "ok" and s["efecto_share"] < 0), 6),
+        "fuente": FUENTE_PERDIDAS, "nota": NOTA_PERDIDAS}
+    return out
+
+
+def filas_se(d, producto=None, canal=None, provincia=None, empresa=None, desde=None, hasta=None):
+    """Las filas exactas de energia.csv detrás de un número (AAAA-MM en desde/hasta, inclusive)."""
+    return [{"mes": m, "empresa": e, "producto": p, "canal": c, "provincia": pr, "cantidad": q} for m, e, p, c, pr, q in d["energia"]
+            if (not producto or p == producto) and (not canal or c == canal) and (not provincia or pr == provincia) and (not empresa or e == empresa)
+            and (not desde or m >= desde) and (not hasta or m <= hasta)]
+
+
 def precios_pares(d):
     """$/L de los pares YPF ↔ equivalente del seed (sin no_equivalente, mayoristas ni Grok sin verificar) → (por mes, por día)."""
     lado = {}
@@ -1208,9 +1368,9 @@ class Handler(BaseHTTPRequestHandler):
         if pais not in PAISES:
             return self.json(400, {"error": f"pais inválido: {q.get('pais')!r}", "paises": list(PAISES)})
         self.pais, self.usd = pais, q.get("usd") == "1"
-        if nombre in ("mercado", "mercado/share", "macro") and pais != "AR":
+        if nombre in ("mercado", "mercado/share", "mercado/perdidas", "mercado/filas", "macro") and pais != "AR":
             return self.json(400, {"error": "mercado y macro son solo Argentina (datos de la Secretaría de Energía y el INDEC)"})
-        if nombre in ("mercado", "mercado/share", "macro"):
+        if nombre in ("mercado", "mercado/share", "mercado/perdidas", "mercado/filas", "macro"):
             return self.mercado(nombre, q)
         if nombre in ("provincias", "reventa", "cobertura"):
             return self.analisis(nombre, q)
@@ -1309,7 +1469,11 @@ class Handler(BaseHTTPRequestHandler):
             if q.get("formato") == "csv":
                 return self.enviar(200, a_csv("macro", [{"id": i, **p} for i in ids for p in ser[i]]), "text/csv; charset=utf-8")
             return self.json(200, [{"id": i, **meta[i], "serie": ser[i]} for i in ids])
+        if nombre == "mercado/filas":
+            return self.mercado_filas(q)
         prod, canal = q.get("producto", "automotrices"), q.get("canal") or None
+        if nombre == "mercado/perdidas":
+            return self.mercado_perdidas(q, prod, canal)
         if prod not in PRODUCTOS_SHARE:
             return self.json(400, {"error": f"producto inválido: {prod!r}", "productos": list(PRODUCTOS_SHARE)})
         filas = d["energia_por_producto"].get(PRODUCTOS_SHARE[prod], [])
@@ -1321,6 +1485,40 @@ class Handler(BaseHTTPRequestHandler):
         if nombre == "mercado/share":
             return self.json(200, {"producto": PRODUCTOS_SHARE[prod], "canal": canal, **share(filas, canal)})
         self.json(200, self.calc["mercado"] if prod == "automotrices" and not canal else mercado(d, prod, canal))
+
+    def mercado_perdidas(self, q, prod, canal):
+        d = self.datos
+        canal, prov = (None if v in (None, "", "todos") else v for v in (canal, q.get("provincia")))
+        vent = q.get("ventana", "12m")
+        try:
+            minimo = float(q["min"]) if q.get("min") not in (None, "") else None
+            if minimo is not None and not (minimo >= 0 and math.isfinite(minimo)):
+                raise ValueError
+        except ValueError:
+            return self.json(400, {"error": f"min inválido: {q.get('min')!r} (número >= 0, en m3 o Ton del producto)"})
+        if prod not in PRODUCTOS_SHARE:
+            return self.json(400, {"error": f"producto inválido: {prod!r}", "productos": list(PRODUCTOS_SHARE)})
+        if vent not in VENTANAS:
+            return self.json(400, {"error": f"ventana inválida: {vent!r}", "ventanas": list(VENTANAS)})
+        filas = d["energia_por_producto"].get(PRODUCTOS_SHARE[prod], [])
+        for nombre, v, i in (("canal", canal, 3), ("provincia", prov, 4)):
+            posibles = sorted({f[i] for f in filas})
+            if v and v not in posibles:
+                return self.json(404, {"error": f"{nombre} sin datos: {v!r}", nombre + "s": posibles})
+        self.json(200, perdidas(d, prod, canal, prov, vent, minimo))
+
+    def mercado_filas(self, q):
+        d = self.datos
+        canal, prov, emp, prod = (None if q.get(k) in (None, "", "todos") else q[k] for k in ("canal", "provincia", "empresa", "producto"))
+        if prod:
+            prod = PRODUCTOS_SHARE.get(prod, prod)
+            if prod not in {f[2] for f in d["energia"]}:
+                return self.json(400, {"error": f"producto inválido: {q.get('producto')!r}", "productos": list(PRODUCTOS_SHARE)})
+        desde, hasta = q.get("desde", ""), q.get("hasta", "")
+        for k, v in (("desde", desde), ("hasta", hasta)):
+            if v and not re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", v):
+                return self.json(400, {"error": f"{k} tiene que ser AAAA-MM"})
+        self.enviar(200, b"\xef\xbb\xbf" + a_csv("mercado_filas", filas_se(d, prod, canal, prov, emp, desde, hasta)), "text/csv; charset=utf-8")
 
     def do_POST(self):
         if urlsplit(self.path).path != "/api/cargar":
@@ -1534,6 +1732,34 @@ def demo():
     assert share([])["meses"] == [] and share(sh, "Inexistente")["empresas"] == []
     sf = share_filas(sh, "Al Público")
     assert sf[0]["mes"] == "2025-09" and sf[0]["empresa"] == "YPF" and sf[0]["share"] == round(120 / 217, 6) and sf[0]["volumen"] == 120
+    # ---------- dónde pierde share: descomposición exacta, nulos, unidades ----------
+    pm = perdidas(d, "automotrices", ventana="mes")
+    f_ = pm["foco"]
+    assert pm["periodo_t"] == ["2026-09", "2026-09"] and pm["periodo_t0"] == ["2025-09", "2025-09"] and pm["unidad"] == "m3"
+    assert (f_["total_t"], f_["total_t0"], f_["ypf_t"], f_["ypf_t0"], f_["delta_ypf"]) == (212, 217, 110, 120, -10)
+    assert abs(f_["efecto_share"] - (110 / 212 - 120 / 217) * 212) < 1e-5 and abs(f_["efecto_mercado"] - 120 / 217 * -5) < 1e-5
+    for sg in pm["segmentos"] + pm["por_canal"] + pm["por_provincia"] + [f_]:           # identidad exacta en todo segmento con datos de YPF
+        if sg["delta_ypf"] is not None:
+            assert abs(sg["efecto_share"] + sg["efecto_mercado"] - sg["delta_ypf"]) < 1e-5, sg
+    cel = {(s["canal"], s["provincia"]): s for s in pm["segmentos"]}
+    assert cel[("Al Público", "Salta")]["efecto_share"] == 0 and cel[("Al Público", "Salta")]["efecto_mercado"] == -20 and cel[("Al Público", "Salta")]["estado"] == "ok"
+    assert cel[("Agro", "Córdoba")]["estado"] == "sin dato" and cel[("Al Público", "Jujuy")]["estado"] == "sin dato"   # sin fila en t0: ni pérdida ni 100 %
+    assert pm["segmentos"][0]["estado"] == "ok" and pm["foco"]["serie"]["empresas"][0]["empresa"] == "YPF" and len(pm["foco"]["serie"]["meses"]) == 36
+    assert perdidas(d, "automotrices", ventana="mes", minimo=1000)["segmentos"][0]["estado"] == "volumen chico"   # el piso manda
+    p12 = perdidas(d)
+    assert p12["foco"]["meses_con_dato"] == {"t": 12, "t0": 1} and p12["foco"]["huecos"] is True    # hueco informado, no rellenado
+    # empresa que entra o sale de la declaración: va aparte, no es ganancia ni pérdida; YPF sin fila = sin dato YPF, no 100 % perdido
+    mm = lambda m, e, v: (m, e, "P", "c", "p", v)
+    sg = segmento([mm("2025-09", "YPF", 50), mm("2025-09", "A", 30), mm("2025-09", "Z", 20), mm("2026-09", "YPF", 50), mm("2026-09", "A", 30), mm("2026-09", "N", 20)],
+                  ["2026-09"], ["2025-09"], 1)
+    assert [c["empresa"] for c in sg["competidores"]] == ["A"] and sg["competidores"][0]["m3_eq"] == 0
+    assert {(x["empresa"], x["flag"]) for x in sg["entraron_salieron"]} == {("Z", "salió de la declaración"), ("N", "entró a declarar")}
+    sy = segmento([mm("2025-09", "YPF", 50), mm("2025-09", "A", 50), mm("2026-09", "A", 100)], ["2026-09"], ["2025-09"], 1)
+    assert sy["estado"] == "sin dato YPF" and sy["efecto_share"] is None and sy["s_t"] is None and sy["ypf_flag"] == "salió de la declaración"
+    pg = perdidas(d, "grasas", ventana="mes")                                             # Grasas: Ton, nunca mezclada con m3; el gasoil no entra
+    assert pg["unidad"] == "Ton" and pg["foco"]["total_t"] == 7 and {x["producto"]: x["unidad"] for x in pg["por_producto"]}["Grasas(Ton)"] == "Ton"
+    assert all(x["unidad"] == "m3" for x in pg["por_producto"] if x["clave"] != "grasas") and len(pg["por_producto"]) == 4
+    assert [f["mes"] for f in filas_se(d, "Grasas(Ton)")] == ["2026-09"] and len(filas_se(d, "Lubricantes automotrices(m3)", "Agro")) == 1
     ms_, ser_ = d["macro_meta"], d["macro_series"]
     assert [(p["valor"], p["signo"]) for p in ser_["A"]] == [(1.5, "*"), (None, "..."), (0.0, "-")] and ser_["C"] == [] and ser_["B"][0]["signo"] is None
     assert ser_["se_gasoil_carga"][0]["fecha"] == "2025-09-01" and ser_["se_gasoil_carga"][6] == {"fecha": "2026-03-01", "valor": None, "signo": "..."}
@@ -1741,6 +1967,14 @@ def demo():
     assert json.loads(get("/api/mercado/share?canal=" + urllib.parse.quote("Al Público"), k)[1])["empresas"][0]["ultimo"] == round(100 / 202, 6)
     assert get("/api/mercado/share?canal=Nada", k)[0] == 404
     assert get("/api/mercado/share?formato=csv", k)[1].startswith(b"mes,empresa,volumen,total,share\n2025-09,YPF,120")
+    pj = json.loads(get("/api/mercado/perdidas?ventana=mes&min=0", k)[1])
+    assert pj["foco"]["delta_ypf"] == -10 and pj["fuente"]["dataset"].startswith("https://datos.energia.gob.ar/dataset/5bdc436c") and get("/api/mercado/perdidas")[0] == 401
+    assert get("/api/mercado/perdidas?ventana=x", k)[0] == 400 and get("/api/mercado/perdidas?min=-1", k)[0] == 400 and get("/api/mercado/perdidas?producto=nada", k)[0] == 400
+    assert get("/api/mercado/perdidas?canal=Nada", k)[0] == 404 and get("/api/mercado/perdidas?pais=BR", k)[0] == 400
+    assert json.loads(get("/api/mercado/perdidas?ventana=mes&canal=Agro&provincia=C%C3%B3rdoba", k)[1])["foco"]["total_t"] == 10
+    fc = get("/api/mercado/filas?producto=grasas", k)[1]
+    assert fc.startswith(b"\xef\xbb\xbfmes,empresa,producto,canal,provincia,cantidad\n2026-09,YPF,Grasas(Ton),") and get("/api/mercado/filas?desde=2026-13", k)[0] == 400
+    assert get("/api/mercado/filas?empresa=YPF&canal=Agro&desde=2026-09&hasta=2026-09", k)[1].count(b"\n") == 2 and get("/api/mercado/filas")[0] == 401
     assert [x["id"] for x in json.loads(get("/api/macro", k)[1])][:3] == ["A", "B", "C"] and get("/api/macro?ids=A,zzz", k)[0] == 404
     ma = json.loads(get("/api/macro?ids=A,B", k)[1])
     assert [m["id"] for m in ma] == ["A", "B"] and ma[0]["serie"][1] == {"fecha": "2026-07-01", "valor": None, "signo": "..."}
