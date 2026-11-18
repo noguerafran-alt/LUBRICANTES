@@ -14,6 +14,7 @@ import math
 import os
 import re
 import sys
+import tempfile
 import threading
 import time
 import urllib.error
@@ -33,6 +34,7 @@ from tiendas import MAYORISTAS  # fuentes de precio mayorista: fuera del índice
 RAIZ = Path(__file__).resolve().parent
 SITE = RAIZ / "site"
 INDEX = SITE / "index.html"
+MODELOS = SITE / "modelos"  # GLB por producto_id, los genera la Action modelos3d
 
 PRODUCTOS_F = "producto_id,marca,linea,nombre,segmento,sae,base,api,acea,ilsac,jaso,oem,fuente_specs,verificado".split(",")
 EQUIV_F = "eq_id,ypf_id,comp_id,tipo,criterio,evidencia,fuente".split(",")
@@ -359,6 +361,11 @@ def productos_de(d, pais):
     return [p for p in d["productos"] if p["marca"] == "YPF" and (normalizar.pais_producto(p["producto_id"]) == pais or p["producto_id"] in con_obs)]
 
 
+def modelo(pid):
+    """Ruta relativa al sitio del GLB del producto, o None si todavía no se generó (nunca se inventa)."""
+    return f"modelos/{pid}.glb" if (MODELOS / f"{pid}.glb").is_file() else None
+
+
 def vitrina(d, mayoristas=False, pais="AR"):
     """YPF vs competencia por producto: precios por litro del último relevamiento de cada aviso (ver CLAUDE.md, /api/vitrina).
     Cada aviso (fuente+url+ean+titulo+vendedor+envase) cuenta una vez, con su observación más reciente de los últimos
@@ -413,13 +420,13 @@ def vitrina(d, mayoristas=False, pais="AR"):
             if entra:
                 en_prom += xs
             eqs.append({"producto_id": cid, "marca": c.get("marca", ""), "nombre": c.get("nombre", ""), "tipo": e["tipo"],
-                        "evidencia": e["evidencia"], "specs": specs(c), "en_promedio": entra, "excluido": excluido, "imagen": (foto.get(cid) or {}).get("url"),
+                        "evidencia": e["evidencia"], "specs": specs(c), "en_promedio": entra, "excluido": excluido, "imagen": (foto.get(cid) or {}).get("url"), "modelo": modelo(cid),
                         "n": s["n"], "promedio_litro": s["promedio_litro"], "min_litro": s["min_litro"], "mas_barato": _barato(xs)})
         eqs.sort(key=lambda x: (not x["en_promedio"], -x["n"], x["producto_id"]))
         comp = _stats(en_prom)
         productos.append({
             "producto_id": pid, "nombre": p["nombre"], "linea": p["linea"], "segmento": p["segmento"], "sae": p["sae"], "base": p["base"],
-            "imagen": (foto.get(pid) or {}).get("url"), "imagen_fuente": (foto.get(pid) or {}).get("fuente"), "specs": specs(p),
+            "imagen": (foto.get(pid) or {}).get("url"), "modelo": modelo(pid), "imagen_fuente": (foto.get(pid) or {}).get("fuente"), "specs": specs(p),
             "ypf": ypf, "competencia": {**{k: comp[k] for k in ("n", "promedio_litro", "min_litro", "max_litro")}, "equivalentes": eqs},
             "dif_pct": round((comp["promedio_litro"] / ypf["promedio_litro"] - 1) * 100, 1)
             if comp["promedio_litro"] and ypf["promedio_litro"] else None})
@@ -1134,10 +1141,14 @@ class Handler(BaseHTTPRequestHandler):
                                [("WWW-Authenticate", 'Basic realm="LUBRICANTES", charset="UTF-8"')])
         if u.path in ("/", "/index.html"):  # solo se sirve este archivo: no hay path traversal posible
             return self.enviar(200, INDEX.read_bytes(), "text/html; charset=utf-8")
-        if u.path.endswith((".js", ".mjs")):  # three.js vendorizado (modo presentación); resolve + is_relative_to contra traversal
+        if u.path.endswith((".js", ".mjs", ".glb")):  # resolve + is_relative_to contra traversal
             f = (SITE / u.path.lstrip("/")).resolve()
             if f.is_file() and f.is_relative_to(SITE.resolve()):
-                return self.enviar(200, f.read_bytes(), "text/javascript; charset=utf-8", [("Cache-Control", "public, max-age=31536000, immutable")])
+                if f.suffix == ".glb":  # un modelo se puede regenerar: cache de un día, sin immutable
+                    return self.enviar(200, f.read_bytes(), "model/gltf-binary", [("Cache-Control", "public, max-age=86400")])
+                # immutable solo en vendor/ (versión fijada); el resto revalida pronto, así no hace falta versionar la URL
+                cc = "public, max-age=31536000, immutable" if f.is_relative_to((SITE / "vendor").resolve()) else "public, max-age=60, must-revalidate"
+                return self.enviar(200, f.read_bytes(), "text/javascript; charset=utf-8", [("Cache-Control", cc)])
         if not u.path.startswith("/api/"):
             return self.json(404, {"error": "no existe"})
         nombre = u.path[5:]
@@ -1614,7 +1625,24 @@ def demo():
     assert get("/api/ultimo")[0] == 401
     st = urllib.request.urlopen(urllib.request.Request(base + "/vendor/three.module.min.js", headers={"X-API-Key": "s3cr3t"}))
     assert st.status == 200 and st.headers["Content-Type"].startswith("text/javascript") and "max-age=31536000" in st.headers["Cache-Control"]
-    assert get("/vendor/three.module.min.js")[0] == 401 and get("/../server.py", {"X-API-Key": "s3cr3t"})[0] == 404 and get("/vendor/../../x.js", {"X-API-Key": "s3cr3t"})[0] == 404
+    pr = urllib.request.urlopen(urllib.request.Request(base + "/presentacion.js", headers={"X-API-Key": "s3cr3t"}))
+    assert "immutable" not in pr.headers["Cache-Control"] and "max-age=60" in pr.headers["Cache-Control"]
+    with tempfile.TemporaryDirectory() as td:  # GLB: tipo, cache de un día sin immutable, auth, y "modelo" en la vitrina
+        global MODELOS
+        previo, MODELOS = MODELOS, Path(td)
+        try:
+            assert modelo("ypf-a") is None
+            (MODELOS / "ypf-a.glb").write_bytes(b"glTF")
+            assert modelo("ypf-a") == "modelos/ypf-a.glb" and modelo("otro") is None
+            vm = vitrina(dv)["productos"][0]
+            assert vm["producto_id"] == "ypf-a" and vm["modelo"] == "modelos/ypf-a.glb"
+            assert all("modelo" in e and e["modelo"] is None for e in vm["competencia"]["equivalentes"])
+            (MODELOS / "shell-s.glb").write_bytes(b"glTF")
+            assert any(e["modelo"] for e in vitrina(dv)["productos"][0]["competencia"]["equivalentes"] if e["producto_id"] == "shell-s")
+        finally:
+            MODELOS = previo
+    assert modelo("ypf-a") is None
+    assert get("/vendor/three.module.min.js")[0] == 401 and get("/modelos/x.glb")[0] == 401 and get("/modelos/x.glb", {"X-API-Key": "s3cr3t"})[0] == 404 and get("/../server.py", {"X-API-Key": "s3cr3t"})[0] == 404 and get("/vendor/../../x.js", {"X-API-Key": "s3cr3t"})[0] == 404
     assert get("/api/ultimo", {"X-API-Key": "s3cr3t"})[0] == 200
     assert get("/api/ultimo", b("x:s3cr3t"))[0] == 200
     assert get("/api/obs?mes=2026-11&formato=csv", {"X-API-Key": "s3cr3t"})[1].startswith(b"fecha,fuente,url")
