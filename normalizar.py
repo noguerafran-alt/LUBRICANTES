@@ -47,6 +47,35 @@ def texto(s):
     return "".join(c for c in s if not unicodedata.combining(c))
 
 
+# Las 24 jurisdicciones (ISO 3166-2:AR). Única tabla del repo: SEPA, Grok y la API la usan.
+PROVINCIAS = {
+    "AR-A": "Salta", "AR-B": "Buenos Aires", "AR-C": "Ciudad Autónoma de Buenos Aires", "AR-D": "San Luis",
+    "AR-E": "Entre Ríos", "AR-F": "La Rioja", "AR-G": "Santiago del Estero", "AR-H": "Chaco", "AR-J": "San Juan",
+    "AR-K": "Catamarca", "AR-L": "La Pampa", "AR-M": "Mendoza", "AR-N": "Misiones", "AR-P": "Formosa",
+    "AR-Q": "Neuquén", "AR-R": "Río Negro", "AR-S": "Santa Fe", "AR-T": "Tucumán", "AR-U": "Chubut",
+    "AR-V": "Tierra del Fuego", "AR-W": "Corrientes", "AR-X": "Córdoba", "AR-Y": "Jujuy", "AR-Z": "Santa Cruz",
+}
+# Región = agregación de provincias dentro de una misma fuente (criterio INDEC; La Rioja va en NOA). CABA no se separa:
+# el AMBA cruza AR-C y AR-B y SEPA no permite partir el conurbano, así que AR-C cae en Pampeana junto con Buenos Aires.
+REGIONES = {}
+for _r, _cs in {"NOA": "AFGKTY", "NEA": "HNPW", "Cuyo": "DJM", "Pampeana": "BCELSX", "Patagonia": "QRUVZ"}.items():
+    REGIONES.update({"AR-" + c: _r for c in _cs})
+ONLINE = "online"  # precio de e-commerce de alcance nacional: no es una provincia
+_PROV_TEXTO = {texto(n): c for c, n in PROVINCIAS.items()}
+_PROV_TEXTO.update({"capital federal": "AR-C", "caba": "AR-C", "ciudad de buenos aires": "AR-C", "gba": "",
+                    "tierra del fuego, antartida e islas del atlantico sur": "AR-V"})
+
+
+def provincia_iso(v):
+    """Código ISO, nombre de provincia o 'online' → ISO (o 'online'). Lo que no mapea → '' (nunca se adivina)."""
+    v = (v or "").strip()
+    if v.upper() in PROVINCIAS:
+        return v.upper()
+    if v.lower() == ONLINE:
+        return ONLINE
+    return _PROV_TEXTO.get(texto(v).strip(), "")
+
+
 def marca_de(s):
     t = texto(s)
     for canon, rx in MARCAS:
@@ -151,6 +180,10 @@ def normalizar(titulo, marca_vtex="", ean="", reglas=None, url=""):
 
 def demo():
     import tempfile
+    assert provincia_iso("AR-B") == "AR-B" and provincia_iso("ar-x") == "AR-X" and provincia_iso("Buenos Aires") == "AR-B"
+    assert provincia_iso("Córdoba") == "AR-X" and provincia_iso("cordoba") == "AR-X" and provincia_iso("CABA") == "AR-C"
+    assert provincia_iso("Online") == "online" and provincia_iso("") == "" and provincia_iso("Atlantida") == "" and provincia_iso("AR-ZZ") == ""
+    assert len(PROVINCIAS) == 24 and set(REGIONES) == set(PROVINCIAS) and REGIONES["AR-F"] == "NOA" and REGIONES["AR-C"] == "Pampeana"
     d = tempfile.mkdtemp()
     ra, rp = os.path.join(d, "alias.csv"), os.path.join(d, "productos.csv")
     with open(rp, "w", encoding="utf-8") as f:

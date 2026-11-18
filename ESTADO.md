@@ -2,6 +2,16 @@
 
 Actualizado 2026-11-05 (mercado: share de la SE y series de datos.gob.ar). Remoto privado `noguerafran-alt/LUBRICANTES`; la Action corre a diario.
 
+## Precio de reventa por provincia y región (2026-11-18, rama lub-provincia)
+- **Contrato**: columna `provincia` al final de `data/obs` y `data/grok` (ISO 3166-2:AR / `online` / vacío), tablas `PROVINCIAS` y `REGIONES` en `normalizar.py`, canal derivado de la fuente (`server.canal`). Detalle en `CLAUDE.md`.
+- **SEPA por provincia**: se confirmó contra un zip real (2026-11-17, 321 MB) que `sucursales.csv` trae `sucursales_provincia` ya en ISO. Corrida real de `sepa.py`: **878 filas/día** (antes ~63 nacionales), **24 provincias**, **32 filas sin provincia** (44 de 3210 filas de sucursal); 165 s. Se arregló un `SyntaxError` en `sepa.demo()` (string partido). `data/` se revirtió: no va en el cambio.
+- VTEX/Shopify/Tiendanube/ML escriben `provincia=online` desde la próxima corrida; el histórico previo queda con provincia vacía (por eso hoy solo SEPA y Grok tienen provincia). No hubo corrida real de esas fuentes con la columna nueva (solo `a_obs` con assert).
+- **API nueva**: `/api/provincias`, `/api/reventa`, `/api/cobertura` (con clave; asserts en `server.demo()`, incluido HTTP con y sin clave). `/api/cargar` acepta el encabezado de 11 y de 12 columnas, rechaza provincia inválida con motivo; `provincia` entra a la clave de idempotencia de Grok.
+- **Visor**: pestañas Mapa (coroplético por provincia o región, selector obligatorio de fuente con default = la de más provincias, sin dato = gris rayado, `online` aparte, panel por provincia con todas las fuentes, tabla de detalle) y Cobertura. Geometría Natural Earth vendorizada. Verificado en Chrome headless a 1280 y 375 px (sin desborde, clic en provincia, modo región) con datos reales de SEPA más un fixture con Grok y online.
+- **Hoy**: el visor dice que no es tiempo real (recolección diaria, SEPA con ~1 día de atraso). `/api/cobertura` real: 116 productos YPF, 26 con equivalencia, 25 con precio en 7 días.
+- **No verificado**: la Action con la columna nueva; que la Task de Grok funcione con el encabezado de 12 columnas contra el Grok real.
+- **Diferido**: Mercado Libre con `seller_address` (sin token no se puede probar; vendedor ≠ lugar de venta). **Países limítrofes**: OT aparte, con relevamiento previo de fuentes por país; no se hizo. No hay lista interna de YPF: lo observado es precio de reventa; el cruce con datos internos lo hace el usuario vía `/api/reventa`.
+
 ## Soporte del modo presentación 3D (2026-11-05, rama feat/presentacion-3d)
 - `site/vendor/three.module.min.js` (three@0.170.0, 691.648 bytes, `node --check` OK) y `three.LICENSE` (MIT). `server.py` sirve `.js`/`.mjs` de `site/` como `text/javascript` con `max-age=31536000, immutable` (con clave como el resto; sin traversal).
 - `/api/vitrina`: `specs` en cada producto YPF y cada equivalente (contrato en `CLAUDE.md`). Asserts en `demo()`; `python server.py test` da OK.

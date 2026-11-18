@@ -29,6 +29,7 @@ El relevamiento que fundamenta todo esto está en `docs/relevamiento/`
 - **Única excepción a "solo stdlib": three.js vendorizado** (`site/vendor/three.module.min.js`, three@0.170.0, licencia MIT en
   `site/vendor/three.LICENSE`), solo para el modo presentación y cargado on-demand (import dinámico) para que el resto del visor no lo
   pague. Versión fijada, nada de CDN en runtime; `server.py` sirve cualquier `.js`/`.mjs` de `site/` como `text/javascript` con cache largo.
+- **Geometría vendorizada**: `site/vendor/ar-provincias.js` (Natural Earth, dominio público; ver «Geometría del mapa»). Es datos, no código de terceros.
 - Lógica nueva → su `assert` en el `demo()` de ese módulo
   (`python <modulo>.py test` tiene que dar `OK`).
 - `ESTADO.md` se actualiza en el mismo commit que cualquier cambio.
@@ -44,10 +45,11 @@ sepa.py            # Precios Claros (SEPA): zip diario en streaming, filtra lubr
 normalizar.py      # aviso → (marca, sae, litros, unidades, producto_id, match)
 macro.py           # `series`: series de datos.gob.ar → data/macro/series.csv; `energia`: ventas de lubricantes de la SE (CSV de 770 MB en streaming) → data/macro/energia.csv
 server.py          # http.server: visor estático site/ + /api/* calculado desde data/ y seed/
-site/index.html    # visor: Comparador, Evolución, Índice, Fuentes (JS vanilla, SVG propio)
+site/index.html    # visor: Mapa, Cobertura, Comparador, Evolución, Índice, Fuentes (JS vanilla, SVG propio)
 seed/productos.csv     # catálogo normalizado YPF + competencia (a mano)
 seed/alias.csv         # EAN / regex de título → producto_id
 seed/equivalencias.csv # pares YPF ↔ competidor (a mano)
+tools/geo_provincias.py # regenera site/vendor/ar-provincias.js desde Natural Earth (solo a mano; ver Geometría)
 seed/grok_sitios.csv   # lista blanca de sitios que puede cargar Grok: fuente,host,descripcion
 data/obs/AAAA-MM.csv   # observaciones de precio, append-only
 data/fuentes.csv       # una fila por fuente y corrida
@@ -89,7 +91,17 @@ data/macro/energia.csv # ventas de lubricantes y gasoil de la Secretaría de Ene
 - `evidencia`: `confirmada|inferida`. Sin puntajes de confianza inventados.
 
 **data/obs/AAAA-MM.csv** —
-`fecha,fuente,url,ean,titulo,marca,precio,precio_lista,stock,vendedor,sucursal,litros,unidades,producto_id,match`
+`fecha,fuente,url,ean,titulo,marca,precio,precio_lista,stock,vendedor,sucursal,litros,unidades,producto_id,match,provincia`
+- `provincia` (al final; única definición `recolectar.OBS`, que importan `sepa.py` y `server.py`): código ISO 3166-2:AR de la provincia donde se vende
+  (`AR-X` Córdoba, `AR-C` CABA, …; las 24 en `normalizar.PROVINCIAS`), `online` (e-commerce de alcance nacional: VTEX, Shopify, Tiendanube y ML; **no es una
+  provincia**) o vacío = sin dato. **Nunca se deduce de la casa central** del vendedor. SEPA la saca de `sucursales.csv` (`sucursales_provincia`, ya viene ISO;
+  se cruza por `id_comercio,id_bandera,id_sucursal`); lo que no mapea queda vacío. Las filas anteriores a esta columna quedan con `provincia` vacía (no se reescriben).
+  ML: no se lee `seller_address` (el vendedor no es el lugar de venta; diferido, ver ESTADO.md).
+- **Región** (`normalizar.REGIONES`, criterio INDEC con La Rioja en NOA): NOA = AR-A,F,G,K,T,Y · NEA = AR-H,N,P,W · Cuyo = AR-D,J,M · Pampeana = AR-B,C,E,L,S,X · Patagonia = AR-Q,R,U,V,Z. CABA no se separa como AMBA
+  (el conurbano está en AR-B y SEPA no lo parte): cae en Pampeana. Una región es la agregación de provincias **dentro de una misma fuente**.
+- **Canal** (derivado, sin columna; `server.canal`): `mayorista` si la fuente está en `tiendas.MAYORISTAS`, `grok` si empieza con `grok_`, `publico` el resto.
+- SEPA: una fila por comercio × bandera × **provincia** × EAN (mediana de `precio_lista` entre las sucursales de esa provincia; `sucursal` = `n=..;min=..;max=..` de esa provincia).
+  Corrida real 2026-11-17: 878 filas/día (antes ~63 nacionales) en las 24 provincias; 32 filas sin provincia (44 filas de sucursal).
 - `fecha` ISO `AAAA-MM-DD`. `precio` en ARS. `stock` entero o vacío.
 - `match`: `ean|texto|none`.
 - Si `stock == 0` o `precio <= 0`, no se escribe fila (se cuenta en `fuentes.csv`).
@@ -109,7 +121,9 @@ data/macro/energia.csv # ventas de lubricantes y gasoil de la Secretaría de Ene
   el histórico de `data/obs/` con esta misma regla (una vez; es idempotente). `sepa.py` y `POST /api/cargar` (Grok) aplican el mismo filtro (`recolectar.relacionados`): SEPA cuenta lo ajeno en `n_descartados`; Grok rechaza el `tipo=producto` ajeno con el motivo `no relacionado con YPF` en `errores`, y acepta siempre `tipo=servicio` (va a `/api/servicios`, no al $/L).
 
 **data/grok/AAAA-MM.csv** —
-`fecha,fuente,url,titulo,marca,precio,precio_lista,litros,unidades,tipo,detalle,verificado,producto_id,match,cargado`
+`fecha,fuente,url,titulo,marca,precio,precio_lista,litros,unidades,tipo,detalle,verificado,producto_id,match,cargado,provincia`
+- `provincia` (al final, después de `cargado`): ISO, `online` o vacío. `POST /api/cargar` acepta el encabezado de 11 columnas (la Task diaria) **y** el de 12 con `provincia` al final; el valor puede ser ISO, nombre
+  de provincia (se pasa a ISO), `online` o vacío; cualquier otra cosa rechaza esa fila con motivo en `errores`. `provincia` entra a la clave de idempotencia (misma URL y título en dos zonas = dos filas). Los archivos viejos sin la columna se leen con provincia vacía.
 - Las 11 primeras son lo que devuelve la Task de Grok (`docs/grok-task.md`); `fuente = grok_<sitio>`, `tipo = producto|servicio`,
   `detalle` separado por `;`. `verificado` (`1|0`): el server bajó la URL y el precio aparece en el texto (84999, 84.999, 84999,00,
   84.999,00, $ 84.999); `0` si no aparece o la página no se pudo leer / es SPA. `cargado`: timestamp UTC de la carga.
@@ -219,10 +233,31 @@ contraseña `LUB_CLAVE`). Respuestas JSON; `?formato=csv` devuelve CSV.
 | `/api/mercado` | share oficial de la SE + actividad + compuestos (ver "Mercado"). `?producto=automotrices\|industriales\|marinos\|grasas` (default automotrices), `?canal=` |
 | `/api/mercado/share` | solo el bloque `share` (mismos parámetros); `?formato=csv` = serie mensual completa de todas las empresas (`mes,empresa,volumen,total,share`) |
 | `/api/macro?ids=a,b` | series largas de `data/macro/series.csv` y las derivadas de la SE (`se_*`); `?formato=csv` = `fecha,id,valor,signo`. Sin `ids`, el catálogo |
+| `/api/provincias?producto_id=<id>` | $/L y precio medianos por (provincia, fuente) y por (región, fuente), con `canal`, `n`, `fecha`; ver abajo |
+| `/api/reventa?producto_id=<id YPF>` | todas las observaciones del período del producto YPF y de cada equivalente (el endpoint para cruzar con datos internos); ver abajo |
+| `/api/cobertura` | por producto YPF del seed: equivalencias, fuentes y provincias con precio en 7 días, última fecha; ver abajo |
 | `/salud` | sin clave, `{"ok":true}` para el health check de Render |
 
 `/api/ultimo` suma `url` y `verificado` (vacío en las fuentes que no son Grok). `/api/fuentes` incluye una fila por cada `grok_*` de
 `seed/grok_sitios.csv` o de los datos: la "corrida" es la última carga, `ultimo_ok` la fecha del último dato.
+
+### Precio de reventa por provincia — `/api/provincias`, `/api/reventa`, `/api/cobertura`
+Con clave, calculados por pedido sobre `obs` (Grok `verificado=0` se muestra marcado, no se oculta). La ventana `dias` (1 a 366, default 30) termina en el **último día con datos**, no en hoy. Todas las
+respuestas llevan `hasta` y `nota` ("no es tiempo real: recolección diaria, SEPA con ~1 día de atraso"). `?formato=csv` aplana. Una mediana **nunca mezcla fuentes**. Cada aviso (fuente + url + ean + título + vendedor + envase + provincia)
+cuenta una vez, con su observación más reciente de la ventana; `$/L = precio / (litros × unidades)`, igual que `/api/indice`; avisos sin litros no entran.
+- `GET /api/provincias?producto_id=<id>[&fuente=][&mayoristas=1][&dias=N]` → `{producto_id, dias, hasta, nota, celdas[], regiones[], n_sin_provincia}`.
+  `celdas[]` = `{provincia, region, fuente, canal, precio_litro, precio, n, fecha, vendedores[≤5], url, verificado, cargado}`: una por (provincia, fuente); `provincia:"online"` va con `region:""`.
+  `regiones[]` = lo mismo por (región, fuente) con `provincias[]` en lugar de `provincia` (`online` no entra). `url`/`verificado`/`cargado` solo vienen llenos en fuentes Grok (de su observación más nueva; `verificado` es `1` solo si todas lo están).
+  Los mayoristas salen solo con `mayoristas=1` o pidiendo esa `fuente` a propósito. Sin `producto_id`: `{dias, hasta, nota, productos:[{producto_id, nombre, fuentes:[celda + provincias (cuántas distintas)]}]}` para cada producto YPF, sin detalle por provincia.
+- `GET /api/reventa?producto_id=<id YPF>[&dias=N]` → `{producto_id, dias, hasta, nota, ypf:{producto_id, marca, nombre, observaciones[]}, equivalentes:[{producto_id, marca, nombre, tipo, evidencia, observaciones[]}]}`
+  (equivalentes de `seed/equivalencias.csv` sin `no_equivalente`). `observaciones[]` (todas las del período, la más nueva primero) = `{fecha, fuente, canal, vendedor, provincia, region, url, precio, precio_litro, litros, unidades, verificado, cargado}`
+  (`verificado`/`cargado` solo en Grok, vacíos en el resto; `precio_litro` null si falta el envase). 400 si el producto no es YPF; 404 si no existe. CSV: una fila por observación con `rol` (`ypf|equivalente`), `producto_id`, `marca`, `nombre`, `tipo`.
+- `GET /api/cobertura` → `{hasta, nota, total:{productos_ypf, con_equivalencia, con_precio_7d}, productos:[{producto_id, nombre, linea, segmento, sae, equivalencias, tiene_equivalencia, fuentes_7d, provincias_7d, ultima_fecha}]}`.
+  Cuenta solo el precio del propio producto YPF (no el del equivalente), sin Grok `verificado=0`; `provincias_7d` cuenta provincias ISO (no `online`).
+
+### Geometría del mapa (vendorizada)
+`site/vendor/ar-provincias.js` (`window.AR_GEO`: `viewBox` y, por ISO, `n` nombre, `r` región, `d` path SVG, `c` centro) sale de **Natural Earth 1:10m Admin 1 – States, Provinces** (dominio público; texto en `site/vendor/ar-provincias.LICENSE`),
+simplificada con `tools/geo_provincias.py` (Douglas-Peucker 0,03°, equirectangular × cos 40°, islas < 0,1 grados² fuera). Son los límites de Natural Earth, no una posición oficial del IGN. Sin CDN ni tiles.
 
 ### Vitrina — `/api/vitrina`
 `{"fecha": último día con datos, "productos": [...]}`: un elemento por producto de marca YPF de `seed/productos.csv`, primero los

@@ -23,6 +23,11 @@ Reglas:
 - No inventes ni estimes nada. Si un precio no se ve, omití esa fila.
 ```
 
+## Variante con provincia (opcional)
+`POST /api/cargar` acepta también un encabezado de 12 columnas, con `provincia` al final: `fecha,fuente,url,titulo,marca,precio,precio_lista,litros,unidades,tipo,detalle,provincia`.
+Pedirla **solo si la página muestra un selector de zona/sucursal o una ubicación explícita** (ahí: el nombre de la provincia o su código ISO, p. ej. `Córdoba` o `AR-X`); si la página no dice dónde rige el precio, dejar vacío.
+No deducir la provincia del domicilio de la empresa. Una provincia que no existe rechaza esa fila. El encabezado de 11 columnas sigue valiendo (la Task actual no cambia).
+
 ## Cómo pegar el resultado
 
 1. Abrí el visor, pestaña **Cargar**.

@@ -17,12 +17,12 @@ import zipfile
 from datetime import date
 from pathlib import Path
 
-from normalizar import normalizar
+from normalizar import normalizar, provincia_iso
+from recolectar import OBS as OBS_F  # una sola definición del encabezado
 
 RAIZ = Path(__file__).parent
 CKAN = "https://datos.produccion.gob.ar/api/3/action/package_show?id=sepa-precios"
 UA = "LUBRICANTES/1.0 (relevamiento de precios de lubricantes; github actions)"
-OBS_F = "fecha,fuente,url,ean,titulo,marca,precio,precio_lista,stock,vendedor,sucursal,litros,unidades,producto_id,match".split(",")
 
 YPF_EAN = "779096891"  # el prefijo YPF también trae líquido de frenos: lo saca NO
 ACEITE = re.compile(r"\b(aceite|lubri\w*)\b")
@@ -77,7 +77,14 @@ def es_lubricante(ean, desc, marca):
 
 
 def leer_comercio(iz, grupos, cuenta):
-    """Agrega las filas de lubricantes de un zip interno en grupos[(comercio, bandera, ean)]."""
+    """Agrega las filas de lubricantes de un zip interno en grupos[(comercio, bandera, provincia, ean)].
+    La provincia sale de sucursales.csv (cruce por id_comercio, id_bandera, id_sucursal); lo que no mapea a ISO
+    (campo vacío, nombre raro, sucursal ausente) queda '' y se cuenta en cuenta["sin_provincia"]."""
+    provincias = {}
+    if "sucursales.csv" in iz.namelist():
+        with iz.open("sucursales.csv") as f:
+            for r in csv.DictReader(io.TextIOWrapper(f, encoding="utf-8-sig", errors="replace"), delimiter="|"):
+                provincias[(r["id_comercio"], r["id_bandera"], r["id_sucursal"])] = provincia_iso(r.get("sucursales_provincia"))
     banderas = {}
     with iz.open("comercio.csv") as f:
         for r in csv.DictReader(io.TextIOWrapper(f, encoding="utf-8-sig", errors="replace"), delimiter="|"):
@@ -96,7 +103,10 @@ def leer_comercio(iz, grupos, cuenta):
             if n is None:
                 continue
             cuenta["filas"] += 1
-            k = (r["id_comercio"], r["id_bandera"], ean)
+            prov = provincias.get((r["id_comercio"], r["id_bandera"], r["id_sucursal"]), "")
+            if not prov:
+                cuenta["sin_provincia"] = cuenta.get("sin_provincia", 0) + 1
+            k = (r["id_comercio"], r["id_bandera"], prov, ean)
             g = grupos.setdefault(k, {"titulo": desc, "n": n, "vendedor": banderas.get(k[:2], ""), "precios": []})
             try:
                 g["precios"].append(float(r["productos_precio_lista"]))
@@ -105,17 +115,19 @@ def leer_comercio(iz, grupos, cuenta):
 
 
 def agregar(fecha, grupos, rel=None):
-    """Una fila por (comercio, bandera, EAN).
+    """Una fila por (comercio, bandera, provincia, EAN).
 
     Decisión: no se guarda una fila por sucursal. Carrefour y ChangoMás son ~1.400 filas/día
-    por sucursal (~0,5 M/año) contra ~60-120 agregadas. precio = mediana de precio_lista
-    entre sucursales; la dispersión queda en sucursal como "n=37;min=79999;max=82990".
+    por sucursal (~0,5 M/año); se agrega por provincia (ISO de sucursales.csv, '' si no mapea), lo que
+    multiplica las filas agregadas por las provincias donde opera cada bandera (ver ESTADO.md para el número real).
+    precio = mediana de precio_lista entre las sucursales de esa provincia; la dispersión queda en
+    sucursal como "n=37;min=79999;max=82990" (de esa provincia).
     Se usa precio_lista (precio de góndola), no las promos, y precio_lista del CSV va vacío.
     Sucursales con precio <= 0 no entran a la mediana; si no queda ninguna, no hay fila.
     Con `rel` (producto_id relacionados con YPF, ver recolectar.relacionados) lo ajeno no se escribe: se cuenta en descartados.
     """
     filas, sin_precio, descartados = [], 0, 0
-    for (comercio, bandera, ean), g in sorted(grupos.items()):
+    for (comercio, bandera, provincia, ean), g in sorted(grupos.items()):
         ps = sorted(p for p in g["precios"] if p > 0)
         if not ps:
             sin_precio += 1
@@ -130,6 +142,7 @@ def agregar(fecha, grupos, rel=None):
             "vendedor": g["vendedor"] or f"comercio {comercio}-{bandera}",
             "sucursal": f"n={len(ps)};min={ps[0]:.2f};max={ps[-1]:.2f}",
             "litros": n["litros"], "unidades": n["unidades"], "producto_id": n["producto_id"], "match": n["match"],
+            "provincia": provincia,
         })
     return filas, sin_precio, descartados
 
@@ -157,7 +170,7 @@ def correr():
     t0 = time.time()
     try:
         fecha, url = ultimo_zip(json.loads(bajar(CKAN))["result"])
-        grupos, cuenta = {}, {"filas": 0}
+        grupos, cuenta = {}, {"filas": 0, "sin_provincia": 0}
         # el zip externo necesita seek (directorio al final): va a un temporal que se borra solo.
         # Los zips internos vienen sin comprimir (stored), así que se abren y leen de a línea sin extraerlos.
         with tempfile.TemporaryFile() as tmp:
@@ -178,7 +191,8 @@ def correr():
     escribir_fuente({"fecha": fecha, "fuente": "sepa", "http": 200, "n_items": len(grupos), "n_con_precio": len(filas),
                      "n_sin_stock": sin_precio, "n_sin_match": 0, "n_descartados": descartados,
                      "error": "" if grupos else "sin lubricantes en el zip, revisar filtro"})
-    print(f"sepa {fecha}: {mb:.0f} MB, {cuenta['filas']} filas por sucursal -> {len(filas)} filas escritas, {time.time() - t0:.0f} s")
+    print(f"sepa {fecha}: {mb:.0f} MB, {cuenta['filas']} filas por sucursal ({cuenta['sin_provincia']} sin provincia) -> {len(filas)} filas escritas "
+          f"en {len({f['provincia'] for f in filas if f['provincia']})} provincias, {time.time() - t0:.0f} s")
 
 
 def demo():
@@ -210,13 +224,16 @@ def demo():
         "Ultima actualización: 2026-11-02T09:26:04-03:00",
     ])
     com = "id_comercio|id_bandera|comercio_cuit|comercio_razon_social|comercio_bandera_nombre\n10|1|1|INC S.A.|Hipermercado Carrefour\n10|2|1|INC S.A.|Carrefour Market\n"
+    scab = "id_comercio|id_bandera|id_sucursal|sucursales_nombre|sucursales_provincia"
+    suc = "\n".join([scab, "10|1|233|a|AR-B", "10|1|231|b|AR-B", "10|1|5|c|AR-B", "10|1|6|d|AR-B", "10|2|7|e|Narnia"])  # 7: no mapea
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as z:
         z.writestr("productos.csv", prod)
         z.writestr("comercio.csv", com)
+        z.writestr("sucursales.csv", suc)
     grupos, cuenta = {}, {"filas": 0}
     leer_comercio(zipfile.ZipFile(buf), grupos, cuenta)
-    assert cuenta["filas"] == 6, cuenta
+    assert cuenta["filas"] == 6 and cuenta["sin_provincia"] == 1, cuenta
     filas, sin_precio, descartados = agregar("2026-11-02", grupos)
     assert sin_precio == 1 and descartados == 0  # Gulf solo con precio 0: no se escribe, se cuenta
     assert len(filas) == 2, filas
@@ -224,6 +241,23 @@ def demo():
     assert hiper["precio"] == "80500.00" and hiper["sucursal"] == "n=3;min=79999.00;max=82990.00", hiper
     assert hiper["vendedor"] == "Hipermercado Carrefour" and hiper["fuente"] == "sepa"
     assert market["vendedor"] == "Carrefour Market" and market["sucursal"].startswith("n=1;")
+    assert hiper["provincia"] == "AR-B" and market["provincia"] == ""  # provincia no mapeable → vacío, nunca adivinada
+
+    # dos sucursales de la misma bandera en provincias distintas → dos filas, cada una con su mediana
+    prod2 = "\n".join([cab, "10|1|1|7790968914633|1|ACEITE ELAION MI 1540 X 4|1|UNI|ELAION|80000.00|||||||",
+                        "10|1|2|7790968914633|1|ACEITE ELAION MI 1540 X 4|1|UNI|ELAION|90000.00|||||||",
+                        "10|1|3|7790968914633|1|ACEITE ELAION MI 1540 X 4|1|UNI|ELAION|92000.00|||||||"])
+    buf2 = io.BytesIO()
+    with zipfile.ZipFile(buf2, "w") as z:
+        z.writestr("productos.csv", prod2)
+        z.writestr("comercio.csv", com)
+        z.writestr("sucursales.csv", "\n".join([scab, "10|1|1|a|Córdoba", "10|1|2|b|AR-C", "10|1|3|c|AR-C"]))
+    g2 = {}
+    leer_comercio(zipfile.ZipFile(buf2), g2, {"filas": 0})
+    f4 = agregar("2026-11-02", g2)[0]
+    assert [(f["provincia"], f["precio"], f["sucursal"]) for f in f4] == [
+        ("AR-C", "91000.00", "n=2;min=90000.00;max=92000.00"), ("AR-X", "80000.00", "n=1;min=80000.00;max=80000.00")], f4
+    assert OBS_F[-1] == "provincia" and set(f4[0]) == set(OBS_F)
 
     # filtro YPF: solo se escribe lo relacionado; lo demás se cuenta
     f2, sp2, d2 = agregar("2026-11-02", grupos, {filas[0]["producto_id"]} - {""})

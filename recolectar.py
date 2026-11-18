@@ -18,12 +18,12 @@ from datetime import datetime, timedelta, timezone
 
 import ml
 import tiendas
-from normalizar import normalizar, texto
+from normalizar import ONLINE, normalizar, texto
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(AQUI, "data")
 
-OBS = "fecha,fuente,url,ean,titulo,marca,precio,precio_lista,stock,vendedor,sucursal,litros,unidades,producto_id,match".split(",")
+OBS = "fecha,fuente,url,ean,titulo,marca,precio,precio_lista,stock,vendedor,sucursal,litros,unidades,producto_id,match,provincia".split(",")  # única definición: sepa.py y server.py la importan
 FUENTES = "fecha,fuente,http,n_items,n_con_precio,n_sin_stock,n_sin_match,error,n_descartados".split(",")
 IMAGENES = "producto_id,url,fuente,fecha".split(",")
 OFERTA = "fecha,categoria_id,categoria,total_items".split(",")
@@ -101,7 +101,8 @@ def a_obs(fuente, fecha, avisos, rel=None, imgs=None):
                           stock="" if stock is None else int(stock), vendedor=a.get("vendedor", ""),
                           sucursal="", litros=num(a["litros"] if "litros" in a else n["litros"]),
                           unidades=a.get("unidades") or n["unidades"],  # caja/tambor mayorista: el aviso manda
-                          producto_id=n["producto_id"], match=n["match"]))
+                          producto_id=n["producto_id"], match=n["match"],
+                          provincia=ONLINE))  # VTEX, Shopify, Tiendanube y ML: e-commerce nacional, nunca la casa central
     return filas, sin_stock, sum(1 for f in filas if not f["producto_id"]), descartados
 
 
@@ -330,6 +331,7 @@ def demo():
     filas, sin_stock, _, desc = a_obs("vtex_x", "2026-11-03", avisos)
     assert sin_stock == 2 and len(filas) == 2 and desc == 0, (sin_stock, filas)
     assert filas[0]["precio"] == "159999" and filas[0]["litros"] == "4" and filas[0]["stock"] == 1
+    assert all(f["provincia"] == "online" for f in filas) and "provincia" in OBS and OBS[-1] == "provincia"
     assert filas[1]["stock"] == "" and filas[1]["precio_lista"] == "10560" and filas[1]["marca"] == "Gulf"
     assert extracto({"errors": [{"message": "x\ny"}, {"message": "z"}]}) == "x y; z"
     assert extracto("<html>\n  <b>Just a moment</b>").startswith("<html> <b>Just") and len(extracto("a" * 300)) == 120
