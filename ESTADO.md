@@ -2,6 +2,14 @@
 
 Actualizado 2026-11-18 (export a Power BI; modelos 3D con Blender y modo presentación con GLB; Brasil; antes: mercado: share de la SE y series de datos.gob.ar). Remoto privado `noguerafran-alt/LUBRICANTES`; la Action corre a diario.
 
+## ¿Dónde perdemos share? (2026-11-18, rama lub-share-se)
+- **API**: `/api/mercado/perdidas` (descomposición exacta share + mercado de la variación de YPF por segmento producto × canal × provincia, ranking por m3 perdidos por share con piso de volumen, «con quién» por empresa del segmento, agregados por producto/canal/provincia/competidor) y `/api/mercado/filas` (CSV con BOM de las filas de `energia.csv` detrás de cada número). Contrato en `CLAUDE.md`, sección Mercado.
+- **Pestaña Mercado**: sección nueva «¿Dónde perdemos share?» con selectores producto/canal/provincia/ventana/piso, frase resumen, «con quién» con los avisos al lado, tabla clickeable con detalle (descomposición, competidores, serie mensual), agregados y bloque «De dónde sale cada número» con links.
+- **Links verificados con curl (200)**: dataset, recurso y CSV en datos.energia.gob.ar. Res. SE 1104/2004 va como texto (no se encontró URL oficial que responda). Agregados a `docs/relevamiento/mercado.md`.
+- **Verificado**: asserts en `server.demo()` (identidad, nulos, entró/salió, Grasas en Ton, filas, 401/400/404); con los datos reales la identidad da 0 desvíos en 207 celdas; Chrome headless a 1280 y 375 px sin desborde horizontal (la tabla scrollea dentro de su caja). Dato real: automotrices 12 m, YPF 34,5 % → 37,3 % (+4.195 m3 por share en el agregado), pero pierde 1.310 m3 sumando solo las celdas donde cae (cambio de mezcla).
+- **No verificado**: con la clave real (se probó sin clave local); la Action a mano (no se corrió).
+- **Límites**: el piso de volumen (50 / 5) es un criterio mío, ajustable con `?min=`; el share es solo entre declarantes y por empresa, no por marca.
+
 ## Export a Power BI y hora de captura (2026-11-18, rama lub-powerbi)
 - **`capturado`**: columna nueva al final de `data/obs` (`recolectar.OBS`), ISO 8601 UTC. La estampan `a_obs` (todas las fuentes, incluidas ML y Brasil) y `sepa.agregar`; en Grok es la hora del POST (`cargado`), copiada por `server.integrar_grok`. El histórico queda con la columna vacía (no se reescribe ni se deriva una hora); los lectores aceptan archivos con y sin ella. El archivo de cada mes gana la columna en la próxima escritura.
 - **`/api/bi/{precios,productos,equivalencias,fuentes,provincias}`**: CSV UTF-8 con BOM, mismo Basic Auth. Reusan `canal`, `precio_litro`, `con_usd`/`tabla_fx`, `normalizar.SUBDIVISIONES/REGIONES`. `precios` lleva `?desde=AAAA-MM-DD`. Grok entra con su columna `verificado` (criterio de `/api/reventa`: se marca, no se oculta), no se excluye el `0`.
