@@ -4,3 +4,5 @@ __pycache__/
 tmp/
 .ml_refresh_nuevo
 .ml_local
+.sepa_pc
+sepa_pc.log
