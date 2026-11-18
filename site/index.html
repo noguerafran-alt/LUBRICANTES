@@ -1580,11 +1580,21 @@ function fraseResumen(r) {
   const f = r.foco, u = r.unidad, nom = (PRODUCTOS_SE[PD.producto] || "").toLowerCase();
   const donde = (PD.canal || PD.provincia) ? ` (${[PD.canal, PD.provincia].filter(Boolean).join(", ")})` : "";
   if (!f || f.estado === "sin dato" || f.estado === "sin dato YPF") return `En ${nom}${donde} no hay datos de YPF en los dos períodos (${f?.ypf_flag || "sin dato"}): no se calcula la pérdida.`;
-  const g = f.ganadores[0], ef = f.efecto_share;
-  return `En ${nom}${donde}, ${vistaVent(r.ventana)}, YPF ${ef < 0 ? "perdió" : "ganó"} ${num(Math.abs(ef))} ${u} por share (de ${pct(f.s_t0)} a ${pct(f.s_t)})`
-    + ` y el mercado ${f.efecto_mercado < 0 ? "restó" : "sumó"} ${num(Math.abs(f.efecto_mercado))} ${u}`
-    + (g ? `; el mayor ganador fue ${g.empresa} (${pp(g.delta_pp)}, ${m3s(g.m3_eq, u)}).` : "; ningún competidor que declara ganó share en ese segmento.")
-    + (r.perdido_por_share_m3 < 0 ? ` Sumando solo las celdas canal × provincia donde YPF pierde: ${num(Math.abs(r.perdido_por_share_m3))} ${u}.` : "");
+  const ef = f.efecto_share, una = !!(PD.canal && PD.provincia), vent = vistaVent(r.ventana);
+  const perd = r.segmentos.filter(s => s.estado === "ok" && s.efecto_share < 0);
+  const partes = [];
+  if (perd.length) {
+    partes.push(`En ${nom}${donde}, ${vent}, YPF pierde ${num(Math.abs(r.perdido_por_share_m3))} ${u} por share`
+      + (una ? " en ese canal y provincia." : `, sumando ${perd.length === 1 ? "1 segmento" : perd.length + " segmentos"} canal × provincia.`));
+    const cs = r.por_competidor.filter(c => c.ganado_donde_ypf_pierde_m3 > 0).slice(0, 3);
+    if (cs.length) partes.push(`Se lo llevan sobre todo ${cs.map(c => `${c.empresa} (${num(c.ganado_donde_ypf_pierde_m3)} ${u})`).join(", ")}.`);
+    if (!una) partes.push(`Donde más pierde: ${perd.slice(0, 3).map(s => `${s.canal}, ${s.provincia} (${num(Math.abs(s.efecto_share))} ${u})`).join("; ")}.`);
+  } else partes.push(`En ${nom}${donde}, ${vent}: en las celdas con datos YPF no pierde share.`);
+  if (una && perd.length) partes.push(`Share de ${pct(f.s_t0)} a ${pct(f.s_t)}; el mercado ${f.efecto_mercado < 0 ? "restó" : "sumó"} ${num(Math.abs(f.efecto_mercado))} ${u}.`);
+  else partes.push(`En el total del filtro YPF ${ef < 0 ? "pierde" : "gana"} ${num(Math.abs(ef))} ${u} por share (de ${pct(f.s_t0)} a ${pct(f.s_t)})`
+    + (perd.length && ef >= 0 && !una ? ": la diferencia con las celdas es cambio de mezcla entre segmentos" : "")
+    + `; el mercado ${f.efecto_mercado < 0 ? "restó" : "sumó"} ${num(Math.abs(f.efecto_mercado))} ${u}.`);
+  return partes.join(" ");
 }
 
 function filasTabla(segs, r) {
