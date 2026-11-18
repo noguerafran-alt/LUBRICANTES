@@ -24,7 +24,7 @@ from normalizar import ONLINE, SUBDIVISIONES, normalizar, pais_producto, texto
 AQUI = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(AQUI, "data")
 
-OBS = "fecha,fuente,url,ean,titulo,marca,precio,precio_lista,stock,vendedor,sucursal,litros,unidades,producto_id,match,provincia,pais,moneda".split(",")  # única definición: sepa.py y server.py la importan
+OBS = "fecha,fuente,url,ean,titulo,marca,precio,precio_lista,stock,vendedor,sucursal,litros,unidades,producto_id,match,provincia,pais,moneda,capturado".split(",")  # única definición: sepa.py y server.py la importan
 FUENTES = "fecha,fuente,http,n_items,n_con_precio,n_sin_stock,n_sin_match,error,n_descartados".split(",")
 IMAGENES = "producto_id,url,fuente,fecha".split(",")
 OFERTA = "fecha,categoria_id,categoria,total_items".split(",")
@@ -95,6 +95,11 @@ def relacionados(raiz=AQUI):
     return ypf | {e["comp_id"] for e in leer(os.path.join(raiz, "seed", "equivalencias.csv"))}
 
 
+def ahora_utc():
+    """Hora de captura de una fila nueva (ISO 8601 UTC). Las filas viejas quedan con `capturado` vacío: nunca se deriva una hora."""
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 def pais_fuente(fuente):
     """(pais, moneda) en que publica una fuente: las de Brasil llevan `_br_` en el nombre; todo lo demás es AR/ARS."""
     return ("BR", "BRL") if "_br_" in fuente else ("AR", "ARS")
@@ -107,6 +112,7 @@ def a_obs(fuente, fecha, avisos, rel=None, imgs=None):
     Un aviso puede traer su propia `fecha` (nota fiscal), `sucursal` y `provincia`; si no, vale la de la corrida y `online`."""
     filas, sin_stock, descartados = [], 0, 0
     pais, moneda = pais_fuente(fuente)
+    capturado = ahora_utc()
     for a in avisos:
         stock = a.get("stock")
         if stock == 0 or not a["precio"] or float(a["precio"]) <= 0:
@@ -125,7 +131,7 @@ def a_obs(fuente, fecha, avisos, rel=None, imgs=None):
                           unidades=a.get("unidades") or n["unidades"],  # caja/tambor mayorista: el aviso manda
                           producto_id=n["producto_id"], match=n["match"],
                           provincia=a.get("provincia", ONLINE),  # VTEX, Shopify, Tiendanube y ML: e-commerce nacional, nunca la casa central
-                          pais=pais, moneda=moneda))
+                          pais=pais, moneda=moneda, capturado=capturado))
     return filas, sin_stock, sum(1 for f in filas if not f["producto_id"]), descartados
 
 
@@ -473,7 +479,8 @@ def demo():
     filas, sin_stock, _, desc = a_obs("vtex_x", "2026-11-03", avisos)
     assert sin_stock == 2 and len(filas) == 2 and desc == 0, (sin_stock, filas)
     assert filas[0]["precio"] == "159999" and filas[0]["litros"] == "4" and filas[0]["stock"] == 1
-    assert all(f["provincia"] == "online" and f["pais"] == "AR" and f["moneda"] == "ARS" for f in filas) and OBS[-3:] == ["provincia", "pais", "moneda"]
+    assert all(f["provincia"] == "online" and f["pais"] == "AR" and f["moneda"] == "ARS" for f in filas) and OBS[-4:] == ["provincia", "pais", "moneda", "capturado"]
+    assert all(re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ", f["capturado"]) for f in filas)
     # ---- Brasil ----
     assert pais_fuente("vtex_br_pitstop") == ("BR", "BRL") and pais_fuente("oficial_br_notaparana") == ("BR", "BRL") and pais_fuente("vtex_jumbo") == ("AR", "ARS")
     # VTEX Brasil: relleno 100/99999 = stock vacío; stock 0 = sin stock; lotes/kits fuera; dedupe por itemId entre términos; 24X1L = 24 × 1 L
