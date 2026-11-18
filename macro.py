@@ -2,6 +2,7 @@
 
 python macro.py series    # baja las ids de seed/macro_series.csv -> data/macro/series.csv (largo: fecha,id,valor,signo)
 python macro.py energia   # CSV de ~770 MB en streaming -> data/macro/energia.csv (mes,empresa,producto,canal,provincia,cantidad)
+python macro.py fx        # dólar PTAX del Banco Central do Brasil -> data/fx.csv (fecha,moneda,por_usd,fuente); ARS sale de series.csv
 python macro.py test
 Una fuente que falla no escribe datos: queda registrada en data/fuentes.csv (macro_series, macro_<id>, macro_energia).
 """
@@ -23,6 +24,13 @@ AQUI = os.path.dirname(os.path.abspath(__file__))
 MACRO = os.path.join(AQUI, "data", "macro")
 SEED = os.path.join(AQUI, "seed", "macro_series.csv")
 FUENTES_CSV = os.path.join(AQUI, "data", "fuentes.csv")
+FX_CSV = os.path.join(AQUI, "data", "fx.csv")
+FX_F = ["fecha", "moneda", "por_usd", "fuente"]
+# Fechas en MM-DD-AAAA. La Action corre a las 06:00 ART y la PTAX del día sale después de las 13 h: se pide una ventana para
+# recuperar los días que una corrida se salteó (reemplazar es idempotente por fecha+moneda).
+PTAX_URL = ("https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarPeriodo(dataInicial=@dataInicial,"
+            "dataFinalCotacao=@dataFinalCotacao)?@dataInicial='{d}'&@dataFinalCotacao='{h}'&$format=json")
+FX_VENTANA_DIAS = 10
 
 SERIES_URL = "https://apis.datos.gob.ar/series/api/series/"
 LIMITE = 5000  # la API corta ahí; el tipo de cambio diario lo supera y se pagina con start=
@@ -244,8 +252,64 @@ def energia(hoy=None):
     return fila
 
 
+def filas_ptax(cuerpo):
+    """JSON de CotacaoDolarPeriodo → filas de fx.csv: una por fecha de dataHoraCotacao (si hay más de un boletín, el último), BRL por USD
+    = cotacaoVenda. Un día sin cotización no aparece (nunca se arrastra el anterior)."""
+    por_fecha = {}
+    for v in json.loads(cuerpo).get("value", []):
+        dh, venta = v.get("dataHoraCotacao") or "", v.get("cotacaoVenda")
+        if len(dh) >= 10 and isinstance(venta, (int, float)) and venta > 0 and dh >= por_fecha.get(dh[:10], ("",))[0]:
+            por_fecha[dh[:10]] = (dh, venta)
+    return [dict(fecha=f, moneda="BRL", por_usd=f"{v:.5f}".rstrip("0").rstrip("."), fuente="bcb_ptax") for f, (_, v) in sorted(por_fecha.items())]
+
+
+def fx(hoy=None):
+    """Baja la PTAX de los últimos FX_VENTANA_DIAS días a data/fx.csv. Si la fuente falla no escribe nada y lo deja en fuentes.csv (fx_bcb_ptax)."""
+    hoy = hoy or datetime.now(timezone(timedelta(hours=-3))).date()
+    fila = dict(fecha=hoy.isoformat(), fuente="fx_bcb_ptax", http="", n_items=0, n_con_precio=0, n_sin_stock=0, n_sin_match=0,
+                n_descartados=0, error="")
+    try:
+        mdy = lambda d: d.strftime("%m-%d-%Y")
+        fila["http"], cuerpo = pedir(PTAX_URL.format(d=mdy(hoy - timedelta(days=FX_VENTANA_DIAS)), h=mdy(hoy)))
+        filas = filas_ptax(cuerpo)
+        fila["n_items"] = len(filas)
+        if not filas:
+            raise ValueError(f"sin cotizaciones en los últimos {FX_VENTANA_DIAS} días")
+        recolectar.reemplazar(FX_CSV, FX_F, filas, lambda f: (f["fecha"], f["moneda"]))
+        fila["n_con_precio"] = len(filas)
+        print(f"fx bcb_ptax: {len(filas)} cotizaciones, última {filas[-1]['fecha']} = {filas[-1]['por_usd']} BRL/USD", flush=True)
+    except Exception as e:  # sin escribir nada: lo que ya había queda
+        fila["error"] = f"{type(e).__name__}: {e}"[:200]
+        print("fx bcb_ptax FALLÓ:", fila["error"], flush=True)
+    recolectar.escribir_fuentes(FUENTES_CSV, [fila])
+    return fila
+
+
 def demo():
     import tempfile
+    # PTAX: una fila por fecha (el último boletín del día), cotacaoVenda, fecha de dataHoraCotacao; sin día sin cotización
+    ej = json.dumps({"value": [
+        {"cotacaoCompra": 5.78450, "cotacaoVenda": 5.78510, "dataHoraCotacao": "2026-11-17 13:07:26.01516"},
+        {"cotacaoCompra": 5.5, "cotacaoVenda": 5.5, "dataHoraCotacao": "2026-11-16 10:00:00.0"},
+        {"cotacaoCompra": 5.7, "cotacaoVenda": 5.73240, "dataHoraCotacao": "2026-11-16 13:06:32.509132"},
+        {"cotacaoCompra": 0, "cotacaoVenda": None, "dataHoraCotacao": "2026-11-15 13:00:00.0"}]})
+    assert filas_ptax(ej) == [dict(fecha="2026-11-16", moneda="BRL", por_usd="5.7324", fuente="bcb_ptax"),
+                              dict(fecha="2026-11-17", moneda="BRL", por_usd="5.7851", fuente="bcb_ptax")], filas_ptax(ej)
+    assert filas_ptax('{"value": []}') == [] and "11-10-2026" in PTAX_URL.format(d="11-10-2026", h="11-18-2026")
+    global FX_CSV, FUENTES_CSV, pedir, MACRO, SEED, bajar_serie
+    raiz0 = tempfile.mkdtemp()
+    FX_CSV, FUENTES_CSV, pedir0 = os.path.join(raiz0, "fx.csv"), os.path.join(raiz0, "fuentes.csv"), pedir
+    try:
+        pedir = lambda url, timeout=60: (200, ej.encode())
+        assert fx(date(2026, 11, 18))["error"] == ""
+        pedir = lambda url, timeout=60: (200, ej.replace("5.7851", "5.8").encode())
+        fx(date(2026, 11, 18))  # idempotente: la misma fecha+moneda se reemplaza, no se duplica
+        assert [(r["fecha"], r["por_usd"]) for r in recolectar.leer(FX_CSV)] == [("2026-11-16", "5.7324"), ("2026-11-17", "5.8")]
+        pedir = lambda url, timeout=60: (_ for _ in ()).throw(OSError("caído"))
+        assert "caído" in fx(date(2026, 11, 19))["error"] and len(recolectar.leer(FX_CSV)) == 2  # caída = no escribe, no arrastra
+        assert "fx_bcb_ptax" in {r["fuente"] for r in recolectar.leer(FUENTES_CSV)}
+    finally:
+        pedir = pedir0
     # null de datos.gob.ar → '...' y nunca 0; los valores no se reformatean
     assert a_largo("x", [("2026-01-01", "1.5"), ("2026-02-01", "")]) == [
         {"fecha": "2026-01-01", "id": "x", "valor": "1.5", "signo": ""}, {"fecha": "2026-02-01", "id": "x", "valor": "", "signo": "..."}]
@@ -278,7 +342,6 @@ def demo():
     except ValueError as e:
         assert "encabezado" in str(e)
     # series(): sin red, una serie vacía no rompe a las otras, conserva su historia y deja su fila en fuentes
-    global MACRO, SEED, FUENTES_CSV, bajar_serie
     raiz = tempfile.mkdtemp()
     MACRO, SEED, FUENTES_CSV = os.path.join(raiz, "macro"), os.path.join(raiz, "seed.csv"), os.path.join(raiz, "fuentes.csv")
     with open(SEED, "w", encoding="utf-8") as f:
@@ -302,4 +365,4 @@ def demo():
 
 
 if __name__ == "__main__":
-    {"series": series, "energia": energia, "test": demo}.get(sys.argv[1] if len(sys.argv) > 1 else "", lambda: sys.exit(__doc__))()
+    {"series": series, "energia": energia, "fx": fx, "test": demo}.get(sys.argv[1] if len(sys.argv) > 1 else "", lambda: sys.exit(__doc__))()

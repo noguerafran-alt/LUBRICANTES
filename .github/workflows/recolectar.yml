@@ -54,6 +54,10 @@ jobs:
       - name: Series de mercado
         if: always()
         run: python macro.py series
+      # Dólar PTAX del BCB (BRL por USD) para mostrar Brasil en USD. Ventana de 10 días: la del día sale después de las 13 h. Si cae, queda en fuentes.csv.
+      - name: Tipo de cambio (BCB PTAX)
+        if: always()
+        run: python macro.py fx
       - name: Comitear data/
         if: always()
         run: |

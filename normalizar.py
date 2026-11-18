@@ -18,7 +18,7 @@ MARCAS = [  # (canónica, regex sobre texto normalizado). El orden importa: gana
     ("Elf", r"\belf\b"),
     ("TotalEnergies", r"\b(totalenergies|total|quartz|rubia)\b"),
     ("Gulf", r"\bgulf\b"),
-    ("Petronas", r"\b(petronas|syntium|urania)\b"),
+    ("Petronas", r"\b(petronas|syntium|urania|selenia)\b"),
     ("Motul", r"\bmotul\b"),
     ("Bardahl", r"\bbardahl\b"),
     ("Puma", r"\bpuma\b"),
@@ -26,6 +26,9 @@ MARCAS = [  # (canónica, regex sobre texto normalizado). El orden importa: gana
     ("Pennzoil", r"\b(pennzoil|penzzoil)\b"),
     ("Liqui Moly", r"\bliqui\s*moly\b"),
     ("Goodyear", r"\bgoodyear\b"),
+    ("Lubrax", r"\b(lubrax|petrobras)\b"),  # Brasil; al final: no cambia el orden de las marcas argentinas
+    ("Ipiranga", r"\bipiranga\b"),
+    ("Texaco", r"\b(texaco|havoline)\b"),
 ]
 
 # Sin \b adelante del número de verano: "15w501l" (ChangoMás) pega SAE y litros.
@@ -66,9 +69,24 @@ _PROV_TEXTO.update({"capital federal": "AR-C", "caba": "AR-C", "ciudad de buenos
                     "tierra del fuego, antartida e islas del atlantico sur": "AR-V"})
 
 
-def provincia_iso(v):
-    """Código ISO, nombre de provincia o 'online' → ISO (o 'online'). Lo que no mapea → '' (nunca se adivina)."""
+# Subdivisiones ISO 3166-2 de los países que no son AR (solo las que hacen falta: hoy Brasil, por Nota Paraná).
+ESTADOS_BR = {"BR-" + uf: uf for uf in "AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO".split()}
+SUBDIVISIONES = {"AR": PROVINCIAS, "BR": ESTADOS_BR}
+
+
+def pais_producto(pid):
+    """País de un producto del seed: el sufijo `-br` es Brasil; todo lo demás es Argentina (convención de seed/productos.csv)."""
+    return "BR" if (pid or "").endswith("-br") else "AR"
+
+
+def provincia_iso(v, pais="AR"):
+    """Código ISO, nombre de provincia o 'online' → ISO (o 'online'). Lo que no mapea → '' (nunca se adivina).
+    Fuera de AR solo vale el código ISO 3166-2 de ESE país (BR-PR con pais=BR; con pais=AR no)."""
     v = (v or "").strip()
+    if pais != "AR":
+        if v.lower() == ONLINE:
+            return ONLINE
+        return v.upper() if v.upper() in SUBDIVISIONES.get(pais, {}) else ""
     if v.upper() in PROVINCIAS:
         return v.upper()
     if v.lower() == ONLINE:
@@ -114,7 +132,7 @@ def cargar(ruta_alias=None, ruta_productos=None):
                     eans[r["valor"].strip().lstrip("0")] = r["producto_id"]
                 elif r["tipo"] == "texto" and r["producto_id"] in prod:
                     p = prod[r["producto_id"]]
-                    textos.append((re.compile(r["valor"]), r["producto_id"], p["marca"], p["sae"]))
+                    textos.append((re.compile(r["valor"]), r["producto_id"], p["marca"], p["sae"], pais_producto(r["producto_id"])))
     return {"ean": eans, "texto": textos, "sae": {k: v["sae"] for k, v in prod.items()}}
 
 
@@ -131,7 +149,9 @@ def url_contradice(t, sae, litros, url):
     return bool(m and litros is not None and float(m[1].replace(",", ".")) != litros)
 
 
-def normalizar(titulo, marca_vtex="", ean="", reglas=None, url=""):
+def normalizar(titulo, marca_vtex="", ean="", reglas=None, url="", pais="AR"):
+    """`pais`: el texto solo matchea productos de ese país (un alias de texto argentino no atribuye un aviso brasileño ni al revés);
+    el EAN es explícito y vale en cualquiera."""
     global _REGLAS
     if reglas is None:
         if _REGLAS is None:
@@ -151,8 +171,8 @@ def normalizar(titulo, marca_vtex="", ean="", reglas=None, url=""):
     if len(por_ean) == 1:
         pid, match = por_ean.pop(), "ean"
     elif marca:
-        cand = {p for rx, p, pm, ps in reglas["texto"]
-                if g(pm) == g(marca) and (not sae or ps == sae) and rx.search(t)}
+        cand = {p for rx, p, pm, ps, pp in reglas["texto"]
+                if pp == pais and g(pm) == g(marca) and (not sae or ps == sae) and rx.search(t)}
         if len(cand) == 1:
             pid, match = cand.pop(), "texto"
 
@@ -306,6 +326,13 @@ def demo():
     assert m("Aceite Valvoline Advanced Sintetico 5w20 4.73 Lts", "Valvoline") == "valvoline-advanced-5w20"
     assert m("Motul 4100 10w40 X4lt Semi-sintetico", "Motul") == "motul-4100-10w40"
     assert m("Aceite Shell Helix Ultra 0w30 Vw 504.00 507.00", "Shell") == ""
+    # Brasil: provincia = ISO 3166-2 de ESE país; BR-PR no vale como provincia argentina ni AR-X como brasileña; el texto respeta el país.
+    assert provincia_iso("BR-PR", "BR") == "BR-PR" and provincia_iso("br-sp", "BR") == "BR-SP" and provincia_iso("online", "BR") == "online"
+    assert provincia_iso("BR-PR") == "" and provincia_iso("AR-X", "BR") == "" and provincia_iso("Parana", "BR") == "" and provincia_iso("BR-XX", "BR") == ""
+    assert pais_producto("ypf-elaion-f50j-5w30-br") == "BR" and pais_producto("shell-helix-hx7-10w40") == "AR" and len(ESTADOS_BR) == 27
+    assert marca_de("Oleo Lubrax Valora") == "Lubrax" and marca_de("Petrobras") == "Lubrax" and marca_de("Texaco Havoline") == "Texaco"
+    assert marca_de("Oleo Ipiranga F1 Master") == "Ipiranga" and marca_de("Selenia Perform 5W30") == "Petronas" and marca_de("Elaion") == "YPF"
+    assert normalizar("Aceite Elaion FS 540 4 lts", "Elaion", "", R, pais="BR")["match"] == "none"  # un alias argentino no atribuye un aviso brasileño
     # Seed vacío (rutas inexistentes) → nunca matchea, no explota.
     assert normalizar("Aceite Elaion FS 540 4 lts", "Elaion", "", cargar(ra + "x", rp + "x"))["match"] == "none"
     print("OK")
