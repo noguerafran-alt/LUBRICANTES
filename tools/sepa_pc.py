@@ -1,13 +1,14 @@
-"""Fuentes desde la PC: SEPA, Nota Paraná y (cada 28 días) las ventas de la SE; pushea data/ a main.
+"""Fuentes desde la PC: SEPA y (cada 28 días) las ventas de la SE; pushea data/ a main.
 
-El portal de SEPA da 403 a las IP de datacenter (GitHub, Oracle) desde 2026-11-16; Nota Paraná devuelve 0 productos y datos.energia.gob.ar da timeout
-desde GitHub (2026-11-18). Desde una IP residencial responden. Corre en un CLON DEDICADO (reset --hard seguro) con el marcador `.sepa_pc` en la raíz.
+El portal de SEPA da 403 a las IP de datacenter (GitHub, Oracle) desde 2026-11-16; datos.energia.gob.ar da timeout
+desde GitHub (2026-11-18). Nota Paraná está pausada (datos señuelo, ver CLAUDE.md). Desde una IP residencial responden. Corre en un CLON DEDICADO (reset --hard seguro) con el marcador `.sepa_pc` en la raíz.
 Ciclo: fetch/reset -> pasos -> add data/ -> un commit -> push (3 intentos). Un paso que falla no frena a los demás; su fila de error igual se pushea.
 
 python tools/sepa_pc.py        # una corrida; log en sepa_pc.log; salida != 0 si falla algún paso
 python tools/sepa_pc.py test   # asserts sin red
 """
 import csv
+import os
 import subprocess
 import sys
 import tempfile
@@ -58,14 +59,14 @@ def actualizar(raiz):
 
 
 def paso(raiz, *cmd):
-    p = subprocess.run([sys.executable, *cmd], cwd=raiz, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    p = subprocess.run([sys.executable, *cmd], cwd=raiz, capture_output=True, text=True, encoding="utf-8", errors="replace",
+                       env={**os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1"})
     return p.returncode, (p.stdout + p.stderr).strip()
 
 
 def pasos(raiz):
     """[(nombre, función(raiz) -> (rc, texto))] de esta corrida; la SE solo si toca (se decide con data/ ya actualizado)."""
-    ps = [("sepa", lambda r: paso(r, "sepa.py")),
-          ("notaparana", lambda r: paso(r, "recolectar.py", "--solo", "oficial_br_notaparana"))]
+    ps = [("sepa", lambda r: paso(r, "sepa.py"))]  # Nota Paraná pausada desde 2026-11-18 (datos señuelo)
     if energia_vencida(raiz):
         ps.append(("energia", lambda r: paso(r, "macro.py", "energia")))
     return ps
@@ -112,7 +113,11 @@ def correr(raiz, armar=pasos):
 
 
 def demo():
-    assert mensaje_commit("2026-11-18", ["sepa", "notaparana"]) == "datos 2026-11-18: pc (sepa, notaparana)"
+    assert mensaje_commit("2026-11-18", ["sepa", "energia"]) == "datos 2026-11-18: pc (sepa, energia)"
+    with tempfile.TemporaryDirectory() as d:
+        assert [n for n, _ in pasos(d)] == ["sepa", "energia"]  # sin fuentes.csv la SE está vencida; Nota Paraná ya no va
+    rc, s = paso(RAIZ, "-c", "print('¿á�')")  # el subproceso escribe utf-8, no cp1252
+    assert rc == 0 and s == "¿á�", (rc, s)
     hoy = date(2026, 11, 18)
     cab = "fecha,fuente,http,n_items,n_con_precio,n_sin_stock,n_sin_match,error,n_descartados\n"
     with tempfile.TemporaryDirectory() as d:
@@ -166,8 +171,10 @@ def demo():
 
 
 if __name__ == "__main__":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # redirigido (Tarea programada) cae en cp1252 y print rompe con '¿'
     if sys.argv[1:] == ["test"]:
         demo()
+        print("¿á�")  # no debe romper con stdout redirigido
         sys.exit(0)
     rc, texto = correr(RAIZ)
     if hay_marcador(RAIZ):

@@ -49,7 +49,7 @@ PAISES = {"AR": ("Argentina", "ARS"), "BR": ("Brasil", "BRL")}
 MONEDA_DEFECTO = {"AR": "ARS", "BR": "BRL", "CL": "CLP", "UY": "UYU", "PY": "PYG", "BO": "BOB"}  # países del relevamiento de limítrofes
 MONEDAS = {"ARS", "BRL", "CLP", "UYU", "PYG", "BOB", "USD"}
 NOTAS_FUENTE = {
-    "oficial_br_notaparana": "con cautela: API interna no documentada, sin términos publicados (sin robots.txt: se tomó como permitido)",
+    "oficial_br_notaparana": "pausada desde 2026-11-18: la API devuelve datos señuelo al acceso automatizado; no se esquiva",
     "fx_bcb_ptax": "tipo de cambio oficial PTAX (venta) del Banco Central do Brasil: solo para mostrar en USD",
 }
 SITIOS_F = ["fuente", "host", "descripcion"]

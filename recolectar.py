@@ -304,6 +304,11 @@ def avisos_np(productos, vistos=None):
     return out
 
 
+def es_senuelo(ps):
+    """True si la mayoría de la página no trae NCM de 8 dígitos: Nota Paraná sirve datos señuelo (ncm de 9 dígitos, gtin '0') al acceso automatizado."""
+    return bool(ps) and sum(not re.fullmatch(r"\d{8}", str(p.get("ncm") or "")) for p in ps) * 2 > len(ps)
+
+
 def notaparana():
     """→ (http, avisos, error). Pagina cada término por offset (suma lo devuelto: las páginas se solapan y `total` cuenta repetidas),
     deduplica por id y corta en la página vacía o en NP_TOPE_PAGINAS. Sin robots.txt (404) = permitido."""
@@ -317,6 +322,8 @@ def notaparana():
             if not isinstance(d, dict):
                 return http, [], f"HTTP {http} en termo={t} offset={o}"
             ps = d.get("produtos") or []
+            if es_senuelo(ps):  # no se esquiva ni se sigue paginando: se corta en la primera página
+                return http, [], "respuesta señuelo: la API bloquea el acceso automatizado"
             avisos += avisos_np(ps, vistos)
             o, paginas = o + len(ps), paginas + 1
             if not ps or o >= (d.get("total") or 0):
@@ -440,11 +447,13 @@ def correr(fuente, fecha, rel=None, imgs=None):
 # Fuentes que bloquean IP de datacenter: las corre tools/sepa_pc.py desde la PC. En GitHub Actions el recorrido por defecto las saltea
 # (así no escriben una fila de error que el visor mostraría como caída aunque la PC la traiga); `--solo` las corre igual.
 FUENTES_PC = {"oficial_br_notaparana"}
+# Pausadas: fuera del recorrido por defecto en todos lados; `--solo` las corre para probar a mano.
+PAUSADAS = {"oficial_br_notaparana"}  # desde 2026-11-18: la API devuelve datos señuelo al acceso automatizado; no se esquiva
 
 
 def fuentes_por_defecto(env=os.environ):
     todas = ["ypf_gql", *VTEX, *tiendas.SHOPIFY, *tiendas.TIENDANUBE, "oficial_br_notaparana", "ml_cat", "ml"]
-    return [f for f in todas if not (env.get("GITHUB_ACTIONS") == "true" and f in FUENTES_PC)]
+    return [f for f in todas if f not in PAUSADAS and not (env.get("GITHUB_ACTIONS") == "true" and f in FUENTES_PC)]
 
 
 def main(args):
@@ -487,7 +496,8 @@ def demo():
               dict(url="u", ean="", titulo="Aceite Elaion mi 1540 x 1 lt", marca_cruda="Elaion", precio=0.0, precio_lista="", stock=0, vendedor="C"),
               dict(url="u", ean="", titulo="Lubricante Helix Hx7 X1l", marca_cruda="SHELL", precio=66.29, precio_lista="", stock=0, vendedor="J"),
               dict(url="u", ean="", titulo="Aceite Gulf max 20w-50 x 1l", marca_cruda="Gulf", precio=10560.0, precio_lista=10560.0, stock=None, vendedor="C")]
-    assert "oficial_br_notaparana" in fuentes_por_defecto({}) and "oficial_br_notaparana" not in fuentes_por_defecto({"GITHUB_ACTIONS": "true"})
+    assert "oficial_br_notaparana" not in fuentes_por_defecto({}) and "oficial_br_notaparana" not in fuentes_por_defecto({"GITHUB_ACTIONS": "true"})
+    assert es_senuelo([dict(ncm="320096897", desc="ELAION", gtin="0")] * 3) and not es_senuelo([dict(ncm="27101932"), dict(ncm="34011190")]) and not es_senuelo([])
     assert "ml" in fuentes_por_defecto({"GITHUB_ACTIONS": "true"})
     filas, sin_stock, _, desc = a_obs("vtex_x", "2026-11-03", avisos)
     assert sin_stock == 2 and len(filas) == 2 and desc == 0, (sin_stock, filas)
