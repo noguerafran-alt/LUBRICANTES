@@ -1426,7 +1426,13 @@ function pintarShare() {
     fmt: pct, fmtEje: v => dec1.format(v * 100) + " %", series: orden.map(e => ({ nombre: info[e.empresa].nombre, color: info[e.empresa].color })),
     filas: meses.map((m, i) => ({ x: m, v: orden.map(e => esNum(e.serie?.[i]) ? e.serie[i] : null) })),
     fuente: "Secretaría de Energía, Res. SE 1104 (datos.energia.gob.ar)", links: [["Dataset de la Secretaría de Energía", DATASET_SE]], csv,
-    nota: `Se muestran los últimos ${meses.length} meses; el CSV trae la serie mensual completa de todas las empresas. Una empresa sin fila ese mes queda como hueco (no declaró), no es 0.` });
+    // serie completa (desde el primer mes del archivo) con las mismas empresas que la tarjeta; mientras llega se ven los 36 meses
+    completar: async () => {
+      const q = `mercado/share?completo=1&producto=${encodeURIComponent(M.producto)}${M.canal ? "&canal=" + encodeURIComponent(M.canal) : ""}`;
+      const c = AMP.cache[q] ??= await api(q);
+      return c.meses.map((m, i) => ({ x: m, v: orden.map(e => { const f = c.empresas.find(z => z.empresa === e.empresa); return esNum(f?.serie[i]) ? f.serie[i] : null; }) }));
+    },
+    nota: `Serie mensual completa desde ${mesCorto(meses[0])} si la carga termina; el CSV trae todas las empresas. Se muestran las mismas empresas que la tarjeta (las demás, en Otras). Una empresa sin fila ese mes queda como hueco (no declaró), no es 0.` });
   const datos = `<details><summary>Ver los datos</summary><div class="tabla mk-datos"><table>
       <tr><th>Mes</th>${orden.map(e => `<th>${esc(info[e.empresa].nombre)}</th>`).join("")}<th>Total (${esc(unidad)})</th></tr>
       ${meses.map((m, i) => `<tr><td>${mesCorto(m)}</td>${orden.map(e => `<td class="n">${pct(e.serie?.[i])}</td>`).join("")}<td class="n">${esNum(s.total?.[i]) ? entero.format(Math.round(s.total[i])) : "..."}</td></tr>`).join("")}
@@ -1759,14 +1765,19 @@ function ampliar(sp) {
   if (!dlg.open) dlg.showModal();
   $("#dl").scrollTop = 0;
   ampActualizar();
-  if (id && !sp.completa) ampCompleta(sp);
+  if ((id || sp.completar) && !sp.completa) ampCompleta(sp);
 }
 
 async function ampCompleta(sp) {
   try {
-    const ser = AMP.cache[sp.macroId] ??= (await api("macro?ids=" + encodeURIComponent(sp.macroId)))[0].serie;
+    let nuevas;
+    if (sp.completar) nuevas = await sp.completar();
+    else {
+      const ser = AMP.cache[sp.macroId] ??= (await api("macro?ids=" + encodeURIComponent(sp.macroId)))[0].serie;
+      nuevas = ser.map(p => ({ x: p.fecha, v: [valorDe(p)], s: [p.signo] }));
+    }
     if (AMP.spec !== sp) return;
-    if (ser.length) sp.filas = ser.map(p => ({ x: p.fecha, v: [valorDe(p)], s: [p.signo] }));
+    if (nuevas.length) sp.filas = nuevas;
     sp.completa = true; ampPrep(sp);
     if (!AMP.elegido) AMP.rango = "5A";  // con las 60 filas de la tarjeta "5A" no entraba: al llegar la serie larga vuelve el rango por defecto
   } catch (e) {
@@ -1792,7 +1803,7 @@ function ampActualizar() {
   const cl = $("#dl-log"); cl.disabled = !logOk; cl.checked = AMP.log;
   $("#dl-log-t").textContent = logOk || !hay ? "Escala logarítmica" : "Escala logarítmica (no disponible: hay valores en cero o negativos)";
   if ($("#dl-mm")) $("#dl-mm").checked = !!AMP.mm;
-  $("#dl-aviso").textContent = sp.completa || !sp.macroId ? "" : sp.aviso || "Cargando la serie completa…";
+  $("#dl-aviso").textContent = sp.completa || !(sp.macroId || sp.completar) ? "" : sp.aviso || "Cargando la serie completa…";
   const nombres = sp.series.length;
   $("#dl-ejes").textContent = `Eje X: fecha (${sp.diario ? "diaria" : sp.trim ? "trimestral" : "mensual"}), de ${fechaInd(vis[0]?.x || "", sp.frec)} a ${fechaInd(vis.at(-1)?.x || "", sp.frec)}. Eje Y: ${sp.unidad || "valor"}${AMP.log ? ", escala logarítmica" : ""}.`;
   const prov = vis.some(f => f.s?.some(g => PROV.includes(g)));
@@ -1814,7 +1825,7 @@ function ampActualizar() {
     atar(el, g, $("#dl-tip"), $("#dl-vivo"));
   }
   const bloque = k => `<dl class="dl-stats">${ampStats(sp, vis, k).map(([t, v, n]) => `<div><dt>${esc(t)}</dt><dd>${v}${n ? `<small>${esc(n)}</small>` : ""}</dd></div>`).join("")}</dl>`;
-  $("#dl-stats").innerHTML = nombres === 1 ? bloque(0) : sp.series.map((se, k) => `<details${nombres <= 2 ? " open" : ""}><summary><i class="dl-sw" style="background:${se.color}"></i>${esc(se.nombre)}</summary>${bloque(k)}</details>`).join("");
+  $("#dl-stats").innerHTML = nombres === 1 ? bloque(0) : sp.series.map((se, k) => `<details${nombres <= 2 || k === 0 ? " open" : ""}><summary><i class="dl-sw" style="background:${se.color}"></i>${esc(se.nombre)}</summary>${bloque(k)}</details>`).join("");
 }
 $("#dl-x").addEventListener("click", () => $("#dl").close());
 $("#dl").addEventListener("click", e => { if (e.target === $("#dl")) $("#dl").close(); });  // clic en el fondo
