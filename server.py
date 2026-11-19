@@ -825,9 +825,9 @@ def share_filas(filas, canal=None):
 
 
 # ---------- dónde pierde share YPF: /api/mercado/perdidas y /api/mercado/filas ----------
-VENTANAS = ("12m", "mes")
+VENTANAS = ("12m", "mes", "anterior")
 # ponytail: piso de volumen por ventana (m3 o Ton, el mismo número para todos los productos); se cambia con ?min=
-MIN_DEFECTO = {"12m": 50.0, "mes": 5.0}
+MIN_DEFECTO = {"12m": 50.0, "mes": 5.0, "anterior": 5.0}
 TOP_GANADORES = 5
 FUENTE_PERDIDAS = {
     "dataset": "https://datos.energia.gob.ar/dataset/5bdc436c-60d4-4c86-98ab-59834d047700",
@@ -871,7 +871,7 @@ def segmento(filas, t, t0, minimo):
     b, mb = acumular(filas, t0)
     tt, t00 = sum(v[0] for v in a.values()), sum(v[0] for v in b.values())
     r = {"total_t": round(tt, 6), "total_t0": round(t00, 6), "meses_con_dato": {"t": len(ma), "t0": len(mb)},
-         "huecos": len(ma) < len(t) or len(mb) < len(t0), "ypf_t": None, "ypf_t0": None, "s_t": None, "s_t0": None, "delta_ypf": None,
+         "huecos": len(ma) < len(t) or len(mb) < len(t0), "ypf_t": None, "ypf_t0": None, "s_t": None, "s_t0": None, "delta_ypf": None, "diagnostico": None,
          "efecto_share": None, "efecto_mercado": None, "competidores": [], "entraron_salieron": []}
     if not tt or not t00:
         r["estado"] = "sin dato"
@@ -888,6 +888,8 @@ def segmento(filas, t, t0, minimo):
             ds = a[e][0] / tt - b[e][0] / t00
             r["competidores"].append({"empresa": e, "s_t": round(a[e][0] / tt, 6), "s_t0": round(b[e][0] / t00, 6), "delta_pp": round(ds * 100, 4),
                                       "m3_eq": round(ds * tt, 6), "meses_t": len(a[e][1]), "meses_t0": len(b[e][1])})
+        if st < s0:   # solo se diagnostica donde YPF pierde share; sale de los volúmenes, no se infiere nada más
+            r["diagnostico"] = ("Cayó el mercado y YPF cayó más" if tt < t00 else "YPF vendió menos" if yt < y0 else "El mercado creció y YPF no acompañó")
         r["competidores"].sort(key=lambda c: (-c["m3_eq"], c["empresa"]))
     for e in sorted((a.keys() ^ b.keys()) - {"YPF"}):
         enl = e in a
@@ -923,7 +925,7 @@ def perdidas(d, producto="automotrices", canal=None, provincia=None, ventana="12
         ult = max((f[0] for f in prod_filas), default=None)
         n = 12 if ventana == "12m" else 1
         t = [mes_mas(ult, k - n + 1) for k in range(n)] if ult else []
-        return ult, t, [mes_mas(m, -12) for m in t]
+        return ult, t, [mes_mas(m, -1 if ventana == "anterior" else -12) for m in t]
     nom = PRODUCTOS_SHARE[producto]
     todas = d["energia_por_producto"].get(nom, [])
     ult, t, t0 = periodos(todas)
@@ -956,13 +958,17 @@ def perdidas(d, producto="automotrices", canal=None, provincia=None, ventana="12
         if s["estado"] != "ok":
             continue
         for c in s["competidores"]:
-            x = comp.setdefault(c["empresa"], {"empresa": c["empresa"], "neto_m3": 0.0, "ganado_m3": 0.0, "ganado_donde_ypf_pierde_m3": 0.0, "celdas": 0})
+            x = comp.setdefault(c["empresa"], {"empresa": c["empresa"], "neto_m3": 0.0, "ganado_m3": 0.0, "ganado_donde_ypf_pierde_m3": 0.0, "celdas": 0, "segmentos": []})
             x["neto_m3"] += c["m3_eq"]
             x["celdas"] += 1
             if c["m3_eq"] > 0:
                 x["ganado_m3"] += c["m3_eq"]
                 if s["efecto_share"] < 0:
                     x["ganado_donde_ypf_pierde_m3"] += c["m3_eq"]
+                    x["segmentos"].append({"canal": s["canal"], "provincia": s["provincia"], "m3_eq": c["m3_eq"], "delta_pp": c["delta_pp"],
+                                           "s_t0": c["s_t0"], "s_t": c["s_t"]})
+    for x in comp.values():
+        x["segmentos"].sort(key=lambda g: (-g["m3_eq"], g["canal"], g["provincia"]))
     por_comp = sorted(({k: round(v, 6) if isinstance(v, float) else v for k, v in x.items()} for x in comp.values()),
                       key=lambda x: (-x["ganado_donde_ypf_pierde_m3"], x["empresa"]))
     foco = {**segmento(filas, t, t0, minimo), "canal": canal, "provincia": provincia}
@@ -1874,6 +1880,12 @@ def demo():
     assert cel[("Agro", "Córdoba")]["estado"] == "sin dato" and cel[("Al Público", "Jujuy")]["estado"] == "sin dato"   # sin fila en t0: ni pérdida ni 100 %
     assert pm["segmentos"][0]["estado"] == "ok" and pm["foco"]["serie"]["empresas"][0]["empresa"] == "YPF" and len(pm["foco"]["serie"]["meses"]) == 36
     assert perdidas(d, "automotrices", ventana="mes", minimo=1000)["segmentos"][0]["estado"] == "volumen chico"   # el piso manda
+    pa = perdidas(d, "automotrices", ventana="anterior")
+    assert pa["periodo_t"] == ["2026-09", "2026-09"] and pa["periodo_t0"] == ["2026-08", "2026-08"] and pa["min"] == MIN_DEFECTO["anterior"] == 5.0
+    assert [c for c in pm["por_competidor"] if c["segmentos"]] == [c for c in pm["por_competidor"] if c["ganado_donde_ypf_pierde_m3"] > 0]
+    mm = lambda m, e, v: (m, e, "P", "c", "p", v)
+    dg = lambda y0, a0, y1, a1: segmento([mm("2025-09", "YPF", y0), mm("2025-09", "A", a0), mm("2026-09", "YPF", y1), mm("2026-09", "A", a1)], ["2026-09"], ["2025-09"], 1)["diagnostico"]
+    assert (dg(50, 50, 40, 60), dg(50, 50, 50, 70), dg(50, 50, 25, 30), dg(50, 50, 60, 50)) == ("YPF vendió menos", "El mercado creció y YPF no acompañó", "Cayó el mercado y YPF cayó más", None)
     p12 = perdidas(d)
     assert p12["foco"]["meses_con_dato"] == {"t": 12, "t0": 1} and p12["foco"]["huecos"] is True    # hueco informado, no rellenado
     # empresa que entra o sale de la declaración: va aparte, no es ganancia ni pérdida; YPF sin fila = sin dato YPF, no 100 % perdido
@@ -2124,7 +2136,7 @@ def demo():
     pj = json.loads(get("/api/mercado/perdidas?ventana=mes&min=0", k)[1])
     assert pj["origenes"]["YPF"]["filas_url"] == "/api/mercado/filas?empresa=YPF" and pj["origenes"]["A"]["razones_sociales"] == ["A"]
     assert pj["foco"]["delta_ypf"] == -10 and pj["fuente"]["dataset"].startswith("https://datos.energia.gob.ar/dataset/5bdc436c") and get("/api/mercado/perdidas")[0] == 200
-    assert get("/api/mercado/perdidas?ventana=x", k)[0] == 400 and get("/api/mercado/perdidas?min=-1", k)[0] == 400 and get("/api/mercado/perdidas?producto=nada", k)[0] == 400
+    assert get("/api/mercado/perdidas?ventana=anterior", k)[0] == 200 and get("/api/mercado/perdidas?ventana=x", k)[0] == 400 and get("/api/mercado/perdidas?min=-1", k)[0] == 400 and get("/api/mercado/perdidas?producto=nada", k)[0] == 400
     assert get("/api/mercado/perdidas?canal=Nada", k)[0] == 404 and get("/api/mercado/perdidas?pais=BR", k)[0] == 400
     assert json.loads(get("/api/mercado/perdidas?ventana=mes&canal=Agro&provincia=C%C3%B3rdoba", k)[1])["foco"]["total_t"] == 10
     fc = get("/api/mercado/filas?producto=grasas", k)[1]
