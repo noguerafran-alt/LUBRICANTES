@@ -1747,6 +1747,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.enviar(200, b"User-agent: *\nDisallow: /\n", "text/plain; charset=utf-8")
         if u.path in ("/", "/index.html"):  # solo se sirve este archivo: no hay path traversal posible
             return self.enviar(200, INDEX.read_bytes(), "text/html; charset=utf-8")
+        if u.path in ("/favicon.svg", "/favicon.ico"):  # el navegador pide .ico por defecto: se le da el mismo SVG
+            return self.enviar(200, (SITE / "favicon.svg").read_bytes(), "image/svg+xml", [("Cache-Control", "public, max-age=86400")])
         if u.path.endswith((".js", ".mjs", ".glb")):  # resolve + is_relative_to contra traversal
             f = (SITE / u.path.lstrip("/")).resolve()
             if f.is_file() and f.is_relative_to(SITE.resolve()):
@@ -2472,7 +2474,10 @@ def demo():
     assert get("/api/ultimo")[0] == 200 and get("/robots.txt")[1] == b"User-agent: *\nDisallow: /\n"
     assert urllib.request.urlopen(base + "/api/ultimo").headers["X-Robots-Tag"] == "noindex, nofollow" and get("/api/ultimo", {"X-API-Key": "mala"})[0] == 200   # la clave vieja o errónea se ignora
     assert get("/")[0] == 200
-    st = urllib.request.urlopen(urllib.request.Request(base + "/vendor/three.module.min.js", headers={"X-API-Key": "s3cr3t"}))
+    for ruta in ("/favicon.svg", "/favicon.ico"):
+        fv = urllib.request.urlopen(base + ruta)
+        assert fv.status == 200 and fv.headers["Content-Type"] == "image/svg+xml" and b"<svg" in fv.read()
+    st =urllib.request.urlopen(urllib.request.Request(base + "/vendor/three.module.min.js", headers={"X-API-Key": "s3cr3t"}))
     assert st.status == 200 and st.headers["Content-Type"].startswith("text/javascript") and "max-age=31536000" in st.headers["Cache-Control"]
     pr = urllib.request.urlopen(urllib.request.Request(base + "/presentacion.js", headers={"X-API-Key": "s3cr3t"}))
     assert "immutable" not in pr.headers["Cache-Control"] and "max-age=60" in pr.headers["Cache-Control"]

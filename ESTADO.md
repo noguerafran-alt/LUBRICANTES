@@ -3,6 +3,9 @@
 Actualizado 2026-11-19 (Visualizador, página de producto y `/api/producto`; share por marca en Mercado; share ampliado con la serie completa desde 2010; gráficos ampliables en Mercado; modelos 3D sin foto atrás y con malla cerrada; export a Power BI; modelos 3D con Blender y modo presentación con GLB; Brasil; antes: mercado: share de la SE y series de datos.gob.ar). Remoto privado `noguerafran-alt/LUBRICANTES`; la Action corre a diario.
 
 
+## Favicon (2026-11-19, rama lub-favicon)
+- `site/favicon.svg` (propio, no es el logo de YPF): cuadrado redondeado azul `#0047ba` con gota blanca/celeste. `index.html` suma `<link rel="icon">` y `theme-color`. `server.py` sirve `/favicon.svg` y `/favicon.ico` (mismo SVG, `image/svg+xml`, cache 1 día): ya no dan 404. Assert en el test HTTP.
+
 ## Calendario en la página de producto (2026-11-19, rama lub-calendario)
 - `/api/producto` acepta `desde` y `hasta` (AAAA-MM-DD, inclusivos; mandan sobre `dias`; solo `desde` = hasta el último día con datos; solo `hasta` = `dias` hacia atrás). 400 con mensaje si el formato es malo, `desde > hasta` o el rango pasa de 366 días. `desde_hasta` y `_avisos` reciben `desde`/`hasta` opcionales (el resto de los endpoints no cambió: sin ellos dan lo mismo). La respuesta suma `datos{desde, hasta}` para los límites del calendario. Asserts en `demo()` y en el test HTTP.
 - Visor: «Desde» y «Hasta» (`<input type=date>`, min/max = primer/último día con datos) junto a Ventana, que suma «Personalizado». Un atajo rellena las fechas; tocar una fecha pone «Personalizado»; Desde > Hasta se intercambian y se avisa; se conservan al cambiar de producto con las fotos y viajan en el link `/api/producto` de la nota.
