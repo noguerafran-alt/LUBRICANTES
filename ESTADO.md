@@ -21,6 +21,10 @@ Actualizado 2026-11-19 (Visualizador, página de producto y `/api/producto`; sha
 - Siguiente paso (no hecho): `/api/mercado/perdidas` sigue con un solo producto y un solo canal; con listas responde 400 explícito. Y el selector de producto de «¿Dónde perdemos share?» sigue simple.
 - Sin verificar en navegador real (ni a 375 px, ni teclado/lector): solo sintaxis JS con node y `python server.py test` OK. El panel del desplegable es `position:absolute` y a 640 px o menos ocupa todo el ancho de su fila.
 
+## Desplegables Producto/Canal más anchos y prolijos (2026-11-19, rama lub-canal)
+- CSS de `.mk-multi-p`: ancho propio (`max-content`, mínimo 260 px, tope 92vw), etiquetas en una línea en desktop, casilla fija de 16 px alineada arriba, filas de 28 px mínimo, summary de Canal de 200 px; la nota de Grasas no ensancha el panel. Si el panel se saldría por la derecha, `toggle` le pone `.der` (right:0). A 640 px o menos el panel ocupa el ancho del filtro y las etiquetas pueden partir.
+- Título del share: con más de 3 canales dice `(N de M)` o `(todos menos X)`; la lista completa va en el `title` del h3. Con 1-3 sigue igual. Sin verificar en navegador (lo hace lub-test).
+
 ## Market share con volumen, no solo % (2026-11-19, rama lub-m3)
 API: `share.empresas[].volumen` = serie paralela a `serie` (m³ o Ton; null donde la empresa no declaró), también en `/api/mercado/share?completo=1`; assert en `server.py test`. Visor (Mercado): la lista de empresas suma el volumen del último mes y su variación contra hace 12 meses (`...` si falta alguno de los dos; se oculta a 520 px o menos); el tooltip del gráfico de barras y del ampliado muestran % y volumen por empresa; el bloque «YPF, share en <mes>» agrega el volumen YPF; «Estadísticas del rango visible» suma por empresa volumen del último dato, mínimo, máximo, promedio mensual y total acumulado (solo meses con dato, se dice cuántos); el CSV del rango personalizado trae columnas `(volumen)`. Unidad: m³ en lubricantes, `Ton` en grasas (`unidadSE` ahora devuelve `Ton`, antes `t`). Sin probar en navegador real (ni a 375 px).
 
