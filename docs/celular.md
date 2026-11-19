@@ -15,13 +15,15 @@ Si no tenés celular a mano, la PC con Windows hace lo mismo con la tarea progra
 
 1. **Instalar Termux y Termux:Boot desde F-Droid** (https://f-droid.org). **No desde Play Store**: esa versión está abandonada y no funciona. Abrí las dos apps una vez.
 2. **Sacar la optimización de batería** a Termux y a Termux:Boot: Ajustes > Aplicaciones > Termux > Batería > «Sin restricciones» (el nombre cambia según la marca). Sin esto Android mata el proceso. No hace falta `termux-setup-storage`.
-3. En Termux, **bajar y correr el instalador** (instala python, git, cronie, termux-services y tzdata, clona el repo en `~/lub-casa`, crea el marcador `.recolector_casa`, deja el cron a las 06:00 hora argentina y el script de arranque en `~/.termux/boot/`):
+   En Samsung, además: Ajustes > Batería > Límites de uso en segundo plano > «Aplicaciones que nunca se suspenden», y agregá Termux y Termux:Boot.
+   Si el reloj está mal, en Samsung el WiFi dice «sin internet» (Android lo valida por HTTPS): cargá la fecha y la hora a mano.
+3. En Termux, **bajar y correr el instalador** (instala python, git, cronie, termux-services, cloudflared y curl, clona el repo en `~/lub-casa`, crea el marcador `.recolector_casa`, deja el cron a las 06:00 hora argentina y el script de arranque en `~/.termux/boot/`):
    ```
    pkg install -y git
    git clone https://github.com/noguerafran-alt/LUBRICANTES.git ~/lub-casa
    bash ~/lub-casa/tools/termux_setup.sh
    ```
-   Si el repo es privado, el `git clone` pide usuario y contraseña: hacé primero el paso 5 (crear el token) y usalo como contraseña.
+   **El repo es privado**: el token fine-grained (paso 5, sub-pasos 1 y 2) se crea **antes** del clone y es la «Password» que pide git (el usuario es el tuyo de GitHub). Antes del clone corré `git config --global credential.helper store` para que no lo vuelva a pedir.
    El instalador se puede correr de nuevo sin romper nada. No pide ni guarda ningún token.
 4. **Mantener despierto el celular**: el instalador ya llama `termux-wake-lock` y el script de arranque lo repite tras cada reinicio.
 5. **Token de GitHub** (lo creás y lo cargás vos; **nunca lo pegues en un chat ni en el repo**):
@@ -41,7 +43,7 @@ Si no tenés celular a mano, la PC con Windows hace lo mismo con la tarea progra
    ```
    Hace todos los pasos y deja un commit local, sin subir nada. Tarda unos minutos (la SE, ~770 MB, solo se baja cuando publicó algo nuevo). Para publicar de verdad: `python tools/recolector_casa.py`.
 7. **Ver el log**: `tail -50 ~/lub-casa/recolector_casa.log` (lo que hizo cada paso) y `tail ~/lub-casa/cron.log` (si el cron llegó a arrancarlo). Con el cron corriendo, `crontab -l` muestra la agenda.
-8. **Reiniciar el celular una vez** para confirmar que Termux:Boot levanta `crond` y los servicios solos (`bash ~/lub-casa/tools/termux_setup.sh estado`).
+8. **Reiniciar el celular una vez** para confirmar que Termux:Boot levanta `crond` y los servicios solos (`bash ~/lub-casa/tools/termux_setup.sh estado`). Termux:Boot hay que **abrirlo una vez** para que funcione. Tras un reinicio los servicios arrancan recién después del primer desbloqueo de pantalla: hasta entonces la página da error 1033 de Cloudflare.
 
 ## Servidor y túnel (el celu también sirve la página)
 
@@ -51,7 +53,7 @@ El mismo celular corre `python server.py` (servicio `lub-server`, solo en `127.0
    ```
    cloudflared tunnel login
    ```
-   Imprime un link: abrilo en el navegador del celular, entrá a tu cuenta de Cloudflare y autorizá el dominio `fln-data-analysis.com`. Queda `~/.cloudflared/cert.pem`.
+   Imprime un link: abrilo en el navegador del celular, entrá a tu cuenta de Cloudflare y autorizá el dominio `fln-data-analysis.com`. Queda `~/.cloudflared/cert.pem`. El link vence a los ~10 minutos y cada `login` nuevo invalida el link anterior. Se puede autorizar desde la PC: `cloudflared` en el celu sondea cada ~55 s y toma la autorización solo.
 2. **Crear el túnel y la ruta DNS**:
    ```
    cloudflared tunnel create lubricantes
@@ -69,16 +71,20 @@ El mismo celular corre `python server.py` (servicio `lub-server`, solo en `127.0
 
 Sin clave configurada la lectura es abierta y la carga POST (`/api/cargar`) queda cerrada. No cargues claves en el celu salvo que quieras habilitar esa carga.
 
+## Respaldo con chip 4G
+
+Decisión del usuario (2026-11-19), solo si cae el WiFi de casa: Ajustes > Conexiones > Wi-Fi > Avanzado > «Cambiar a datos móviles», y poner un límite de datos móviles. SEPA pesa ~336 MB por día. El túnel anda igual por 4G. No hay código para esto.
+
 ## Alternativa: instalar por ADB desde la PC
 
 Con el celular conectado por USB y la **depuración USB** activada (Ajustes > Opciones de desarrollador), desde la PC:
 ```
 adb devices                              # tiene que aparecer el celu (aceptá el cartel de autorización en el celular)
-adb install termux.apk                   # los APK de F-Droid o de GitHub (termux-app, termux-boot)
+adb install termux.apk                   # APK +github-debug: termux-app arm64-v8a y termux-boot debug (misma firma)
 adb install termux-boot.apk
 adb shell am start -n com.termux/.app.TermuxActivity   # abrir Termux una vez
 ```
-Los comandos de Termux se pueden correr desde la PC con `adb shell run-as com.termux ...`, **solo si el APK es debug** (los de GitHub lo son; los de F-Droid, no). Ejemplo: `adb shell run-as com.termux files/usr/bin/bash -lc "bash ~/lub-casa/tools/termux_setup.sh estado"`. El `cloudflared tunnel login` y el token de GitHub los seguís haciendo vos en el celular.
+Los comandos de Termux se pueden correr desde la PC con `adb shell run-as com.termux ...`, **solo si el APK es debug** (los de GitHub lo son; los de F-Droid, no). `run-as com.termux` necesita exportar `PREFIX`, `HOME`, `PATH` y `LD_PRELOAD` de Termux. `adb shell input text` solo anda con la pantalla desbloqueada y Termux en primer plano. Los servicios (`sv`, `crond`) conviene arrancarlos desde la app Termux, no por adb. Ejemplo: `adb shell run-as com.termux files/usr/bin/bash -lc "bash ~/lub-casa/tools/termux_setup.sh estado"`. El `cloudflared tunnel login` y el token de GitHub los seguís haciendo vos en el celular.
 
 ## Cómo sé que anda
 
