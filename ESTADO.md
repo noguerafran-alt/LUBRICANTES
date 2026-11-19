@@ -5,6 +5,10 @@ Actualizado 2026-11-19 (Visualizador, página de producto y `/api/producto`; sha
 
 
 
+## Visor a todo el ancho y scroll de página (2026-11-19)
+- `site/index.html`: `main` y `.cab` sin ancho máximo (margen lateral 12-24 px, `clamp`), en todas las pestañas; las notas siguen con `max-width: 70ch`. Se sacó el modo escritorio «el Visualizador ocupa la ventana» (body 100dvh, `.vt-datos` con overflow-y): la ficha crece con su contenido y scrollea la página. La foto del escritorio queda de 280 px de alto (no se estira). El modo presentación (`.pz-panel`) no cambia.
+- Sin verificar en navegador: lo hace lub-test (1920/1680/1280/375, claro y oscuro; `.vt-datos` scrollHeight == clientHeight, sin desborde horizontal).
+
 ## Visualizador: miniaturas arriba, País/USD a la derecha y tipo de cambio por fecha (2026-11-19, rama lub-visor-fx)
 - Visor: la tira de miniaturas (`#vt-minis-box`) va arriba, debajo del banner, con el mismo comportamiento. El filtro País/USD (`#pais-barra`, un solo nodo) se mueve por JS (`ubicarBarra`) a la fila de controles del Visualizador y en las demás pestañas queda arriba a la derecha; en Mercado sigue oculto. Con USD aparece «Tipo de cambio del» (día de cada precio, o una fecha real de `/api/fx`) y la nota arriba dice «USD al tipo de cambio <fuente> del <fecha>: <valor> <moneda> por USD» con link. URL compartible: `?pais=&usd=1&fx_fecha=`; al cambiar de país la fecha se descarta.
 - API: `?fx_fecha=AAAA-MM-DD` (reusa `con_usd`/`tabla_fx`; contrato en `CLAUDE.md`) y `GET /api/fx?moneda=ARS|BRL`. Sin cotización = 400 con `fechas_cercanas`; mal formada = 400. Asserts en `server.py demo()`; `python server.py test` da OK. Links de fuente verificados con curl (200).
