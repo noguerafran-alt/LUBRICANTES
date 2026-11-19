@@ -3,6 +3,12 @@
 Actualizado 2026-11-19 (Visualizador, página de producto y `/api/producto`; share por marca en Mercado; share ampliado con la serie completa desde 2010; gráficos ampliables en Mercado; modelos 3D sin foto atrás y con malla cerrada; export a Power BI; modelos 3D con Blender y modo presentación con GLB; Brasil; antes: mercado: share de la SE y series de datos.gob.ar). Remoto privado `noguerafran-alt/LUBRICANTES`; la Action corre a diario.
 
 
+## Header, barra de controles y nota del dólar (2026-11-19, rama lub-header)
+- Logo: `h1` con `flex: none` y margen derecho de 16 px; lo que no entra es el nav (ya scrolleaba solo). Sin desborde de página medido (scrollWidth == clientWidth) a 1280, 1440, 1680, 1920 y 375 px.
+- Barra País / USD / Tipo de cambio: mismo alto `--ctl-h` (44 px en móvil), checkbox alineado a la base de los selects, y en el Visualizador las acciones (Modo presentación, Ver todos, Ir a un producto) van en un grupo `.vt-acciones` aparte; una columna a 375 px. El mismo `#pais-barra` sirve en Índice, Comparador, Evolución, etc.
+- La línea larga de la fuente del dólar salió de `#pais-nota` y está en un botón (i) junto a «Tipo de cambio» (`#fx-info` + `#fx-pop`: aria-label, aria-expanded, Esc cierra y devuelve foco, clic afuera cierra). Mismo texto y link a la fuente. Solo `site/index.html`.
+- Verificado en Edge headless (CDP): tests OK, anchos, (i) con clic y Esc, claro/oscuro, consola sin errores. No verificado: foco con Tab real ni la barra en Comparador/Evolución (sí Índice).
+
 ## Logo de YPF en el header (2026-11-19, rama lub-logo)
 - El `<h1>` ahora es el logo de YPF (SVG inline, blanco con `currentColor`, mismos paths sin tocar) + «Lubricantes» en blanco y negrita con un filete; `aria-label="YPF Lubricantes: YPF vs competencia"`. `<title>` igual. 24 px de alto (20 en móvil). Solo CSS/HTML; no hay ruta nueva en `server.py`.
 - Fuente: `https://ypf.com/images/menu-principal/ypf_logoazul.svg` (el que usa el header de lubricantes.ypf.com), copia original en `site/ypf-logo.svg` (viewBox 0 0 74 20, `#0451DD`; no se sirve, es la referencia).
