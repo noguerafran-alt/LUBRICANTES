@@ -33,7 +33,7 @@ main, .cab { max-width: none; margin: 0; padding: 0 clamp(12px, 1.4vw, 24px); }
 header { background: var(--marca); color: #fff; }
 .cab { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0 8px; }
 header :focus-visible { outline-color: #fff; }
-header h1 { font-size: 18px; margin: 10px 0 6px; white-space: nowrap; display: flex; align-items: center; gap: 10px; }
+header h1 { font-size: 18px; margin: 10px 16px 6px 0; white-space: nowrap; display: flex; align-items: center; gap: 10px; flex: none; }
 .ypf-logo { height: 24px; width: auto; flex: none; }
 .ypf-lub { font-weight: 700; font-size: 18px; line-height: 1; padding-left: 10px; border-left: 1px solid rgba(255,255,255,.55); }
 nav { display: flex; gap: 2px; flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; }
@@ -49,7 +49,21 @@ nav button[aria-selected="true"] { color: #fff; border-color: #fff; font-weight:
 #pais-nota:empty, #vt-minis-box:empty { display: none; }
 #vt-minis-box { flex: none; min-width: 0; }
 .pais-barra .chk input { width: auto; }
-.pais-barra .chk span { display: flex; align-items: center; gap: 6px; min-height: 32px; font-size: 13px; color: var(--tx); }
+.pais-barra .chk span { display: flex; align-items: center; gap: 6px; height: var(--ctl-h); font-size: 13px; color: var(--tx); }
+.pais-barra .chk { justify-content: flex-end; }
+.vt-acciones { display: flex; flex-wrap: nowrap; align-items: flex-end; gap: 10px 12px; }
+.vt-filtro .vt-toggle { height: var(--ctl-h); min-height: 0; padding: 0 14px; white-space: nowrap; flex: none; }
+.vt-filtro .vt-buscar { position: relative; flex: 0 1 220px; min-width: 150px; }
+.vt-filtro .vt-buscar input { height: var(--ctl-h); min-height: 0; padding: 0 10px; }
+.vt-buscar output { position: absolute; top: 100%; left: 0; font-size: 12px; }
+.fx-g { position: relative; display: flex; align-items: flex-end; gap: 6px; }
+.fx-g[hidden] { display: none; }
+#fx-info { flex: none; display: inline-flex; align-items: center; justify-content: center; width: var(--ctl-h); height: var(--ctl-h); border: 1px solid var(--borde-ctl); border-radius: 50%; background: var(--panel); color: var(--tx); font: italic 700 15px/1 Georgia, serif; padding: 0; cursor: pointer; }
+#fx-info:hover, #fx-info[aria-expanded="true"] { border-color: var(--acento); }
+#fx-pop { position: absolute; top: calc(100% + 6px); right: 0; z-index: 50; width: min(380px, calc(100vw - 24px)); background: var(--panel); color: var(--tx); border: 1px solid var(--borde-ctl); border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, .3); padding: 8px 14px; font-size: 13px; text-align: left; }
+#fx-pop[hidden] { display: none; }
+#fx-pop p { margin: 4px 0; } #fx-pop a { color: var(--acento); }
+@media (max-width: 640px) { :root { --ctl-h: 44px; } .vt-acciones { flex: 1 1 100%; flex-wrap: wrap; } .vt-acciones > * { flex: 1 1 100%; } .fx-g { flex: 1 1 100%; } .fx-g label { flex: 1 1 auto; } .pais-barra .chk { flex: 1 1 100%; } }
 #banner:empty { display: none; }
 #banner { background: var(--aviso-bg); color: var(--aviso-tx); border-radius: 6px; padding: 4px 12px; margin: 8px 0; font-size: 13px; }
 #banner summary { cursor: pointer; min-height: 28px; display: flex; align-items: center; }
@@ -613,7 +627,11 @@ body:has(#dl[open]), body:has(#ix-dl[open]) { overflow: hidden; }
   <div class="filtros pais-barra" id="pais-barra">
     <label>País <select id="pais"><option value="AR">Argentina</option><option value="BR">Brasil</option></select></label>
     <label class="chk"><span><input type="checkbox" id="usd"> Ver también en USD</span></label>
-    <label id="fx-sel" hidden>Tipo de cambio del <select id="fx-fecha"><option value="">día de cada precio</option></select></label>
+    <div class="fx-g" id="fx-sel" hidden>
+      <label>Tipo de cambio del <select id="fx-fecha"><option value="">día de cada precio</option></select></label>
+      <button type="button" id="fx-info" aria-expanded="false" aria-controls="fx-pop" aria-label="Sobre el tipo de cambio (fuente)">i</button>
+      <div id="fx-pop" role="region" aria-label="Sobre el tipo de cambio" hidden></div>
+    </div>
   </div>
   <p class="nota" id="pais-nota" aria-live="polite"></p>
 
@@ -625,12 +643,14 @@ body:has(#dl[open]), body:has(#ix-dl[open]) { overflow: hidden; }
         <p class="nota" id="vt-fecha"></p>
       </div>
       <div class="vt-filtro">
+        <div class="vt-acciones">
         <button type="button" class="vt-toggle" id="vt-pz" hidden aria-keyshortcuts="P" title="Pantalla completa con el envase en 3D y la competencia (tecla P)">Modo presentación</button>
         <button type="button" class="vt-toggle" id="vt-todos" aria-pressed="false" hidden></button>
         <label class="vt-buscar">Ir a un producto
           <input id="vt-q" type="search" list="vt-lista" placeholder="nombre, línea o SAE" autocomplete="off" enterkeyhint="go">
           <output id="vt-q-msg" aria-live="polite"></output>
         </label>
+        </div>
       </div>
       <datalist id="vt-lista"></datalist>
     </div>
@@ -847,8 +867,16 @@ function notaPais(tab) {
       : `USD al tipo de cambio de la fecha de cada precio${fuente ? " (fuente: " + fuente + ")" : ""}: solo referencia. Sin cotización ese día, sin conversión.`;
   }
   if (["mercado", "mapa", "cobertura"].includes(tab)) t.push("Esta pestaña muestra solo Argentina" + (P.pais === "BR" ? ", aunque elegiste Brasil" : "") + ".");
-  $("#pais-nota").innerHTML = [...t.map(esc), html].filter(Boolean).join(" ");
+  $("#pais-nota").innerHTML = t.map(esc).join(" ");
+  $("#fx-pop").innerHTML = `<p>${html}</p>`;  // la nota del dólar vive en el (i) del control «Tipo de cambio»
 }
+function fxCerrar(foco = true) {
+  const p = $("#fx-pop"); if (p.hidden) return;
+  p.hidden = true; $("#fx-info").setAttribute("aria-expanded", "false"); if (foco) $("#fx-info").focus();
+}
+$("#fx-info").onclick = () => { const p = $("#fx-pop"), abrir = p.hidden; p.hidden = !abrir; $("#fx-info").setAttribute("aria-expanded", String(abrir)); };
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("#fx-pop").hidden) { e.preventDefault(); fxCerrar(); } });
+document.addEventListener("click", e => { if (!e.target.closest("#fx-pop, #fx-info")) fxCerrar(false); });
 
 async function api(ruta) {
   // mismo origen: el navegador reenvía el Basic Auth con el que se abrió la página.
