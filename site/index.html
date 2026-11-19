@@ -39,6 +39,7 @@ nav button[aria-selected="true"] { color: #fff; border-color: #fff; font-weight:
 .pais-barra { align-items: flex-end; justify-content: flex-end; margin: 8px 0 4px; }
 .vt-filtro .pais-barra { display: contents; }
 .vt-filtro { align-items: flex-end; }
+#producto .vt-filtro select, #producto .vt-filtro input[type=date] { height: var(--ctl-h); }
 #pais-nota { margin: 0 0 4px; max-width: none; text-align: right; }
 @media (max-width: 640px) { #pais-nota { text-align: left; } }
 #pais-nota:empty, #vt-minis-box:empty { display: none; }
@@ -618,7 +619,9 @@ body:has(#dl[open]), body:has(#ix-dl[open]) { overflow: hidden; }
       <div><h2 class="vt-titulo" id="pr-titulo">Producto</h2><p class="nota" id="pr-fecha"></p></div>
       <div class="vt-filtro">
         <a class="vt-toggle" href="#visualizador">&larr; Volver al Visualizador</a>
-        <label>Ventana <select id="pr-dias"><option value="7">7 días</option><option value="30" selected>30 días</option><option value="90">90 días</option><option value="366">1 año</option></select></label>
+        <label>Ventana <select id="pr-dias"><option value="7">7 días</option><option value="30" selected>30 días</option><option value="90">90 días</option><option value="366">1 año</option><option value="custom" hidden>Personalizado</option></select></label>
+        <label>Desde <input type="date" id="pr-desde"></label>
+        <label>Hasta <input type="date" id="pr-hasta"></label>
         <label class="chk"><span><input type="checkbox" id="pr-may"> Sumar mayoristas al cálculo</span></label>
       </div>
     </div>
@@ -2812,7 +2815,7 @@ async function abrirCobertura() {
 }
 
 // ---------- Página de producto: de dónde sale cada precio ----------
-const PR = { pid: "", pais: "", dias: "", may: false, tok: 0, listo: false, v: null, raiz: "" };
+const PR = { pid: "", pais: "", dias: "", desde: "", hasta: "", aviso: "", may: false, tok: 0, listo: false, v: null, raiz: "" };
 // Fila de fotos de la página de producto: el YPF y sus equivalentes (los mismos datos del Visualizador, VT.todos). Cada foto es un link
 // a #producto/<id>: el hash cambia y los filtros (Ventana, mayoristas) quedan donde están. Un equivalente de más de un YPF no elige:
 // si no vino de uno de ellos, muestra a todos sus YPF.
@@ -2890,7 +2893,7 @@ function paginaProducto(v) {
       ? `<p>Mediana de la competencia ${mon.format(cmp.mediana_comp_litro)}/L (${entero.format(cmp.n_comp)} avisos) contra ${mon.format(cmp.mediana_ypf_litro)}/L de YPF: <b>${pctTxt(dif)}</b> <span class="mut">(positivo: la competencia es más cara)</span>.</p>`
       : `<p class="vt-vacio">Sin comparación: falta precio de ${cmp.mediana_ypf_litro === null ? "YPF" : "la competencia"} en la ventana.</p>`}</div>${eqs}` : p.es_ypf ? `<p class="vt-vacio">Sin equivalentes cargados para este producto.</p>` : sinYpf(p)}
     <div class="pr-sec pr-como"><h3>Cómo se calcula</h3><ul>
-      <li><b>Ventana.</b> Los últimos ${w.dias} días, terminando en el último día con datos (${fechaAR(w.hasta)}), no en hoy.</li>
+      <li><b>Ventana.</b> ${$("#pr-dias").value === "custom" ? `Del ${fechaAR(w.desde)} al ${fechaAR(w.hasta)} (${w.dias} días), las fechas que elegiste.` : `Los últimos ${w.dias} días, terminando en el último día con datos (${fechaAR(w.hasta)}), no en hoy.`}</li>
       <li><b>Un aviso, una vez.</b> Cada aviso (fuente, link, EAN, título, vendedor, envase y provincia) cuenta una sola vez, con su observación más reciente de la ventana.</li>
       <li><b>$/L.</b> Precio dividido por (litros × unidades del envase): una caja de 12 × 1 L son 12 L.</li>
       <li><b>Sanidad.</b> Un aviso con $/L fuera de [mediana ÷ 2,5; mediana × 2,5] del producto no cuenta: es casi seguro un envase mal leído (una caja como bidón).</li>
@@ -2898,27 +2901,48 @@ function paginaProducto(v) {
       <li><b>Promedio y mediana.</b> El promedio es la media simple y lo mueve un aviso extremo; la mediana es el valor central y no. El desvío de cada fila es contra la mediana del propio producto.</li>
       <li><b>Comparación.</b> Mediana de todos los avisos de los equivalentes incluidos contra la mediana de YPF; no entran los no equivalentes ni los de mediana a más de 3 veces la de YPF.</li>
       <li><b>Sin umbral.</b> La página no declara ningún precio como sobreprecio: muestra los datos y quien los consulta decide. Las publicaciones son de terceros y los links llevan a sus sitios. No es tiempo real.</li>
-    </ul><p class="nota">Los mismos datos, en JSON o CSV: <a href="/api/producto?producto_id=${encodeURIComponent(p.producto_id)}&dias=${w.dias}${v.mayoristas_incluidos ? "&mayoristas=1" : ""}" target="_blank" rel="noopener">/api/producto</a>.</p></div>`;
+    </ul><p class="nota">Los mismos datos, en JSON o CSV: <a href="/api/producto?producto_id=${encodeURIComponent(p.producto_id)}${$("#pr-dias").value === "custom" ? `&desde=${w.desde}&hasta=${w.hasta}` : `&dias=${w.dias}`}${v.mayoristas_incluidos ? "&mayoristas=1" : ""}" target="_blank" rel="noopener">/api/producto</a>.</p></div>`;
 }
 async function abrirProducto(pid) {
-  const dias = $("#pr-dias").value, may = $("#pr-may").checked;
-  if (PR.listo && PR.pid === pid && PR.pais === P.pais && PR.dias === dias && PR.may === may) return;  // ir() se llama dos veces al arrancar
-  Object.assign(PR, { pid, pais: P.pais, dias, may, listo: false });
+  const dias = $("#pr-dias").value, may = $("#pr-may").checked, desde = $("#pr-desde").value, hasta = $("#pr-hasta").value;
+  const rango = dias === "custom" && desde && hasta;  // con un atajo las fechas se rellenan con lo que devuelve la API
+  if (PR.listo && PR.pid === pid && PR.pais === P.pais && PR.dias === dias && PR.may === may && PR.desde === desde && PR.hasta === hasta) return;  // ir() se llama dos veces al arrancar
+  Object.assign(PR, { pid, pais: P.pais, dias, desde, hasta, may, listo: false });
   const tok = ++PR.tok, out = $("#pr-out");
   out.textContent = "Cargando…"; $("#pr-fecha").textContent = "";
   let v;
-  try { v = await apiP(`producto?producto_id=${encodeURIComponent(pid)}&dias=${dias}${may ? "&mayoristas=1" : ""}`); }
-  catch (e) { if (tok === PR.tok) out.innerHTML = `<div class="explica">No se pudo leer el producto «${esc(pid)}» (${esc(e.message)}). Puede que no exista: volvé al Visualizador y elegí uno.</div>`; return; }
+  try { v = await apiP(`producto?producto_id=${encodeURIComponent(pid)}&${rango ? `desde=${desde}&hasta=${hasta}` : `dias=${dias === "custom" ? 30 : dias}`}${may ? "&mayoristas=1" : ""}`); }
+  catch (e) {
+    if (tok !== PR.tok) return;
+    PR.aviso = "";
+    out.innerHTML = rango && /HTTP 400/.test(e.message)
+      ? `<div class="explica">Las fechas elegidas (${esc(desde)} al ${esc(hasta)}) no se pudieron usar: el rango puede ser de hasta 366 días. Elegí otras fechas o un atajo de Ventana.</div>`
+      : `<div class="explica">No se pudo leer el producto «${esc(pid)}» (${esc(e.message)}). Puede que no exista: volvé al Visualizador y elegí uno.</div>`;
+    return;
+  }
   if (tok !== PR.tok) return;
   PR.listo = true;
   $("#pr-titulo").textContent = nombreCompleto(v.producto.marca, v.producto.linea, v.producto.nombre);
-  $("#pr-fecha").textContent = `Datos hasta el ${fechaAR(v.ventana.hasta)}.`;
+  $("#pr-fecha").textContent = `Datos hasta el ${fechaAR(v.datos.hasta)}.${PR.aviso ? " " + PR.aviso : ""}`;
+  PR.aviso = "";
+  const di = $("#pr-desde"), ha = $("#pr-hasta");
+  di.min = ha.min = v.datos.desde; di.max = ha.max = v.datos.hasta;
+  if (!rango) { di.value = PR.desde = v.ventana.desde < v.datos.desde ? v.datos.desde : v.ventana.desde; ha.value = PR.hasta = v.ventana.hasta; if (dias === "custom") $("#pr-dias").value = "30"; }
   PR.v = v;
   out.innerHTML = paginaProducto(v);
   pintarTira();
   scrollTo(0, 0);
 }
-$("#pr-dias").onchange = $("#pr-may").onchange = () => { if (!$("#producto").hidden) abrirProducto(PR.pid); };
+$("#pr-dias").onchange = () => { $("#pr-desde").value = $("#pr-hasta").value = ""; if (!$("#producto").hidden) abrirProducto(PR.pid); };  // un atajo: las fechas se rellenan al llegar la respuesta
+$("#pr-may").onchange = () => { if (!$("#producto").hidden) abrirProducto(PR.pid); };
+$("#pr-desde").onchange = $("#pr-hasta").onchange = () => {
+  const di = $("#pr-desde"), ha = $("#pr-hasta");
+  // borrar una fecha o dejarla fuera de [min, max] (Chrome dispara change en cada paso del tipeo: años 0002, 0020…) no es un rango: vuelve a la anterior
+  if (!di.value || !ha.value || !di.validity.valid || !ha.validity.valid || di.value < di.min || ha.value > ha.max || di.value > di.max || ha.value < ha.min) { di.value = PR.desde; ha.value = PR.hasta; return; }
+  if (di.value > ha.value) { [di.value, ha.value] = [ha.value, di.value]; PR.aviso = "Desde era posterior a Hasta: las intercambié."; }
+  if ($("#pr-dias").value !== "custom") $("#pr-dias").value = "custom";
+  if (!$("#producto").hidden) abrirProducto(PR.pid);
+};
 
 // ---------- pestañas ----------
 // el Visualizador se carga solo (su propia ruta): no depende de que lleguen los demás datos
