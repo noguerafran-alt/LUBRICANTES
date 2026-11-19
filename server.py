@@ -18,6 +18,7 @@ import tempfile
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta, timezone
@@ -26,6 +27,7 @@ from pathlib import Path
 from statistics import median
 from urllib.parse import parse_qs, urlsplit
 
+import macro
 import normalizar
 from ml import UA
 from recolectar import OBS as OBS_F, pais_fuente, relacionados  # mismo filtro "solo lo relacionado con YPF" que el recolector
@@ -185,6 +187,7 @@ def cargar(raiz):
         "imagenes": leer_csv(raiz / "data" / "imagenes.csv"),
         "macro": leer_csv(raiz / "data" / "macro" / "series.csv"),
         "macro_seed": leer_csv(raiz / "seed" / "macro_series.csv"),
+        "marcas_seed": leer_csv(raiz / "seed" / "marcas_empresas.csv"),
         "energia": leer_energia(raiz / "data" / "macro" / "energia.csv"),
         "fx": leer_csv(raiz / "data" / "fx.csv"),
     }
@@ -953,6 +956,8 @@ def perdidas(d, producto="automotrices", canal=None, provincia=None, ventana="12
         "por_producto": por_prod, "por_canal": agrupar(3), "por_provincia": agrupar(4), "por_competidor": por_comp,
         "perdido_por_share_m3": round(sum(s["efecto_share"] for s in segs if s["estado"] == "ok" and s["efecto_share"] < 0), 6),
         "fuente": FUENTE_PERDIDAS, "nota": NOTA_PERDIDAS}
+    nombres = {"YPF"} | {c["empresa"] for c in foco["competidores"]} | {x["empresa"] for x in foco["entraron_salieron"]}         | {x["empresa"] for x in por_comp} | {g["empresa"] for sg in segs for g in sg["ganadores"]}
+    out["origenes"] = {e: origen(d, e) for e in sorted(nombres)}
     return out
 
 
@@ -961,6 +966,60 @@ def filas_se(d, producto=None, canal=None, provincia=None, empresa=None, desde=N
     return [{"mes": m, "empresa": e, "producto": p, "canal": c, "provincia": pr, "cantidad": q} for m, e, p, c, pr, q in d["energia"]
             if (not producto or p == producto) and (not canal or c == canal) and (not provincia or pr == provincia) and (not empresa or e == empresa)
             and (not desde or m >= desde) and (not hasta or m <= hasta)]
+
+
+def _span(d):
+    """{empresa: (primer mes, último mes)} con filas en energia.csv (sin la fila 'Todas' del gasoil)."""
+    if "_span" not in d:
+        sp = {}
+        for m, e, *_ in d["energia"]:
+            if e != "Todas":
+                a, b = sp.get(e, (m, m))
+                sp[e] = (min(a, m), max(b, m))
+        d["_span"] = sp
+    return d["_span"]
+
+
+def marcas_empresas(d):
+    """Tabla marca → empresa declarante (seed/marcas_empresas.csv). Las que declaran y no traen desde/hasta lo toman de energia.csv."""
+    sp = _span(d)
+    out = []
+    for r in d["marcas_seed"]:
+        x = dict(r)
+        if x["estado"].startswith("declara") and x["empresa_se"] in sp:
+            x["desde"], x["hasta"] = x["desde"] or sp[x["empresa_se"]][0], x["hasta"] or sp[x["empresa_se"]][1]
+        out.append(x)
+    return out
+
+
+def origen(d, emp, agrupa=None):
+    """De dónde sale una línea del share: empresa declarante de la SE, razones sociales que agrupa su etiqueta, marcas, meses y filas exactas.
+    `agrupa` (solo 'Otras') = las etiquetas que junta."""
+    dataset = FUENTE_PERDIDAS["dataset"]
+    if agrupa is not None:
+        return {"fuente": "SE, Res. 1104 — suma de las demás empresas declarantes", "razones_sociales": agrupa, "marcas": [], "desde": None, "hasta": None,
+                "filas_url": None, "dataset": dataset}
+    sp = _span(d).get(emp, (None, None))
+    marcas = []
+    for m in d["marcas_seed"]:  # fechas tal cual el seed: las calculadas de energia.csv ya están en desde/hasta de la empresa
+        if m["empresa_se"] == emp or f"(hoy {emp})" in m["empresa_se"]:
+            q = ", ".join(x for x in (f"desde {m['desde']}" if m["desde"] else "", f"hasta {m['hasta']}" if m["hasta"] else "",
+                                       "inferida" if m["evidencia"] == "inferida" else "") if x)
+            # una marca que declara sin fechas en el seed va sin calificar; con fechas del seed (Castrol desde 2019) las lleva
+            marcas.append(m["marca"] + (f" ({q})" if q else ""))
+    return {"fuente": f"SE, Res. 1104 — empresa declarante {emp}", "razones_sociales": [p for p, c in macro.ETIQUETAS if c == emp] or [emp],
+            "marcas": marcas, "desde": sp[0], "hasta": sp[1], "filas_url": "/api/mercado/filas?empresa=" + urllib.parse.quote(emp), "dataset": dataset}
+
+
+def share_origen(d, filas, canal=None):
+    """share() con `origen` en cada empresa; 'Otras' dice qué etiquetas agrupa."""
+    S = share(filas, canal)
+    nombres = {e["empresa"] for e in S["empresas"]}
+    ventana = set(S["meses"])
+    otras = sorted({f[1] for f in filas if f[0] in ventana and (not canal or f[3] == canal)} - nombres)
+    for e in S["empresas"]:
+        e["origen"] = origen(d, e["empresa"], otras if e["empresa"] == "Otras" else None)
+    return S
 
 
 def precios_pares(d):
@@ -1031,7 +1090,8 @@ def mercado(d, producto="automotrices", canal=None):
     meses_e = [f[0] for f in d["energia"]]
     return {"actualizado": {"energia": max(meses_e) if meses_e else None, "series": max(ok) if ok else None},
             "share": {"producto": PRODUCTOS_SHARE[producto], "canal": canal,
-                      **share(d["energia_por_producto"].get(PRODUCTOS_SHARE[producto], []), canal)},
+                      **share_origen(d, d["energia_por_producto"].get(PRODUCTOS_SHARE[producto], []), canal)},
+            "marcas": marcas_empresas(d),
             "actividad": actividad(d["macro_meta"], d["macro_series"]),
             "compuestos": compuestos(d, d["macro_series"])}
 
@@ -1483,7 +1543,7 @@ class Handler(BaseHTTPRequestHandler):
         if nombre == "mercado/share" and q.get("formato") == "csv":
             return self.enviar(200, a_csv("mercado_share", share_filas(filas, canal)), "text/csv; charset=utf-8")
         if nombre == "mercado/share":
-            return self.json(200, {"producto": PRODUCTOS_SHARE[prod], "canal": canal, **share(filas, canal)})
+            return self.json(200, {"producto": PRODUCTOS_SHARE[prod], "canal": canal, **share_origen(d, filas, canal)})
         self.json(200, self.calc["mercado"] if prod == "automotrices" and not canal else mercado(d, prod, canal))
 
     def mercado_perdidas(self, q, prod, canal):
@@ -1604,6 +1664,8 @@ def demo():
         csv.writer(f, lineterminator="\n").writerows([("mes", "empresa", "producto", "canal", "provincia", "cantidad"), *E_])
     (raiz / "data" / "macro" / "series.csv").write_text(
         "fecha,id,valor,signo\n2026-06-01,A,1.5,*\n2026-07-01,A,,...\n2026-08-01,A,,-\n2026-08-01,B,7,\n", encoding="utf-8")
+    (raiz / "seed" / "marcas_empresas.csv").write_text(
+        "marca,empresa_se,desde,hasta,estado,evidencia,fuente_url,nota\nYPF,YPF,,,declara,confirmada,,\nShell,Shell/Raízen,,,declara,confirmada,,\nCastrol,PAE/Axion,2019,,declara (dentro de PAE/Axion),confirmada,,\nMobil,Esso (hoy PAE/Axion),,2018,sin dato desde 2018,inferida,,\nPuma,(no declara),,,sin dato,confirmada,,\nGulf,Gulf,2012-02,2023-01,dejó de declarar,confirmada,,\n", encoding="utf-8")
     (raiz / "seed" / "macro_series.csv").write_text(
         "id,nombre,grupo,frec,unidad,fuente\nA,Serie A,liviano,M,u,INDEC\nB,Serie B,precios,M,u,BCRA\nC,Serie C,agro,M,u,INDEC\n", encoding="utf-8")
     with open(raiz / "data" / "fuentes.csv", "a", encoding="utf-8") as f:
@@ -1960,14 +2022,24 @@ def demo():
     integrar_grok(dg)
     assert dg["obs"][0]["capturado"] == "2026-11-18T14:05:00Z"
     mj = json.loads(get("/api/mercado", k)[1])
+    mq = {m["marca"]: m for m in mj["marcas"]}
+    assert (mq["YPF"]["desde"], mq["YPF"]["hasta"]) == ("2025-09", "2026-09") and mq["Gulf"]["hasta"] == "2023-01" and mq["Puma"]["empresa_se"] == "(no declara)"
+    og = {e["empresa"]: e["origen"] for e in mj["share"]["empresas"]}
+    assert og["YPF"]["fuente"] == "SE, Res. 1104 — empresa declarante YPF" and og["YPF"]["razones_sociales"] == ["YPF"] and og["YPF"]["marcas"] == ["YPF"]
+    assert og["Shell/Raízen"]["razones_sociales"] == ["SHELL", "RAIZEN"] and og["Shell/Raízen"]["marcas"] == ["Shell"]
+    assert (og["YPF"]["desde"], og["YPF"]["hasta"]) == ("2025-09", "2026-09") and og["YPF"]["dataset"].endswith("5bdc436c-60d4-4c86-98ab-59834d047700")
+    assert og["Otras"]["razones_sociales"] == ["F", "Z1", "Z2"] and og["Otras"]["filas_url"] is None
+    assert origen(d, "PAE/Axion")["razones_sociales"] == ["PAN AMERICAN ENERGY", "AXION", "ESSO"] and "Castrol (desde 2019)" in origen(d, "PAE/Axion")["marcas"]
     assert mj["share"]["producto"] == "Lubricantes automotrices(m3)" and mj["share"]["empresas"][0]["empresa"] == "YPF" and len(mj["actividad"]) == 7
     assert mj["compuestos"]["notas"]["demanda_potencial"].startswith("pesos supuestos")
     mg = json.loads(get("/api/mercado?producto=grasas", k)[1])["share"]
     assert mg["producto"] == "Grasas(Ton)" and mg["empresas"][0]["ultimo"] == 1.0 and get("/api/mercado?producto=nada", k)[0] == 400
     assert json.loads(get("/api/mercado/share?canal=" + urllib.parse.quote("Al Público"), k)[1])["empresas"][0]["ultimo"] == round(100 / 202, 6)
     assert get("/api/mercado/share?canal=Nada", k)[0] == 404
+    assert json.loads(get("/api/mercado/share", k)[1])["empresas"][0]["origen"]["marcas"] == ["YPF"]
     assert get("/api/mercado/share?formato=csv", k)[1].startswith(b"mes,empresa,volumen,total,share\n2025-09,YPF,120")
     pj = json.loads(get("/api/mercado/perdidas?ventana=mes&min=0", k)[1])
+    assert pj["origenes"]["YPF"]["filas_url"] == "/api/mercado/filas?empresa=YPF" and pj["origenes"]["A"]["razones_sociales"] == ["A"]
     assert pj["foco"]["delta_ypf"] == -10 and pj["fuente"]["dataset"].startswith("https://datos.energia.gob.ar/dataset/5bdc436c") and get("/api/mercado/perdidas")[0] == 401
     assert get("/api/mercado/perdidas?ventana=x", k)[0] == 400 and get("/api/mercado/perdidas?min=-1", k)[0] == 400 and get("/api/mercado/perdidas?producto=nada", k)[0] == 400
     assert get("/api/mercado/perdidas?canal=Nada", k)[0] == 404 and get("/api/mercado/perdidas?pais=BR", k)[0] == 400
