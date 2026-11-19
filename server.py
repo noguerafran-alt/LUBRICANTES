@@ -55,7 +55,7 @@ MONEDAS = {"ARS", "BRL", "CLP", "UYU", "PYG", "BOB", "USD"}
 NOTAS_FUENTE = {
     "oficial_br_notaparana": "pausada desde 2026-11-18: la API devuelve datos señuelo al acceso automatizado; no se esquiva",
     "helix_api": "automática: combos Shell de helixturno.com.ar por su API JSON (servicios con mano de obra, no $/L de bidón)",
-    "casa": "recolector de casa (celular o PC): SEPA, la SE y el resto; GitHub corre Mercado Libre y hace de respaldo",
+    "casa": "servidor FLN Data Analysis (celular o PC): SEPA, la SE y el resto; GitHub corre Mercado Libre y hace de respaldo",
     "fx_bcb_ptax": "tipo de cambio oficial PTAX (venta) del Banco Central do Brasil: solo para mostrar en USD",
     "fx_bcra": "cotización del dólar publicada por el BCRA (Estadísticas Cambiarias): solo para mostrar en USD",
 }
@@ -445,7 +445,7 @@ def avisos(rows, filas, hoy):
             elif dias > MENSUAL_DIAS:
                 mot = f"última bajada buena hace {dias} días (la SE publica una vez por mes)"
             elif malo:
-                mot = f"el recolector de casa falló en el paso energia el {malo[-1]['fecha']}, después de la última bajada buena"
+                mot = f"el servidor FLN Data Analysis falló en el paso energia el {malo[-1]['fecha']}, después de la última bajada buena"
         elif c == "manual":
             if nunca:
                 av = "habilitado, todavía sin su primera carga"
@@ -1154,7 +1154,7 @@ FUENTE_PERDIDAS = {
     "csv": "https://datos.energia.gob.ar/dataset/5bdc436c-60d4-4c86-98ab-59834d047700/resource/f0e4e10a-e4b8-44e6-bd16-763a43742107/download/ventas-excluye-ventas-a-empresas-del-sector-.csv",
     "dataset_nombre": "Refinación y Comercialización de petróleo, gas y derivados (Tablas Dinámicas)",
     "recurso_nombre": "Ventas, excluye ventas a empresas del sector", "licencia": "CC-BY 4.0", "tablas": "SESCO Downstream",
-    "actualizacion": "se baja desde el recolector de casa (tools/recolector_casa.py) cuando la SE publica algo nuevo (last_modified del recurso en CKAN)"}
+    "actualizacion": "se baja desde el servidor FLN Data Analysis (tools/recolector_casa.py) cuando la SE publica algo nuevo (last_modified del recurso en CKAN)"}
 NOTA_PERDIDAS = {
     "declarantes": "Share solo entre las empresas que declaran a la Secretaría de Energía (SESCO): Mobil, Castrol, Motul, Liqui Moly y los importadores chicos no figuran, "
                    "así que una pérdida contra importadores aparece como un mercado que se achica o como ganancia de nadie.",

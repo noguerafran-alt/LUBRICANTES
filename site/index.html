@@ -792,7 +792,7 @@ obs = pd.read_csv("<span class="origen"></span>/api/obs?mes=2026-11&amp;formato=
 const NOMBRE_FUENTE = { ypf_gql: "YPF catálogo", vtex_carrefour: "Carrefour", vtex_masonline: "Masonline", vtex_easy: "Easy",
   vtex_jumbo: "Jumbo", vtex_norauto: "Norauto", shopify_datri: "Tienda D'Atri", tn_lspalermo: "LS Palermo", tn_spch: "Casa González",
   sepa: "Precios Claros (SEPA)", ml_cat: "ML categorías", ml: "Mercado Libre", vtex_br_pitstop: "Pitstop (Brasil)", vtex_br_altese: "Altese (Brasil)",
-  helix_api: "Shell Helix combos (API helixturno, automática)", oficial_br_notaparana: "Nota Paraná (Brasil, notas fiscales)", fx_bcb_ptax: "BCB PTAX (tipo de cambio)", fx_bcra: "BCRA cotizaciones (tipo de cambio)", casa: "Recolector de casa (celular o PC)" };
+  helix_api: "Shell Helix combos (API helixturno, automática)", oficial_br_notaparana: "Nota Paraná (Brasil, notas fiscales)", fx_bcb_ptax: "BCB PTAX (tipo de cambio)", fx_bcra: "BCRA cotizaciones (tipo de cambio)", casa: "Servidor FLN Data Analysis (celular o PC)" };
 const MAYORISTAS = ["shopify_datri"]; // precio por caja o tambor, IVA no verificado: el índice no los usa
 const SEGMENTO = { pcmo: "Autos (PCMO)", hddo: "Pesados (HDDO)", moto4t: "Moto 4T", moto2t: "Moto 2T", transmision: "Transmisión",
   grasa: "Grasa", industrial: "Industrial", marino: "Marino", gas: "Gas", otro: "Otro" };
@@ -902,7 +902,7 @@ function casaViejo() {
   const c = D.fuentes.find(f => f.fuente === "casa");
   return c && c.dias_sin_correr > 2 ? c : null;
 }
-const TXT_CASA = c => `El recolector de casa (celular o PC) no corre desde ${fechaAR(c.fecha)}: SEPA y la SE no se actualizan; el resto lo cubre GitHub`;
+const TXT_CASA = c => `El servidor FLN Data Analysis (celular o PC) no corre desde ${fechaAR(c.fecha)}: SEPA y la SE no se actualizan; el resto lo cubre GitHub`;
 
 function caidas() {
   return fp().filter(f => f.fuente !== "casa" && f.alerta);  // alerta y motivo los calcula el server (cadencia de cada fuente)

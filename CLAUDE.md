@@ -198,7 +198,7 @@ y comitea; si no la tiene (el celular no corrió), corre todo (recolectar comple
 En GitHub, `recolectar.py` saltea las `FUENTES_PC` (hoy Nota Paraná) con `GITHUB_ACTIONS=true`. SEPA y la SE no corren en la Action ni de respaldo (siguen bloqueadas): sin celular ni PC, esos datos no se actualizan.
 
 **Aviso en el visor**: `/api/fuentes` trae la fila `casa` con `dias_sin_correr` (días desde su última fila, con o sin error; todas las fuentes llevan ese campo). Si pasan más de 2, la pestaña Fuentes y el banner de avisos
-de las pestañas de precios (no Mercado) dicen «El recolector de casa (celular o PC) no corre desde <fecha>: SEPA y la SE no se actualizan; el resto lo cubre GitHub».
+de las pestañas de precios (no Mercado) dicen «El servidor FLN Data Analysis (celular o PC) no corre desde <fecha>: SEPA y la SE no se actualizan; el resto lo cubre GitHub».
 
 Nota Paraná está **pausada desde 2026-11-18**: la API devuelve datos señuelo al acceso automatizado (ncm de 9 dígitos, gtin '0', `local` vacío); no se esquiva. `recolectar.PAUSADAS` la saca del recorrido por defecto en todos lados; `--solo` la corre y, si detecta el señuelo, corta en la primera página con error `respuesta señuelo: la API bloquea el acceso automatizado`. El histórico real ya cargado se queda.
 **Reglas del tráfico de casa**: sale de la IP residencial del usuario, con el mismo volumen bajo y `robots.txt` respetado de siempre; no se usa para saltear bloqueos anti-bot (Nota Paraná sigue pausada; Coto sigue diferido por sus términos).
