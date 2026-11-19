@@ -334,13 +334,13 @@ table.comp td .vacio { display: block; line-height: 1.3; }
 .mk-bar { transition: opacity .15s; }
 .mk-bar.off { opacity: .38; }
 .mk-hueco { fill: none; stroke: var(--borde-ctl); stroke-dasharray: 2 3; }
-#mk-tip { position: fixed; z-index: 20; pointer-events: none; background: var(--panel); color: var(--tx); border: 1px solid var(--borde-ctl);
+.mk-tipbox { position: fixed; z-index: 20; pointer-events: none; background: var(--panel); color: var(--tx); border: 1px solid var(--borde-ctl);
   border-radius: 6px; padding: 7px 10px; font-size: 12px; line-height: 1.4; box-shadow: 0 6px 18px rgba(16, 40, 80, .18); max-width: min(270px, calc(100vw - 16px)); }
-#mk-tip[hidden] { display: none; }
-#mk-tip b { display: block; font-size: 13px; margin-bottom: 2px; }
-#mk-tip .f { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 6px; align-items: center; font-variant-numeric: tabular-nums; }
-#mk-tip .f span:last-child { text-align: right; font-weight: 600; }
-#mk-tip i { width: 10px; height: 10px; border-radius: 2px; }
+.mk-tipbox[hidden] { display: none; }
+.mk-tipbox b { display: block; font-size: 13px; margin-bottom: 2px; }
+.mk-tipbox .f { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 6px; align-items: center; font-variant-numeric: tabular-nums; }
+.mk-tipbox .f span:last-child { text-align: right; font-weight: 600; }
+.mk-tipbox i { width: 10px; height: 10px; border-radius: 2px; }
 .mk-prov-caja { max-width: 860px; }
 .mk-prov td.n { min-width: 4.5em; }
 th.n { text-align: right; }
@@ -358,6 +358,45 @@ th.n { text-align: right; }
 .mk-var { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .mk-ind .mk-svg { margin-top: auto; }
 .mk-ind .vacio { margin: 2px 0 6px; }
+/* gráfico ampliado (<dialog id="dl">) y el botón que lo abre */
+.mk-ind { position: relative; cursor: pointer; }
+.mk-ind:hover { border-color: var(--acento); }
+.mk-ind h4 { padding-right: 34px; }
+.mk-amp { display: grid; place-items: center; flex: none; width: 36px; height: 36px; padding: 0; border: 1px solid var(--borde-ctl); border-radius: 6px; background: var(--panel); color: var(--mut); cursor: pointer; }
+.mk-amp:hover { color: var(--acento); border-color: var(--acento); }
+.mk-amp svg, .graf .mk-amp svg { width: 16px; height: 16px; }
+.mk-ind .mk-amp { position: absolute; top: 6px; right: 6px; }
+.graf-cab { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+#dl { padding: 0; border: 1px solid var(--borde-ctl); border-radius: 10px; background: var(--panel); color: var(--tx); width: min(1000px, calc(100vw - 24px)); max-width: none; max-height: calc(100dvh - 24px); overflow: auto; box-shadow: 0 20px 60px rgba(0, 0, 0, .35); }
+#dl::backdrop { background: rgba(10, 20, 35, .6); }
+body:has(#dl[open]) { overflow: hidden; }
+.dl-cab { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; position: sticky; top: 0; z-index: 2; background: var(--panel); padding: 12px 16px 8px; border-bottom: 1px solid var(--borde); }
+.dl-cab h2 { font-size: 17px; margin: 0; min-width: 0; overflow-wrap: anywhere; }
+#dl-x { flex: none; width: 40px; height: 40px; border: 1px solid var(--borde-ctl); border-radius: 50%; background: var(--panel); color: var(--tx); font-size: 16px; cursor: pointer; }
+#dl-x:hover { border-color: var(--acento); color: var(--acento); }
+.dl-in { padding: 8px 16px 16px; min-width: 0; }
+.dl-ctl { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; margin: 4px 0 8px; }
+.dl-rangos { display: flex; flex-wrap: wrap; gap: 4px; }
+.dl-rangos button { font: inherit; font-size: 13px; min-height: 40px; min-width: 44px; padding: 4px 12px; border: 1px solid var(--borde-ctl); border-radius: 999px; background: var(--panel); color: var(--tx); cursor: pointer; }
+.dl-rangos button[aria-pressed="true"] { background: var(--acento); border-color: var(--acento); color: var(--panel); font-weight: 600; }
+.dl-rangos button:disabled { opacity: .45; cursor: not-allowed; }
+.dl-tg { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; min-height: 40px; }
+.dl-tg input { width: 18px; height: 18px; padding: 0; }
+.dl-ejes { font-size: 12px; color: var(--mut); margin: 0 0 4px; }
+.dl-ley { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; margin: 6px 0; }
+.dl-ley i { display: inline-block; width: 14px; height: 3px; vertical-align: middle; margin-right: 4px; }
+.dl-ley i.pt { background: repeating-linear-gradient(90deg, var(--acento) 0 3px, transparent 3px 6px); }
+#dl-svg svg { height: auto; }
+.dl-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin: 8px 0 12px; }
+.dl-stats > div { border: 1px solid var(--borde); border-radius: 6px; padding: 6px 10px; min-width: 0; }
+.dl-stats dt { font-size: 12px; color: var(--mut); }
+.dl-stats dd { margin: 2px 0 0; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.dl-stats dd small { display: block; font-weight: 400; font-size: 11px; color: var(--mut); }
+.dl-sw { display: inline-block; width: 12px; height: 12px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.dl-pie { font-size: 12px; color: var(--mut); border-top: 1px solid var(--borde); margin-top: 10px; padding-top: 8px; overflow-wrap: anywhere; }
+.dl-pie a { margin-right: 10px; }
+.dl-csv { display: inline-block; font-size: 13px; min-height: 40px; line-height: 40px; padding: 0 14px; border: 1px solid var(--acento); border-radius: 6px; font-weight: 600; text-decoration: none; }
+@media (max-width: 640px) { #dl { width: 100vw; height: 100dvh; max-height: 100dvh; border-radius: 0; border: 0; } .dl-cab { padding: 10px 12px 6px; } .dl-in { padding: 6px 12px 14px; } }
 .mk-comp { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .mk-comp .graf { margin: 0; padding: 10px 12px; min-width: 0; }
 .mk-comp .graf > .nota { font-size: 12px; margin: 0 0 4px; }
@@ -386,7 +425,7 @@ th.n { text-align: right; }
     --e1: #3987e5; --e2: #d95926; --e3: #199e70; --e4: #c98500; --e5: #d55181; --e6: #008300; --e7: #9085e9; --e8: #e66767;
     --e-otras: #4b5562; --ypf-linea: #dce8ff;
   }
-  #mk-tip { box-shadow: 0 6px 18px rgba(0, 0, 0, .5); }
+  .mk-tipbox { box-shadow: 0 6px 18px rgba(0, 0, 0, .5); }
 }
 
 /* ---------- Mapa y Cobertura ---------- */
@@ -461,7 +500,7 @@ th.n { text-align: right; }
       </div>
     </div>
     <div id="mk-out">Cargando…</div>
-    <div id="mk-tip" role="tooltip" hidden></div>
+    <div id="mk-tip" class="mk-tipbox" role="tooltip" hidden></div>
     <p class="sr" id="mk-vivo" aria-live="polite" aria-atomic="true"></p>
   </section>
 
@@ -559,6 +598,12 @@ obs = pd.read_csv("<span class="origen"></span>/api/obs?mes=2026-11&amp;formato=
                   storage_options={"X-API-Key": os.environ["LUB_CLAVE"]})</pre>
   </section>
 </main>
+<dialog id="dl" aria-labelledby="dl-tit">
+  <div class="dl-cab"><h2 id="dl-tit"></h2><button type="button" id="dl-x" aria-label="Cerrar el gráfico ampliado">✕</button></div>
+  <div class="dl-in" id="dl-cuerpo"></div>
+  <div id="dl-tip" class="mk-tipbox" role="tooltip" hidden></div>
+  <p class="sr" id="dl-vivo" aria-live="polite" aria-atomic="true"></p>
+</dialog>
 <div id="pz" class="pz" role="dialog" aria-modal="true" aria-label="Modo presentación" hidden></div>
 
 <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js"}}</script>
@@ -1301,7 +1346,7 @@ function pintarMercado() {
     </div>
     <div class="mk-bloque" id="mk-b">
       <h2>Actividad que mueve la demanda</h2>
-      <p class="nota">Cada tarjeta muestra los últimos 60 datos publicados. Un dato que falta queda como hueco, sin interpolar; el trazo punteado marca datos provisorios o estimados.</p>
+      <p class="nota">Cada tarjeta muestra los últimos 60 datos publicados; tocá una para ampliarla (serie completa, ejes, rango, estadísticas y CSV). Un dato que falta queda como hueco, sin interpolar; el trazo punteado marca datos provisorios o estimados.</p>
       <details class="mk-signos"><summary>Signos convencionales del INDEC</summary>
         <div class="tabla"><table><tr><th>Signo</th><th>Significado</th></tr>${Object.entries(SIGNOS).map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(v[0].toUpperCase() + v.slice(1))}</td></tr>`).join("")}</table></div>
         <p class="nota">datos.gob.ar no publica el signo: un valor vacío se muestra como «...» (no disponible a la fecha). Solo «-» vale cero. Las variaciones se calculan únicamente si existen los dos extremos.</p>
@@ -1377,6 +1422,11 @@ function pintarShare() {
       <span class="d ${esNum(e.var_pp) ? "" : "vacio"}" title="vs hace 12 meses">${esNum(e.var_pp) ? pp(e.var_pp) : "..."}</span><span class="n">${pct(e.ultimo)}</span></li>`).join("")}</ol>`;
   M.g.share = barrasShare(meses, s.total || [], orden, info, unidad);
   const csv = `/api/mercado/share?producto=${encodeURIComponent(M.producto)}${M.canal ? "&canal=" + encodeURIComponent(M.canal) : ""}&formato=csv`;
+  AMP.specs.share = () => ({ titulo: `Share mensual de ${nomProd}${M.canal ? ", canal " + M.canal : ""}`, unidad: "% del volumen que declaran las empresas", frec: "M", pp: true, neutro: true, signos: false,
+    fmt: pct, fmtEje: v => dec1.format(v * 100) + " %", series: orden.map(e => ({ nombre: info[e.empresa].nombre, color: info[e.empresa].color })),
+    filas: meses.map((m, i) => ({ x: m, v: orden.map(e => esNum(e.serie?.[i]) ? e.serie[i] : null) })),
+    fuente: "Secretaría de Energía, Res. SE 1104 (datos.energia.gob.ar)", links: [["Dataset de la Secretaría de Energía", DATASET_SE]], csv,
+    nota: `Se muestran los últimos ${meses.length} meses; el CSV trae la serie mensual completa de todas las empresas. Una empresa sin fila ese mes queda como hueco (no declaró), no es 0.` });
   const datos = `<details><summary>Ver los datos</summary><div class="tabla mk-datos"><table>
       <tr><th>Mes</th>${orden.map(e => `<th>${esc(info[e.empresa].nombre)}</th>`).join("")}<th>Total (${esc(unidad)})</th></tr>
       ${meses.map((m, i) => `<tr><td>${mesCorto(m)}</td>${orden.map(e => `<td class="n">${pct(e.serie?.[i])}</td>`).join("")}<td class="n">${esNum(s.total?.[i]) ? entero.format(Math.round(s.total[i])) : "..."}</td></tr>`).join("")}
@@ -1391,7 +1441,7 @@ function pintarShare() {
         <td class="n">${esNum(p.volumen) ? entero.format(Math.round(p.volumen)) : "..."}</td></tr>`).join("")}</table></div>`;
   caja.innerHTML = `<div class="mk-share">
       <div>${kpi}${ctx}${rank}</div>
-      <div class="graf"><h3>Share mensual de ${esc(nomProd)}, últimos ${meses.length} meses</h3>
+      <div class="graf"><div class="graf-cab"><h3>Share mensual de ${esc(nomProd)}, últimos ${meses.length} meses</h3>${botonAmp("share", "Share mensual de " + nomProd)}</div>
         <div class="mk-svg" data-g="share"></div>
         <p class="mk-fuente">Fuente: Secretaría de Energía, Res. SE 1104 (datos.energia.gob.ar). Ventas en ${esc(unidad)}; excluye ventas a empresas del sector.</p>${datos}</div>
     </div>
@@ -1458,28 +1508,53 @@ function lineas(filas, series, fmt, op = {}) {
   return {
     W: 0, xs: [], label: op.label || "",
     draw(W) {
-      const H = chico ? 52 : W < 520 ? 210 : 230;
+      const H = chico ? 52 : op.alto ? (W < 520 ? 270 : op.alto) : W < 520 ? 210 : 230;
       const vals = filas.flatMap(f => f.v).filter(esNum).concat(esNum(op.base) ? [op.base] : []);
-      let y0 = Math.min(...vals), y1 = Math.max(...vals), paso = 0;
-      if (chico) { const p = (y1 - y0) * .1 || Math.abs(y1) * .05 || 1; y0 -= p; y1 += p; }
-      else {
+      let y0 = Math.min(...vals), y1 = Math.max(...vals), paso = 0, ticks;
+      if (chico) { const p = (y1 - y0) * .1 || Math.abs(y1) * .05 || 1; y0 -= p; y1 += p; ticks = []; }
+      else if (op.log) {  // escala logarítmica (solo con todos los valores > 0): marcas 1-2-5 por década
+        const c = [];
+        for (let k = Math.floor(Math.log10(y0)) - 1; k <= Math.ceil(Math.log10(y1)) + 1; k++) [1, 2, 5].forEach(f => c.push(f * 10 ** k));
+        y0 = Math.max(...c.filter(t => t <= y0 * (1 + 1e-9))); y1 = Math.min(...c.filter(t => t >= y1 * (1 - 1e-9)));
+        if (y1 <= y0) y1 = y0 * 2;
+        ticks = c.filter(t => t >= y0 * (1 - 1e-9) && t <= y1 * (1 + 1e-9));
+      } else {
         const raw = (y1 - y0) / 4 || Math.abs(y1) / 4 || 1, p10 = 10 ** Math.floor(Math.log10(raw)), f = raw / p10;
         paso = (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p10;
         y0 = Math.floor(y0 / paso) * paso; y1 = Math.ceil(y1 / paso) * paso;
         if (y1 === y0) y1 = y0 + paso;
+        ticks = Array.from({ length: Math.round((y1 - y0) / paso) + 1 }, (_, k) => y0 + k * paso);
       }
       const ejeTxt = v => op.fmtEje ? op.fmtEje(v) : num(v);
-      const ticks = chico ? [] : Array.from({ length: Math.round((y1 - y0) / paso) + 1 }, (_, k) => y0 + k * paso);
       const ml = chico ? 3 : Math.max(...ticks.map(t => ejeTxt(t).length)) * 6.4 + 10;
-      const m = chico ? { l: 3, r: 6, t: 6, b: 6 } : { l: ml, r: 14, t: 10, b: 24 };
+      const m = chico ? { l: 3, r: 6, t: 6, b: 6 } : { l: ml, r: op.grillaX ? 22 : 14, t: 10, b: 24 };
       const t0 = ms(filas[0].x), t1 = ms(filas.at(-1).x), tr = t1 - t0 || 1;
       const X = x => filas.length === 1 ? m.l + (W - m.l - m.r) / 2 : m.l + (ms(x) - t0) / tr * (W - m.l - m.r);
-      const Y = v => H - m.b - (v - y0) / (y1 - y0) * (H - m.t - m.b);
+      const L = op.log ? Math.log : v => v;
+      const Y = v => H - m.b - (L(v) - L(y0)) / (L(y1) - L(y0)) * (H - m.t - m.b);
       this.W = W; this.xs = filas.map(f => X(f.x)); this.Y = Y;
       let s = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" tabindex="0" aria-label="${esc(this.label)}">`;
       ticks.forEach(t => s += `<line class="eje" x1="${m.l}" x2="${W - m.r}" y1="${Y(t).toFixed(1)}" y2="${Y(t).toFixed(1)}"/><text x="${m.l - 6}" y="${(Y(t) + 4).toFixed(1)}" text-anchor="end">${esc(ejeTxt(t))}</text>`);
       if (esNum(op.base)) s += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(op.base).toFixed(1)}" y2="${Y(op.base).toFixed(1)}" stroke="var(--borde-ctl)" stroke-dasharray="3 3"/>`;
-      if (!chico) {
+      // eje X con grilla (solo el gráfico ampliado): marcas por mes si el rango es corto, por año si es largo
+      const xt = [];
+      if (!chico && op.grillaX && filas.length > 1) {
+        const d0 = new Date(t0), d1 = new Date(t1), mi = d => d.getUTCFullYear() * 12 + d.getUTCMonth();
+        const nm = mi(d1) - mi(d0), maxN = Math.max(2, Math.floor((W - m.l - m.r) / 56));
+        if (nm <= 30) {
+          const st = [1, 2, 3, 6].find(s => Math.ceil(nm / s) + 1 <= maxN) || 6;
+          for (let k = mi(d0); k <= mi(d1) + 1; k++) if (k % st === 0) xt.push(Date.UTC(Math.floor(k / 12), k % 12, 1));
+        } else {
+          const st = [1, 2, 5, 10, 20].find(s => nm / 12 / s + 1 <= maxN) || 20;
+          for (let y = d0.getUTCFullYear(); y <= d1.getUTCFullYear() + 1; y++) if (y % st === 0) xt.push(Date.UTC(y, 0, 1));
+        }
+        const anual = nm > 30;
+        xt.filter(t => t >= t0 && t <= t1).forEach(t => {
+          const x = m.l + (t - t0) / tr * (W - m.l - m.r), iso = new Date(t).toISOString();
+          s += `<line class="eje" x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${m.t}" y2="${H - m.b}"/><text x="${x.toFixed(1)}" y="${H - 7}" text-anchor="middle">${anual ? iso.slice(0, 4) : mesCorto(iso.slice(0, 7))}</text>`;
+        });
+      }
+      if (!chico && !(xt.length && xt.some(t => t >= t0 && t <= t1))) {
         const fx = op.diario ? x => fechaAR(x.slice(0, 10)) : mesCorto;
         s += `<text x="${m.l}" y="${H - 7}">${fx(filas[0].x)}</text>` + (filas.length > 1 ? `<text x="${W - m.r}" y="${H - 7}" text-anchor="end">${fx(filas.at(-1).x)}</text>` : "");
       }
@@ -1522,8 +1597,8 @@ function lineas(filas, series, fmt, op = {}) {
 }
 
 // tooltip compartido: mouse, toque y teclado (flechas, Inicio, Fin, Esc). Con teclado también lo lee el lector de pantalla
-function atar(el, g) {
-  const svg = el.querySelector("svg"), cruz = svg?.querySelector(".mk-cruz"), tip = $("#mk-tip");
+function atar(el, g, tip = $("#mk-tip"), vivo = $("#mk-vivo")) {  // el diálogo trae su propio tip y región viva: lo de afuera queda inerte con el <dialog> modal
+  const svg = el.querySelector("svg"), cruz = svg?.querySelector(".mk-cruz");
   if (!svg) return;
   let i = null;
   const mostrar = (k, cx, cy, teclado) => {
@@ -1536,7 +1611,7 @@ function atar(el, g) {
     let left = px + 14; if (left + w > innerWidth - 8) left = px - 14 - w;
     let top = py - h - 10; if (top < 8) top = py + 18;
     tip.style.left = Math.max(8, left) + "px"; tip.style.top = Math.min(top, innerHeight - h - 8) + "px";
-    if (teclado) $("#mk-vivo").textContent = tip.innerText.replace(/\s+/g, " ");
+    if (teclado) vivo.textContent = tip.innerText.replace(/\s+/g, " ");
   };
   const ocultar = () => { cruz.style.visibility = "hidden"; g.marcar?.(svg, null); tip.hidden = true; };
   const cerca = e => {
@@ -1571,7 +1646,185 @@ function pintarGraficos(raiz = $("#mk-out")) {
   });
 }
 let mkResize = 0;
-addEventListener("resize", () => { clearTimeout(mkResize); mkResize = setTimeout(() => pintarGraficos(), 150); });
+addEventListener("resize", () => { clearTimeout(mkResize); mkResize = setTimeout(() => { pintarGraficos(); if ($("#dl").open) ampActualizar(); }, 150); });
+
+// ----- gráfico ampliado: UN solo <dialog> para tarjetas de actividad, compuestos y share -----
+// spec = {titulo, unidad, frec, diario, series:[{nombre,color}], filas:[{x, v:[..], s:[signos]}], fmt, fmtEje, pp, base, neutro, fuente, nota, macroId?, csv?, links?}
+// Null corta la línea (nunca se interpola); lo que falta se dice con "—" y el motivo.
+const AMP = { specs: {}, cache: {}, spec: null, rango: "5A", mm: false, log: false, blob: null };
+const RANGOS = [["1A", 1], ["3A", 3], ["5A", 5], ["10A", 10], ["Todo", 0]];
+const ymd = x => x.length === 7 ? x + "-01" : x.slice(0, 10);
+const AÑO_MS = 31557600000;
+function restaMeses(iso, k) {
+  const a = +iso.slice(0, 4) * 12 + +iso.slice(5, 7) - 1 - k, y = Math.floor(a / 12);
+  const mo = a - y * 12, dia = Math.min(+iso.slice(8, 10) || 1, new Date(Date.UTC(y, mo + 1, 0)).getUTCDate());
+  return `${y}-${String(mo + 1).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+}
+const iconoAmp = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9 2h5v5M7 14H2V9M14 2 9.5 6.5M2 14l4.5-4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>`;
+const botonAmp = (clave, nombre) => `<button type="button" class="mk-amp" data-amp="${esc(clave)}" aria-label="Ampliar el gráfico: ${esc(nombre)}" title="Ampliar el gráfico">${iconoAmp}</button>`;
+
+function ampPrep(sp) {
+  sp.mapa = sp.series.map((_, k) => new Map(sp.filas.filter(f => esNum(f.v[k])).map(f => [ymd(f.x), f.v[k]])));
+  sp.fechas = sp.mapa.map(m => [...m.keys()].sort());
+  sp.trim = /^[tq]/i.test(sp.frec || "");
+  sp.mmv = sp.series.length === 1 ? mm12(sp) : null;
+}
+// media móvil de 12 meses (4 trimestres) solo con la ventana completa y sin huecos; la diaria pide ≥150 datos en los 12 meses
+function mm12(sp) {
+  const need = sp.diario ? 150 : sp.trim ? 4 : 12, f = sp.filas;
+  return f.map((fi, i) => {
+    const lim = restaMeses(ymd(fi.x), 12);
+    let j = i, suma = 0, c = 0;
+    for (; j >= 0 && ymd(f[j].x) > lim; j--) if (esNum(f[j].v[0])) { suma += f[j].v[0]; c++; }
+    return j >= 0 && c >= need ? suma / c : null;
+  });
+}
+// valor de la serie k `meses` antes de `iso`: la fecha exacta; en diarias, el último dato de hasta 5 días antes. Si no hay, null (no se interpola)
+function ampRef(sp, k, iso, meses) {
+  const dest = restaMeses(iso, meses), m = sp.mapa[k];
+  if (m.has(dest)) return m.get(dest);
+  if (!sp.diario) return null;
+  const f = sp.fechas[k].findLast(d => d <= dest);
+  return f && Date.parse(dest + "T00:00:00Z") - Date.parse(f + "T00:00:00Z") <= 5 * 864e5 ? m.get(f) : null;
+}
+const varAmp = (sp, v, v0) => !esNum(v) || !esNum(v0) ? null : sp.pp ? (v - v0) * 100 : v0 === 0 ? null : (v / v0 - 1) * 100;
+const varTxt = (sp, d) => d === null ? "—" : `<span class="${sp.neutro || !d ? "neutro" : d > 0 ? "sube" : "baja"}"><span aria-hidden="true">${flecha(d)} </span>${signo(d)}${dec1.format(Math.abs(d))}${sp.pp ? " pp" : " %"}</span>`;
+
+function ampStats(sp, vis, k) {
+  const pts = vis.map((f, i) => [f.x, f.v[k], f.s?.[k]]).filter(p => esNum(p[1]));
+  const fe = x => fechaInd(x, sp.frec), vt = p => valorTxt({ valor: p[1], signo: p[2] }, sp.fmt);
+  if (!pts.length) return [["Estadísticas", "—", "no hay datos publicados en el rango visible"]];
+  const ult = pts.at(-1), pri = pts[0];
+  const mn = pts.reduce((a, p) => p[1] < a[1] ? p : a), mx = pts.reduce((a, p) => p[1] > a[1] ? p : a);
+  const prom = pts.reduce((a, p) => a + p[1], 0) / pts.length, años = (ms(ult[0]) - ms(pri[0])) / AÑO_MS;
+  const refIA = ampRef(sp, k, ymd(ult[0]), 12), ia = varAmp(sp, ult[1], refIA);
+  const acum = pts.length > 1 ? varAmp(sp, ult[1], pri[1]) : null;
+  const cagr = años >= 2 && !sp.pp && pri[1] > 0 && ult[1] > 0 ? ((ult[1] / pri[1]) ** (1 / años) - 1) * 100 : null;
+  const sd = (d, motivo) => d === null ? ["—", motivo] : [varTxt(sp, d), ""];
+  return [
+    ["Último dato", vt(ult), fe(ult[0])], ["Mínimo", vt(mn), fe(mn[0])], ["Máximo", vt(mx), fe(mx[0])],
+    ["Promedio del rango", sp.fmt(prom), `media simple de ${entero.format(pts.length)} datos`],
+    ["Var. interanual del último dato", ...sd(ia, esNum(refIA) ? "no se puede calcular (el dato de hace un año es 0)" : `falta el dato de hace un año (${fe(restaMeses(ymd(ult[0]), 12))})`)],
+    ["Var. acumulada del rango", ...sd(acum, pts.length < 2 ? "hace falta más de un dato" : "no se puede calcular (el primer dato es 0)")],
+    ["CAGR (variación anual compuesta)", ...(cagr !== null ? [varTxt({ ...sp, pp: false }, cagr), `de ${fe(pri[0])} a ${fe(ult[0])}`]
+      : ["—", años < 2 ? "el rango visible es menor a 2 años" : sp.pp ? "no aplica a participaciones (puntos porcentuales)" : "requiere valores positivos"])]
+  ];
+}
+
+function ampTip(sp, f, mmN) {
+  const iso = ymd(f.x), mp = sp.trim ? 3 : 1, per = sp.trim ? "trimestral" : "mensual", uni = sp.unidad ? " " + esc(sp.unidad) : "";
+  let s = `<b>${esc(fechaInd(f.x, sp.frec))}</b>`;
+  const varias = sp.series.length > 1;
+  sp.series.forEach((se, k) => {
+    const v = f.v[k], sg = f.s?.[k];
+    const vm = varAmp(sp, v, ampRef(sp, k, iso, mp)), va = varAmp(sp, v, ampRef(sp, k, iso, 12));
+    if (varias) s += `<div class="f"><i style="background:${se.color}"></i><span>${esc(se.nombre)}</span><span>${valorTxt({ valor: v, signo: sg }, sp.fmt)}</span></div>`;
+    else s += `<div>${valorTxt({ valor: v, signo: sg }, sp.fmt)}${uni}</div>`;
+    if (!varias || sp.series.length <= 2) s += `<div class="mut">${varias ? esc(se.nombre) + ": " : ""}var. ${per}: ${varTxt(sp, vm)} · interanual: ${varTxt(sp, va)}</div>`;
+    if (sg && SIGNOS[sg] && !varias) s += `<div class="mut">${esc(sg)}: ${esc(SIGNOS[sg])}</div>`;
+    else if (!esNum(v) && !varias) s += `<div class="mut">no disponible a la fecha</div>`;
+  });
+  if (mmN !== undefined) s += `<div class="mut">Media móvil 12 meses: ${esNum(mmN) ? sp.fmt(mmN) : "— (ventana incompleta)"}</div>`;
+  return s;
+}
+
+function ampliar(sp) {
+  $("#mk-tip").hidden = true;
+  if (AMP.blob) { URL.revokeObjectURL(AMP.blob); AMP.blob = null; }
+  Object.assign(AMP, { spec: sp, log: false, mm: false, rango: "5A", elegido: false });
+  sp.fmtEje ||= sp.fmt;
+  ampPrep(sp);
+  const dlg = $("#dl"), id = sp.macroId, q = s => /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  $("#dl-tit").textContent = sp.titulo;
+  let csv = sp.csv;
+  if (!csv) {
+    AMP.blob = URL.createObjectURL(new Blob(["﻿" + ["fecha", ...sp.series.map(s => q(s.nombre))].join(",") + "\n" + sp.filas.map(f => [ymd(f.x), ...f.v.map(v => esNum(v) ? v : "")].join(",")).join("\n") + "\n"], { type: "text/csv;charset=utf-8" }));
+    csv = AMP.blob;
+  }
+  const links = id ? [[/^se_/.test(id) ? "Dataset de la Secretaría de Energía" : "Serie oficial en datos.gob.ar", /^se_/.test(id) ? DATASET_SE : `https://apis.datos.gob.ar/series/api/series/?ids=${encodeURIComponent(id)}&format=csv`]] : sp.links || [];
+  $("#dl-cuerpo").innerHTML = `
+    <div class="dl-ctl"><div class="dl-rangos" role="group" aria-label="Rango de fechas">${RANGOS.map(([t]) => `<button type="button" data-r="${t}" aria-pressed="false">${t}</button>`).join("")}</div>
+      ${sp.series.length === 1 ? `<label class="dl-tg"><input type="checkbox" id="dl-mm"> Media móvil de 12 meses</label>` : ""}
+      <label class="dl-tg"><input type="checkbox" id="dl-log"> <span id="dl-log-t">Escala logarítmica</span></label></div>
+    <p class="dl-aviso nota" id="dl-aviso" aria-live="polite"></p>
+    <p class="dl-ejes" id="dl-ejes"></p>
+    <div class="dl-ley" id="dl-ley"></div>
+    <div class="mk-svg" id="dl-svg"></div>
+    <div id="dl-sig"></div>
+    <h3 class="mk-sub">Estadísticas del rango visible</h3>
+    <div id="dl-stats"></div>
+    <div class="dl-pie"><p>Fuente: ${esc(sp.fuente || "")}.${id ? ` Id de la serie: <code>${esc(id)}</code>.` : ""} ${esc(sp.nota || "")}</p>
+      <p>${links.map(([t, u]) => `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(t)}</a>`).join("")}</p>
+      <a class="dl-csv" href="${esc(csv.startsWith("blob:") ? csv : location.origin + csv)}" download="${esc((id || sp.titulo).replace(/[^\w.-]+/g, "_"))}.csv">Descargar CSV</a></div>`;
+  if (!dlg.open) dlg.showModal();
+  $("#dl").scrollTop = 0;
+  ampActualizar();
+  if (id && !sp.completa) ampCompleta(sp);
+}
+
+async function ampCompleta(sp) {
+  try {
+    const ser = AMP.cache[sp.macroId] ??= (await api("macro?ids=" + encodeURIComponent(sp.macroId)))[0].serie;
+    if (AMP.spec !== sp) return;
+    if (ser.length) sp.filas = ser.map(p => ({ x: p.fecha, v: [valorDe(p)], s: [p.signo] }));
+    sp.completa = true; ampPrep(sp);
+    if (!AMP.elegido) AMP.rango = "5A";  // con las 60 filas de la tarjeta "5A" no entraba: al llegar la serie larga vuelve el rango por defecto
+  } catch (e) {
+    if (AMP.spec !== sp) return;
+    sp.aviso = `No se pudo leer la serie completa (${e.message}): se muestran solo los últimos ${sp.filas.length} datos de la tarjeta.`;
+  }
+  ampActualizar();
+}
+
+function ampActualizar() {
+  const sp = AMP.spec;
+  if (!sp || !$("#dl-svg")) return;
+  const fs = sp.filas, hasta = ymd(fs.at(-1).x), span = (ms(fs.at(-1).x) - ms(fs[0].x)) / AÑO_MS;
+  const dis = ([t, a]) => a > 0 && span <= a;
+  if (dis(RANGOS.find(r => r[0] === AMP.rango))) AMP.rango = "Todo";
+  const años = RANGOS.find(r => r[0] === AMP.rango)[1], desde = años ? restaMeses(hasta, 12 * años) : "";
+  document.querySelectorAll("#dl [data-r]").forEach(b => { const r = RANGOS.find(x => x[0] === b.dataset.r); b.disabled = dis(r); b.setAttribute("aria-pressed", String(b.dataset.r === AMP.rango)); });
+  const conMM = AMP.mm && sp.mmv;
+  const vis = fs.map((f, i) => ({ x: f.x, s: f.s, v: conMM ? [...f.v, sp.mmv[i]] : f.v })).filter(f => ymd(f.x) > desde);
+  const todos = vis.flatMap(f => f.v).filter(esNum), hay = todos.length > 0;
+  const logOk = hay && todos.every(v => v > 0);
+  if (!logOk) AMP.log = false;
+  const cl = $("#dl-log"); cl.disabled = !logOk; cl.checked = AMP.log;
+  $("#dl-log-t").textContent = logOk || !hay ? "Escala logarítmica" : "Escala logarítmica (no disponible: hay valores en cero o negativos)";
+  if ($("#dl-mm")) $("#dl-mm").checked = !!AMP.mm;
+  $("#dl-aviso").textContent = sp.completa || !sp.macroId ? "" : sp.aviso || "Cargando la serie completa…";
+  const nombres = sp.series.length;
+  $("#dl-ejes").textContent = `Eje X: fecha (${sp.diario ? "diaria" : sp.trim ? "trimestral" : "mensual"}), de ${fechaInd(vis[0]?.x || "", sp.frec)} a ${fechaInd(vis.at(-1)?.x || "", sp.frec)}. Eje Y: ${sp.unidad || "valor"}${AMP.log ? ", escala logarítmica" : ""}.`;
+  const prov = vis.some(f => f.s?.some(g => PROV.includes(g)));
+  $("#dl-ley").innerHTML = (nombres > 1 || conMM ? sp.series.map(se => `<span><i style="background:${se.color}"></i>${esc(se.nombre)}</span>`).join("") : "")
+    + (conMM ? `<span><i style="background:var(--comp)"></i>Media móvil de 12 meses</span>` : "")
+    + (sp.signos !== false ? `<span><i class="pt"></i>trazo punteado: dato provisorio o estimado${prov ? "" : " (ninguno en este rango)"}</span>` : "")
+    + `<span>Un dato que falta corta la línea: no se interpola.</span>`;
+  const presentes = [...new Set(vis.flatMap(f => f.s || []).filter(g => g && SIGNOS[g]))];
+  $("#dl-sig").innerHTML = sp.signos ? `<details><summary>Signos convencionales del INDEC${presentes.length ? ` (en este rango: ${esc(presentes.join(", "))})` : ""}</summary>
+    <div class="tabla"><table>${Object.entries(SIGNOS).map(([g, v]) => `<tr><td>${esc(g)}</td><td>${esc(v[0].toUpperCase() + v.slice(1))}</td></tr>`).join("")}</table></div></details>` : "";
+  const el = $("#dl-svg"), w = Math.floor(el.clientWidth);
+  if (!hay) el.innerHTML = `<div class="explica">No hay datos publicados en este rango (los huecos no se rellenan).</div>`;
+  else if (w) {
+    const ser = sp.series.map((se, k) => ({ ...se, prov: vis.map(f => PROV.includes(f.s?.[k])) }));
+    if (conMM) ser.push({ nombre: "Media móvil de 12 meses", color: "var(--comp)" });
+    const g = M.g.amp = lineas(vis, ser, sp.fmt, { alto: 340, grillaX: true, log: AMP.log, diario: sp.diario, fmtEje: sp.fmtEje, base: sp.base,
+      label: `${sp.titulo}, ${vis.length} datos. Usá las flechas para recorrerlos.`, tip: f => ampTip(sp, f, conMM ? f.v[nombres] : undefined) });
+    el.innerHTML = g.draw(w);
+    atar(el, g, $("#dl-tip"), $("#dl-vivo"));
+  }
+  const bloque = k => `<dl class="dl-stats">${ampStats(sp, vis, k).map(([t, v, n]) => `<div><dt>${esc(t)}</dt><dd>${v}${n ? `<small>${esc(n)}</small>` : ""}</dd></div>`).join("")}</dl>`;
+  $("#dl-stats").innerHTML = nombres === 1 ? bloque(0) : sp.series.map((se, k) => `<details${nombres <= 2 ? " open" : ""}><summary><i class="dl-sw" style="background:${se.color}"></i>${esc(se.nombre)}</summary>${bloque(k)}</details>`).join("");
+}
+$("#dl-x").addEventListener("click", () => $("#dl").close());
+$("#dl").addEventListener("click", e => { if (e.target === $("#dl")) $("#dl").close(); });  // clic en el fondo
+$("#dl").addEventListener("close", () => { $("#dl-tip").hidden = true; AMP.spec = null; if (AMP.blob) { URL.revokeObjectURL(AMP.blob); AMP.blob = null; } });
+$("#dl-cuerpo").addEventListener("click", e => { const b = e.target.closest("[data-r]"); if (b && !b.disabled) { AMP.rango = b.dataset.r; AMP.elegido = true; ampActualizar(); } });
+$("#dl-cuerpo").addEventListener("change", e => { if (e.target.id === "dl-mm") AMP.mm = e.target.checked; if (e.target.id === "dl-log") AMP.log = e.target.checked; ampActualizar(); });
+$("#mk-out").addEventListener("click", e => {
+  const el = e.target.closest("[data-amp]"), f = el && AMP.specs[el.dataset.amp];
+  if (f) ampliar(f());
+});
 
 // ----- A2. ¿Dónde perdemos share? (/api/mercado/perdidas) -----
 const PD = { producto: "automotrices", canal: "", provincia: "", ventana: "12m", min: "", r: null, pedido: null, sel: null, todas: false };
@@ -1723,6 +1976,10 @@ async function abrirDetalle(s) {
   const filasG = serie.meses.map((m, i) => ({ x: m, v: serie.empresas.map(e => e.serie[i]) }));
   M.g.p_serie = lineas(filasG, Y, pct, { fmtEje: v => dec1.format(v * 100) + " %", label: "Share mensual de YPF y de los competidores que ganaron en este segmento. Usá las flechas para recorrer los meses.",
     tip: fl => `<b>${esc(mesLargo(fl.x))}</b>` + Y.map((y, k) => `<div class="f"><i style="background:${y.color}"></i><span>${esc(y.nombre)}</span><span>${pct(fl.v[k])}</span></div>`).join("") });
+  AMP.specs.p_serie = () => ({ titulo: `Share mensual de YPF y los que ganaron: ${s.canal}, ${s.provincia}`, unidad: "% del volumen que declaran las empresas del segmento", frec: "M", pp: true, neutro: true, signos: false,
+    fmt: pct, fmtEje: v => dec1.format(v * 100) + " %", series: Y, filas: filasG.map(f => ({ x: f.x, v: f.v.map(v => esNum(v) ? v : null) })),
+    fuente: "Secretaría de Energía, Res. SE 1104 (datos.energia.gob.ar)", links: [["Dataset de la Secretaría de Energía", DATASET_SE], ["Filas exactas (CSV)", ...[location.origin + filasUrl(ef())]]],
+    nota: "Un mes sin fila de la empresa queda como hueco: no declaró, no es 0." });
   const filaComp = c => `<tr><td>${esc(c.empresa)}</td><td class="n">${pct(c.s_t0)} → ${pct(c.s_t)}</td><td class="n"><b class="${c.m3_eq > 0 ? "sube" : "baja"}">${pp(c.delta_pp)}</b></td>
     <td class="n">${m3s(c.m3_eq, u)}</td><td class="mk-h12">${verFilas(ef({ empresa: c.empresa }))}</td></tr>`;
   const cabC = `<tr><th>Empresa</th><th class="n">Share</th><th class="n">Δ</th><th class="n">Equivale a</th><th class="mk-h12">Filas</th></tr>`;
@@ -1737,7 +1994,7 @@ async function abrirDetalle(s) {
       ${pierden.length ? `<details class="mk-agg"><summary>Competidores que también perdieron o quedaron igual (${pierden.length})</summary><div class="tabla"><table>${cabC}${pierden.map(filaComp).join("")}</table></div></details>` : ""}
       <details class="mk-agg"><summary>De dónde viene cada empresa</summary>${listaOrigen(["YPF", ...f.competidores.map(c => c.empresa), ...f.entraron_salieron.map(x => x.empresa)], r.origenes)}</details>
       ${f.entraron_salieron.length ? `<p class="nota"><b>Aparte (no cuentan como ganancia ni pérdida de share):</b> ${f.entraron_salieron.map(x => `${esc(x.empresa)} ${esc(x.flag)} (${num(x.volumen)} ${esc(u)})`).join("; ")}.</p>` : ""}
-      <div class="graf"><h4>Share mensual en este segmento: YPF y los que ganaron</h4>
+      <div class="graf"><div class="graf-cab"><h4>Share mensual en este segmento: YPF y los que ganaron</h4>${botonAmp("p_serie", "Share mensual en " + s.canal + ", " + s.provincia)}</div>
         <div class="ley">${Y.map(y => `<span><i style="background:${y.color}"></i>${esc(y.nombre)}</span>`).join("")}</div>
         <div class="mk-svg" data-g="p_serie"></div><p class="mk-fuente">Un mes sin fila de la empresa queda como hueco: no declaró, no es 0.</p></div>`;
   caja.innerHTML = `<div class="mk-detalle"><h3>${esc(s.canal)} · ${esc(s.provincia)}</h3>
@@ -1775,7 +2032,11 @@ function tarjeta(a) {
       tip: (f, i) => `<b>${esc(fechaInd(f.x, a.frec))}</b>${valorTxt(serie[i])} ${esc(uTxt)}${serie[i].signo && SIGNOS[serie[i].signo] ? `<div class="mut">${esc(serie[i].signo)}: ${esc(SIGNOS[serie[i].signo])}</div>` : valorDe(serie[i]) === null ? `<div class="mut">no disponible a la fecha</div>` : ""}`
     });
   }
-  return `<article class="mk-ind"><h4>${esc(a.nombre)}</h4>${val}
+  AMP.specs[clave] = () => ({ titulo: a.nombre, unidad: uTxt, frec: a.frec, diario: /^d/i.test(a.frec || ""), neutro, signos: true, fmt: num, fuente: a.fuente,
+    series: [{ nombre: a.nombre, color: "var(--acento)" }], filas: serie.map(p => ({ x: p.fecha, v: [valorDe(p)], s: [p.signo] })), macroId: a.id,
+    nota: /^se_/.test(a.id) ? "Serie derivada por este visor: suma mensual de las ventas declaradas por las empresas a la Secretaría de Energía (Res. 1104); un mes sin fila es hueco, no 0." : "",
+    csv: `/api/macro?ids=${encodeURIComponent(a.id)}&formato=csv` });
+  return `<article class="mk-ind" data-amp="${esc(clave)}">${conDato ? botonAmp(clave, a.nombre) : ""}<h4>${esc(a.nombre)}</h4>${val}
     <p class="mk-ind-meta"><span>${u.fecha ? esc(fechaInd(u.fecha, a.frec)) : ""}</span>${vi}</p>
     ${conDato ? `<div class="mk-svg" data-g="${esc(clave)}"></div>` : `<p class="vacio">La serie no trae ningún dato en el período.</p>`}
     <p class="mk-fuente">${a.fuente ? "Fuente: " + esc(a.fuente) : ""}</p></article>`;
@@ -1813,9 +2074,16 @@ function pintarCompuestos() {
   M.g.c_dem = lineas(fDp, [{ nombre: "Demanda potencial", color: "var(--acento)" }], dec1.format, { base: 100, label: "Índice de demanda potencial, base 2023 = 100. Usá las flechas para recorrer los meses.",
     tip: f => `<b>${esc(mesLargo(f.x))}</b>Índice ${esNum(f.v[0]) ? dec1.format(f.v[0]) : "..."}` });
 
-  const graf = (titulo, sub, clave, filas, nSeries, ley, pie, extra = "", sinDatos) => `<div class="graf"><h3>${titulo}</h3><p class="nota">${sub}</p>${extra}
-    ${hay(filas, nSeries) ? ley + `<div class="mk-svg" data-g="${clave}"></div>` : vacio(sinDatos)}<p class="mk-fuente">${pie}</p></div>`;
   const PROPIO = "Precios: mediana del $/L de los pares YPF–competencia relevados por este visor en tiendas online.";
+  // gráfico ampliado: mismas series que el de la tarjeta; fuente = el pie sin etiquetas, CSV armado en el navegador con lo que se ve
+  const espec = (clave, titulo, series, filas, op) => AMP.specs[clave] = () => ({ titulo, series, neutro: true, signos: false, frec: op.diario ? "D" : "M", fuente: op.fuente,
+    nota: "Cruce propio de este visor, no lo publica ningún organismo.", filas: filas.map(f => ({ x: f.x, v: f.v })), ...op });
+  espec("c_real", "Precio real por litro (YPF y competencia)", YC, fPr, { unidad: `$ de ${base ? mesLargo(base) : "el primer mes con precio"} por litro`, fmt: pesos.format, fuente: PROPIO + " IPC: INDEC, vía datos.gob.ar (CC-BY 4.0)." });
+  espec("c_usd", "Precio por litro en dólares (YPF y competencia)", YC, fPu, { unidad: "USD por litro", fmt: usd.format, diario: true, fuente: PROPIO + " Tipo de cambio: BCRA, vía datos.gob.ar (CC-BY 4.0)." });
+  espec("c_ase", "Asequibilidad del lubricante YPF", [{ nombre: "Asequibilidad", color: "var(--ypf)" }], fAs, { unidad: "índice, base 100 = primer mes con precio YPF", fmt: dec1.format, base: 100, fuente: PROPIO + " Salarios: INDEC, vía datos.gob.ar (CC-BY 4.0)." });
+  espec("c_dem", "Demanda potencial de lubricantes", [{ nombre: "Demanda potencial", color: "var(--acento)" }], fDp, { unidad: "índice, base 2023 = 100 (pesos supuestos, sin calibrar)", fmt: dec1.format, base: 100, fuente: "Peajes y EMAE: INDEC, vía datos.gob.ar (CC-BY 4.0). Gasoil: Secretaría de Energía, Res. SE 1104." });
+  const graf = (titulo, sub, clave, filas, nSeries, ley, pie, extra = "", sinDatos) => `<div class="graf"><div class="graf-cab"><h3>${titulo}</h3>${hay(filas, nSeries) ? botonAmp(clave, titulo) : ""}</div><p class="nota">${sub}</p>${extra}
+    ${hay(filas, nSeries) ? ley + `<div class="mk-svg" data-g="${clave}"></div>` : vacio(sinDatos)}<p class="mk-fuente">${pie}</p></div>`;
   caja.innerHTML = `<div class="mk-comp">
     ${graf("Precio real por litro", `En pesos de ${base ? esc(mesLargo(base)) : "el primer mes con precio"}, deflactado por el IPC nacional nivel general.`, "c_real", fPr, 2, leyenda(YC),
       `${PROPIO} IPC: INDEC, vía datos.gob.ar (CC-BY 4.0).`, nota("precio_real"), "Todavía no hay un mes con precio relevado y con IPC publicado a la vez.")}

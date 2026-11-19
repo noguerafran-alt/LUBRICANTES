@@ -46,7 +46,7 @@ normalizar.py      # aviso → (marca, sae, litros, unidades, producto_id, match
 macro.py           # `series`: series de datos.gob.ar → data/macro/series.csv; `energia`: ventas de lubricantes de la SE (CSV de 770 MB en streaming) → data/macro/energia.csv; `fx`: dólar PTAX del BCB → data/fx.csv
 server.py          # http.server: visor estático site/ + /api/* calculado desde data/ y seed/
 tools/modelos3d.py # foto → GLB (script de Blender; local: `blender -b --factory-startup -P tools/modelos3d.py -- [--limite N] [--solo ID] [--forzar]`, `-- test` = self-test con el assert de malla cerrada; las fotos que no sirven van a `DESCARTES` con su motivo), en la Action modelos3d.yml; site/presentacion.js: modo presentación 3D
-site/index.html    # visor: Mapa, Cobertura, Comparador, Evolución, Índice, Fuentes (JS vanilla, SVG propio)
+site/index.html    # visor: Mapa, Cobertura, Comparador, Evolución, Índice, Fuentes (JS vanilla, SVG propio); en Mercado cada gráfico (tarjetas de actividad, compuestos, share) abre un <dialog> ampliado (`ampliar()`): ejes, rangos, estadísticas, CSV
 seed/productos.csv     # catálogo normalizado YPF + competencia (a mano)
 seed/alias.csv         # EAN / regex de título → producto_id
 seed/equivalencias.csv # pares YPF ↔ competidor (a mano)
@@ -374,6 +374,7 @@ solo `-` (cero absoluto) vale 0. Las variaciones (`var_ia`, compuestos) se calcu
 - Límites del share (van en `nota` y hay que mostrarlos): solo declaran las empresas inscriptas en la Res. SE 1104 (Mobil, Castrol, Motul, Liqui Moly e importadores chicos no
   figuran); es sell-in de la petrolera, no compra del consumidor; viene por empresa, no por marca (Elaion/Helix).
 - Fuente al pie: "INDEC, vía datos.gob.ar (CC-BY 4.0)" o "Secretaría de Energía, Res. 1104".
+- **Gráfico ampliado** (solo visor, sin API nueva): cada tarjeta de `actividad`, cada compuesto y el share abren un `<dialog>` con la serie **completa** (`/api/macro?ids=<id>`, que ya trae también las `se_*`), rangos 1A/3A/5A/10A/Todo, estadísticas del rango (CAGR solo con 2 años o más), media móvil de 12 meses y escala log opcionales, y `Descargar CSV`. Un hueco corta la línea; lo que no se puede calcular dice `—` con el motivo. Evolución usa otro componente y no lo abre.
 
 **`GET /api/mercado/perdidas?producto=&canal=&provincia=&ventana=12m|mes&min=`** (con clave, solo AR; `producto` = automotrices|industriales|marinos|grasas; canal/provincia vacío o `todos` = sin filtro; 400 por producto/ventana/min inválido, 404 por canal/provincia sin datos). Gasoil queda afuera (no trae empresa). Calcula `server.perdidas` (cacheado en `d["_cache_perdidas"]`):
 - Períodos: `12m` = últimos 12 meses contra los 12 anteriores; `mes` = último mes contra el mismo mes del año anterior. `min` = piso de volumen (m3 o Ton del producto; default 50 en `12m`, 5 en `mes`, `MIN_DEFECTO`): si `min(total_t, total_t0)` queda debajo, el segmento es `volumen chico` y no se rankea.
