@@ -5,6 +5,12 @@ Actualizado 2026-11-19 (share por marca en Mercado; share ampliado con la serie 
 
 
 
+## Dónde perdemos share: períodos editables (2026-11-19, rama lub-periodos)
+- API: `/api/mercado/perdidas` acepta `?desde=&hasta=&vs=anterior|12m|AAAA-MM:AAAA-MM` además de `ventana` (los atajos siguen igual). Validaciones con 400 y mensaje (formato, orden, largo igual, meses dentro de los datos, mezcla con `ventana`). El piso por defecto escala con el largo (`server.piso`, lineal 5 → 50 de 1 a 12 meses; reemplaza a `MIN_DEFECTO`). Asserts en `demo()`; `python server.py test` da OK.
+- Visor: Desde / Hasta / Comparar con (período anterior, mismo período del año anterior, otro período con dos selects que mantienen el largo) y tres atajos de un clic. Resumen, filtro exacto, títulos de columnas antes → después y notas muestran los meses reales elegidos. Cambiar de producto vuelve al atajo de 12 meses.
+- Bug de «Agregados»: no eran datos que faltaran; los tres `<details>` (producto, canal, provincia) venían cerrados y parecían títulos vacíos. Ahora abren por defecto y el título lleva el período.
+- Sin verificar en navegador (solo sintaxis JS con node y los asserts del server).
+
 ## Cita normativa corregida (2026-11-19)
 - El dataset de ventas (datos.energia.gob.ar, id 5bdc436c-60d4-4c86-98ab-59834d047700) es «Refinación y Comercialización de petróleo, gas y derivados (Tablas Dinámicas)», descripción «Tablas Dinámicas SESCO Downstream»; su ficha NO cita la Res. 1104. La Res. SE 1104/2004 trata de precios mayoristas de combustibles y no menciona lubricantes. No se encontró qué norma obliga a declarar: no se cita ninguna.
 - Ahora la fuente dice «Secretaría de Energía, SESCO Downstream (datos.energia.gob.ar)» y los declarantes son «las empresas que declaran a la Secretaría de Energía (SESCO)». En `/api` la fuente pierde `norma` y gana `tablas`; el visor muestra «Tablas». Ningún número ni cálculo cambió.
@@ -23,7 +29,7 @@ Actualizado 2026-11-19 (share por marca en Mercado; share ampliado con la serie 
 - `/api/mercado` (`share`) suma `provincias_meses` `{AAAA-MM: {provincia: {share_ypf, volumen}}}` (36 meses, sin `?mes=`/`?vs=`: el front calcula). `provincias` queda igual. Assert en `server.py test`.
 - Sin verificar: render en navegador y a 375 px (solo chequeo de sintaxis JS); en pantallas angostas la columna de comparación sigue oculta (`.mk-h12`), como antes.
 ## Dónde perdemos share: ventana «mes anterior» y detalle de dónde se pierde (2026-11-19, rama lub-perdidas)
-- Tercera ventana `?ventana=anterior` (último mes contra el mes anterior; piso propio de 5, `MIN_DEFECTO`); los textos y el «filtro exacto» salen de `periodo_t/periodo_t0`, así que dicen los meses correctos.
+- Tercera ventana `?ventana=anterior` (último mes contra el mes anterior; piso propio de 5); los textos y el «filtro exacto» salen de `periodo_t/periodo_t0`, así que dicen los meses correctos.
 - Tabla nueva «Dónde pierde YPF (segmentos)», visible sin abrir filas: canal × provincia con share, volumen YPF y mercado del segmento antes → después, m3/Ton perdidos por share, quién ganó (top 2 con pp) y diagnóstico (`diagnostico` por segmento: YPF vendió menos / El mercado creció y YPF no acompañó / Cayó el mercado y YPF cayó más; solo donde YPF pierde share, sino vacío). Primeras 10 y «Ver todas».
 - En «¿Con quién?» cada empresa se despliega con los segmentos donde le ganó a YPF (`por_competidor[].segmentos`). Sin dato = «...».
 - Sin verificar con datos reales (solo el demo y el visor por sintaxis); no se tocó la tabla Share de YPF por provincia ni la cita de la fuente (corregida el 2026-11-19, ver abajo).
