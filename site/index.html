@@ -1394,11 +1394,11 @@ const listaOrigen = (nombres, origenes) => `<ul class="mk-orig">${nombres.filter
 function tablaMarcas(marcas) {
   if (!marcas?.length) return "";
   const per = m => m.desde || m.hasta ? `${m.desde ? "desde " + m.desde : ""}${m.desde && m.hasta ? " " : ""}${m.hasta ? "hasta " + m.hasta : ""}` : "";
-  return `<h3 class="mk-sub">Qué marca está dentro de qué empresa</h3>
+  return `<details class="mk-agg mk-marcas-info"><summary><span aria-hidden="true">ⓘ</span>&nbsp;Qué marca está dentro de qué empresa</summary>
     <div class="tabla"><table class="mk-marcas"><tr><th>Marca</th><th>Empresa en la SE</th><th>Período</th><th>Estado</th><th>Evidencia y fuente</th></tr>
     ${marcas.map(m => `<tr><td>${esc(m.marca)}</td><td>${esc(m.empresa_se)}</td><td>${esc(per(m))}</td><td>${esc(m.estado)}</td>
       <td>${esc(m.evidencia)}${m.fuente_url ? ` · <a href="${esc(m.fuente_url)}" target="_blank" rel="noopener">fuente</a>` : ""}${m.nota ? `<br><span class="vacio">${esc(m.nota)}</span>` : ""}</td></tr>`).join("")}</table></div>
-    <p class="mk-fuente">La SE publica ventas por empresa declarante, no por marca; esta tabla dice qué marca va dentro de cada una. «Inferida» = no sale de una ficha oficial.</p>`;
+    <p class="mk-fuente">La SE publica ventas por empresa declarante, no por marca; esta tabla dice qué marca va dentro de cada una. «Inferida» = no sale de una ficha oficial.</p></details>`;
 }
 
 function sinDato(marcas) {
