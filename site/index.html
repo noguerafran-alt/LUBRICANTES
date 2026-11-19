@@ -1347,7 +1347,7 @@ function pintarMercado() {
           <label>Producto <select id="mk-p-prod">${Object.entries(PRODUCTOS_SE).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></label>
           <label>Canal <select id="mk-p-canal"></select></label>
           <label>Provincia <select id="mk-p-prov"></select></label>
-          <label>Ventana <select id="mk-p-vent"><option value="12m">Últimos 12 meses vs anteriores</option><option value="mes">Último mes vs mismo mes del año anterior</option></select></label>
+          <label>Ventana <select id="mk-p-vent"><option value="12m">Últimos 12 meses vs anteriores</option><option value="mes">Último mes vs mismo mes del año anterior</option><option value="anterior">Último mes vs mes anterior</option></select></label>
           <label>Piso de volumen <input id="mk-p-min" type="number" min="0" step="any" inputmode="decimal" placeholder="50 (12 m) / 5 (mes)" title="Segmentos con menos volumen que este piso (m³ o t) no se rankean"></label>
         </div>
       </div>
@@ -1373,7 +1373,7 @@ function pintarMercado() {
   $("#mk-canal").onchange = e => { M.canal = e.target.value; pedirMercado(); };
   $("#mk-por").value = M.por;
   $("#mk-por").onchange = e => { M.por = e.target.value; pintarShare(); pintarGraficos($("#mk-share-in")); pedirPerdidas(); };
-  const reP = () => { PD.todas = false; pedirPerdidas(); };
+  const reP = () => { PD.todas = false; PD.dpTodas = false; pedirPerdidas(); };
   $("#mk-p-prod").value = PD.producto; $("#mk-p-vent").value = PD.ventana;
   $("#mk-p-prod").onchange = e => { PD.producto = e.target.value; PD.canal = PD.provincia = ""; reP(); };
   $("#mk-p-canal").onchange = e => { PD.canal = e.target.value; reP(); };
@@ -1888,10 +1888,10 @@ $("#mk-out").addEventListener("click", e => {
 });
 
 // ----- A2. ¿Dónde perdemos share? (/api/mercado/perdidas) -----
-const PD = { producto: "automotrices", canal: "", provincia: "", ventana: "12m", min: "", r: null, pedido: null, sel: null, todas: false };
+const PD = { producto: "automotrices", canal: "", provincia: "", ventana: "12m", min: "", r: null, pedido: null, sel: null, todas: false, dpTodas: false };
 const filasUrl = o => "/api/mercado/filas?" + Object.entries(o).filter(([, v]) => v).map(([k, v]) => k + "=" + encodeURIComponent(v)).join("&");
 const m3s = (v, u) => esNum(v) ? `${signo(v)}${num(Math.abs(v))} ${u}` : "...";
-const vistaVent = v => v === "12m" ? "últimos 12 meses contra los 12 anteriores" : "último mes contra el mismo mes del año anterior";
+const vistaVent = v => v === "12m" ? "últimos 12 meses contra los 12 anteriores" : v === "anterior" ? "último mes contra el mes anterior" : "último mes contra el mismo mes del año anterior";
 const colEmp = i => `var(--e${[1, 2, 3, 4, 5, 6][i] || 8})`;
 const verFilas = (o, txt = "ver filas") => `<a href="${esc(filasUrl(o))}" target="_blank" rel="noopener" title="CSV con las filas exactas de la Secretaría detrás de este número">${txt}</a>`;
 const qPerdidas = (canal, provincia) => `mercado/perdidas?producto=${PD.producto}&ventana=${PD.ventana}` + (canal ? "&canal=" + encodeURIComponent(canal) : "")
@@ -1955,6 +1955,20 @@ function filasTabla(segs, r) {
 const cabTabla = r => `<tr><th>Canal</th><th>Provincia</th><th class="n mk-h12">Share YPF</th><th class="n">Δ share</th><th class="n">Por share (${r.unidad})</th>
   <th class="n mk-h12">Por mercado (${r.unidad})</th><th class="n mk-h12">Volumen ${r.ventana === "12m" ? "12 m" : "mes"}</th><th>Quién ganó</th><th class="mk-h12">Filas</th></tr>`;
 
+const cab2 = (a, b, u) => esNum(a) && esNum(b) ? `${num(a)} → ${num(b)} ${u}` : "...";
+function filasDonde(segs, r) {
+  const u = r.unidad;
+  return segs.map(s => {
+    const gs = (s.ganadores || []).slice(0, 2).map(g => `${etq(g.empresa, r.origenes)} <span class="mk-var sube">${pp(g.delta_pp)}</span>`).join("<br>");
+    return `<tr><td>${esc(s.canal)}</td><td>${esc(s.provincia)}</td>
+      <td class="n">${pct(s.s_t0)} → ${pct(s.s_t)} <span class="mk-var baja">${esNum(s.s_t) ? pp((s.s_t - s.s_t0) * 100) : "..."}</span></td>
+      <td class="n">${cab2(s.ypf_t0, s.ypf_t, u)}</td><td class="n">${cab2(s.total_t0, s.total_t, u)}</td>
+      <td class="n"><b class="baja">${m3s(s.efecto_share, u)}</b></td><td>${gs || '<span class="vacio">nadie</span>'}</td>
+      <td>${s.diagnostico ? esc(s.diagnostico) : "..."}</td></tr>`;
+  }).join("");
+}
+const cabDonde = r => `<tr><th>Canal</th><th>Provincia</th><th class="n">Share YPF</th><th class="n">Volumen YPF</th><th class="n">Mercado del segmento</th><th class="n">Perdido por share (${r.unidad})</th><th>Quién ganó</th><th>Diagnóstico</th></tr>`;
+
 function pintarPerdidas() {
   const r = PD.r, caja = $("#mk-p-in");
   caja.removeAttribute("aria-busy");
@@ -1983,7 +1997,7 @@ function pintarPerdidas() {
     <div class="mk-quien">
       <div><h3 class="mk-sub">¿Con quién? Quién ganó lo que YPF perdió</h3>
         ${comp.length ? `<div class="tabla"><table><tr><th>Empresa</th><th class="n">Ganó donde YPF pierde (${u})</th><th class="n mk-h12">Ganó en total (${u})</th><th class="n mk-h12">Celdas</th><th class="mk-h12">Filas</th></tr>
-          ${comp.map(c => `<tr><td>${etq(c.empresa, r.origenes)}</td><td class="n"><b>${m3s(c.ganado_donde_ypf_pierde_m3, u)}</b></td><td class="n mk-h12">${m3s(c.ganado_m3, u)}</td><td class="n mk-h12">${c.celdas}</td>
+          ${comp.map(c => `<tr><td>${c.segmentos?.length ? `<details><summary>${etq(c.empresa, r.origenes)}</summary><div class="tabla"><table class="mk-tp"><tr><th>Canal</th><th>Provincia</th><th class="n">Share</th><th class="n">Ganó (pp)</th><th class="n">Equivale a (${u})</th></tr>${c.segmentos.map(g => `<tr><td>${esc(g.canal)}</td><td>${esc(g.provincia)}</td><td class="n">${pct(g.s_t0)} → ${pct(g.s_t)}</td><td class="n"><span class="mk-var sube">${pp(g.delta_pp)}</span></td><td class="n">${m3s(g.m3_eq, u)}</td></tr>`).join("")}</table></div></details>` : etq(c.empresa, r.origenes)}</td><td class="n"><b>${m3s(c.ganado_donde_ypf_pierde_m3, u)}</b></td><td class="n mk-h12">${m3s(c.ganado_m3, u)}</td><td class="n mk-h12">${c.celdas}</td>
           <td class="mk-h12">${verFilas(ef({ empresa: c.empresa }))}</td></tr>`).join("")}</table></div>`
           : `<div class="explica">Ningún competidor que declara ganó share en las celdas con datos.</div>`}
         <p class="mk-fuente">Se suma celda por celda (canal × provincia) lo que cada empresa ganó en share, expresado en ${esc(u)} del período actual. Se cuentan solo las empresas que declaran en los dos períodos.</p></div>
@@ -1993,7 +2007,11 @@ function pintarPerdidas() {
         <li><b>Segmento.</b> ${esc(r.nota.segmento)}</li>
         <li><b>Atraso.</b> Último mes publicado: ${esc(mesLargo(r.ultimo_mes))}. ${esc(r.nota.atraso)}</li></ul></aside>
     </div>
-    <h3 class="mk-sub">Dónde pierde YPF, de mayor a menor pérdida por share</h3>
+    <h3 class="mk-sub">Dónde pierde YPF (segmentos)</h3>
+    <p class="nota">Antes → después del período comparado, segmento por segmento (canal × provincia), de mayor a menor pérdida por share. El diagnóstico sale de los volúmenes: si YPF vendió menos, si el mercado creció y YPF no acompañó, o si el mercado cayó y YPF cayó más.</p>
+    ${perd.length ? `<div class="tabla"><table class="mk-tp"><thead>${cabDonde(r)}</thead><tbody>${filasDonde(PD.dpTodas ? perd : perd.slice(0, 10), r)}</tbody></table></div>
+      ${perd.length > 10 ? `<button class="link" id="mk-dp-mas">${PD.dpTodas ? "Ver solo las 10 primeras" : `Ver todas (${perd.length})`}</button>` : ""}` : `<div class="explica">YPF no pierde share en ningún segmento con volumen suficiente (piso ${num(r.min)} ${esc(u)}).</div>`}
+    <h3 class="mk-sub">Detalle de los segmentos, de mayor a menor pérdida por share</h3>
     <p class="nota">Cada fila es un segmento canal × provincia de ${esc(PRODUCTOS_SE[PD.producto].toLowerCase())}. «Por share» es lo que YPF dejó de vender por tener menos participación; «por mercado», lo que cambió porque el segmento creció o se achicó. Tocá una fila para ver el detalle.</p>
     ${mostrar.length ? `<div class="tabla"><table class="mk-tp"><thead>${cabTabla(r)}</thead><tbody id="mk-p-tb">${filasTabla(mostrar, r)}</tbody></table></div>`
       : `<div class="explica">YPF no pierde share en ningún segmento con volumen suficiente (piso ${num(r.min)} ${esc(u)}).</div>`}
@@ -2011,6 +2029,7 @@ function pintarPerdidas() {
       <li>Último mes publicado: ${esc(mesLargo(r.ultimo_mes))}; ${esc(r.fuente.actualizacion)}.</li>
       <li>Las filas exactas detrás de cada número: enlaces «ver filas» (CSV con tildes, abre en Excel).</li></ul>
       <h3 class="mk-sub">De dónde viene cada empresa</h3>${listaOrigen(Object.keys(r.origenes || {}), r.origenes)}</div>`;
+  $("#mk-dp-mas")?.addEventListener("click", () => { PD.dpTodas = !PD.dpTodas; pintarPerdidas(); });
   $("#mk-p-mas")?.addEventListener("click", () => { PD.todas = !PD.todas; pintarPerdidas(); });
   [["#mk-p-tb", mostrar], ["#mk-p-tc", chicas]].forEach(([sel, lista]) => {
     const tb = $(sel);

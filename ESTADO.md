@@ -15,6 +15,11 @@ Actualizado 2026-11-19 (share por marca en Mercado; share ampliado con la serie 
 - Mercado, tabla «Share de YPF por provincia»: selector de **Mes** (todos los meses con dato de la ventana de 36; default el último) y **Comparar con** = Mes anterior | Hace 12 meses (default, igual que antes) | Otro mes (segundo selector). La columna de comparación y el título se rotulan según la elección; Variación = share del mes menos share del mes de comparación, en pp. Provincia sin dato en uno de los dos meses: `...`, nunca 0. Respeta producto, canal y «Ver por».
 - `/api/mercado` (`share`) suma `provincias_meses` `{AAAA-MM: {provincia: {share_ypf, volumen}}}` (36 meses, sin `?mes=`/`?vs=`: el front calcula). `provincias` queda igual. Assert en `server.py test`.
 - Sin verificar: render en navegador y a 375 px (solo chequeo de sintaxis JS); en pantallas angostas la columna de comparación sigue oculta (`.mk-h12`), como antes.
+## Dónde perdemos share: ventana «mes anterior» y detalle de dónde se pierde (2026-11-19, rama lub-perdidas)
+- Tercera ventana `?ventana=anterior` (último mes contra el mes anterior; piso propio de 5, `MIN_DEFECTO`); los textos y el «filtro exacto» salen de `periodo_t/periodo_t0`, así que dicen los meses correctos.
+- Tabla nueva «Dónde pierde YPF (segmentos)», visible sin abrir filas: canal × provincia con share, volumen YPF y mercado del segmento antes → después, m3/Ton perdidos por share, quién ganó (top 2 con pp) y diagnóstico (`diagnostico` por segmento: YPF vendió menos / El mercado creció y YPF no acompañó / Cayó el mercado y YPF cayó más; solo donde YPF pierde share, sino vacío). Primeras 10 y «Ver todas».
+- En «¿Con quién?» cada empresa se despliega con los segmentos donde le ganó a YPF (`por_competidor[].segmentos`). Sin dato = «...».
+- Sin verificar con datos reales (solo el demo y el visor por sintaxis); no se tocó la tabla Share de YPF por provincia ni la cita Res. SE 1104.
 
 ## helix_api: combos Shell por la API JSON de helixturno (2026-11-19, rama lub-helix)
 - **Pedido**: leer los combos de cambio de aceite Shell de helixturno.com.ar por su API pública en vez de depender de Grok, dentro de la Action diaria.
