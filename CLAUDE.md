@@ -360,7 +360,7 @@ solo `-` (cero absoluto) vale 0. Las variaciones (`var_ia`, compuestos) se calcu
 - `actualizado`: `energia` = último mes de `energia.csv`; `series` = última corrida de `macro_series` sin error.
 - `share`: `producto` (`Lubricantes automotrices(m3)`, …), `canal` (o null), `meses` (36, terminan en el último mes con dato), `total` (m3 o null), `empresas`
   (top 7 por volumen de la ventana + `Otras`; `serie` de share 0–1 o null, `ultimo`, `hace12`, `var_pp` en puntos porcentuales, `volumen_ultimo`), `canales`
-  (del producto, por volumen), `provincias` (último mes: `share_ypf`, `share_ypf_hace12`, `var_pp`, `volumen`; mes contra el mismo mes del año anterior), `nota` (límites).
+  (del producto, por volumen), `provincias` (último mes: `share_ypf`, `share_ypf_hace12`, `var_pp`, `volumen`; mes contra el mismo mes del año anterior), `provincias_meses` (`{AAAA-MM: {provincia: {share_ypf, volumen}}}` de los 36 meses de la ventana; con eso el visor elige mes y mes de comparación sin pedir de nuevo), `nota` (límites).
   Share = volumen de la empresa / suma de las empresas que declaran ese mes. Un mes o empresa sin fila = null.
 - `marcas`: `seed/marcas_empresas.csv` como lista (`marca, empresa_se, desde, hasta, estado, evidencia, fuente_url, nota`); `desde/hasta` vacíos de las que declaran se calculan de `energia.csv`.
 - `share.empresas[].origen` = `{fuente, razones_sociales[] (prefijos de macro.ETIQUETAS de esa etiqueta), marcas[], desde, hasta (meses con datos), filas_url (/api/mercado/filas?empresa=…), dataset}`; en `Otras`, `razones_sociales` = las etiquetas que agrupa y `filas_url` null. `/api/mercado/perdidas` trae `origenes {empresa: origen}`.

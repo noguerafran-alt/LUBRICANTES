@@ -3,6 +3,11 @@
 Actualizado 2026-11-19 (share por marca en Mercado; share ampliado con la serie completa desde 2010; gráficos ampliables en Mercado; modelos 3D sin foto atrás y con malla cerrada; export a Power BI; modelos 3D con Blender y modo presentación con GLB; Brasil; antes: mercado: share de la SE y series de datos.gob.ar). Remoto privado `noguerafran-alt/LUBRICANTES`; la Action corre a diario.
 
 
+## Share por provincia con mes y comparación elegibles (2026-11-19, rama lub-provmes)
+- Mercado, tabla «Share de YPF por provincia»: selector de **Mes** (todos los meses con dato de la ventana de 36; default el último) y **Comparar con** = Mes anterior | Hace 12 meses (default, igual que antes) | Otro mes (segundo selector). La columna de comparación y el título se rotulan según la elección; Variación = share del mes menos share del mes de comparación, en pp. Provincia sin dato en uno de los dos meses: `...`, nunca 0. Respeta producto, canal y «Ver por».
+- `/api/mercado` (`share`) suma `provincias_meses` `{AAAA-MM: {provincia: {share_ypf, volumen}}}` (36 meses, sin `?mes=`/`?vs=`: el front calcula). `provincias` queda igual. Assert en `server.py test`.
+- Sin verificar: render en navegador y a 375 px (solo chequeo de sintaxis JS); en pantallas angostas la columna de comparación sigue oculta (`.mk-h12`), como antes.
+
 ## helix_api: combos Shell por la API JSON de helixturno (2026-11-19, rama lub-helix)
 - **Pedido**: leer los combos de cambio de aceite Shell de helixturno.com.ar por su API pública en vez de depender de Grok, dentro de la Action diaria.
 - **Qué hace**: `recolectar.helix_api` (1 request a `GetCombosWeb` con `ml.pedir`) escribe filas `tipo=servicio`, `fuente=helix_api`, `verificado=1` en `data/grok/AAAA-MM.csv` (mismo lugar y reglas que `grok_helix`: `/api/servicios`, `precio_litro` solo con aceite + colocación sin filtros, fuera del comparador y del índice). Corre en el recorrido por defecto (Action incluida), su estado va a `data/fuentes.csv`; si falla queda con `error` y no toca `data/grok/`. Idempotente por fecha+fuente (reemplaza las filas del día); dentro del día la clave es titulo+detalle (flags de filtros/colocación), sin pisar combos del mismo título.
