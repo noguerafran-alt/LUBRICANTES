@@ -315,7 +315,10 @@ a.vt-toggle { display: inline-flex; align-items: center; text-decoration: none; 
 .sube { color: var(--ok); } .baja { color: var(--mal); } .neutro { color: var(--mut); }
 .mk-ctx { font-size: 13px; color: var(--mut); margin: 10px 0 0; }
 .mk-rank { list-style: none; padding: 0; margin: 14px 0 0; font-size: 13px; }
-.mk-rank li { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto 4.6em; gap: 8px; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--borde); }
+.mk-rank .v { text-align: right; font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; display: flex; flex-direction: column; }
+.mk-rank .v small { color: var(--mut, inherit); font-size: 11px; }
+@media (max-width: 520px) { .mk-rank .v { display: none; } .mk-rank li { grid-template-columns: 12px minmax(0, 1fr) auto 4.6em !important; } }
+.mk-rank li { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto auto 4.6em; gap: 8px; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--borde); }
 .mk-rank li:last-child { border-bottom: 0; }
 .mk-rank .n, .mk-rank .d { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .mk-rank .n { font-weight: 600; } .mk-rank .d { font-size: 12px; }
@@ -1328,8 +1331,10 @@ function empresaInfo(emps) {
 
 function unidadSE(producto) {
   const u = (String(producto || "").match(/\(([^)]+)\)\s*$/) || [])[1] || "";
-  return /^m3$/i.test(u) ? "m³" : /^ton$/i.test(u) ? "t" : u;
+  return /^m3$/i.test(u) ? "m³" : /^ton$/i.test(u) ? "Ton" : u;
 }
+// volumen con su unidad (m³ o Ton, nunca m³ en grasas); sin dato = "..." (nunca 0)
+const volTxt = (v, u) => esNum(v) ? `${dec1.format(v)} ${u}` : "...";
 
 async function abrirMercado() {
   if (M.r) return pintarGraficos();
@@ -1509,6 +1514,8 @@ function pintarShare() {
     return;
   }
   const info = empresaInfo(emps);
+  // variación del volumen contra hace 12 meses; null si falta alguno de los dos meses o el de hace un año es 0
+  const varVol = e => { const a = e.volumen?.at(-1), b = e.volumen?.length >= 13 ? e.volumen.at(-13) : null; return esNum(a) && esNum(b) && b > 0 ? (a / b - 1) * 100 : null; };
   const esYpf = e => /^ypf/i.test(e.empresa), esOtras = e => /^otras?$/i.test(e.empresa);
   const orden = [...emps.filter(esYpf), ...emps.filter(e => !esYpf(e) && !esOtras(e)).sort((a, b) => (b.ultimo ?? -1) - (a.ultimo ?? -1)), ...emps.filter(esOtras)];
   const ypf = orden.find(esYpf), ult = meses.at(-1), total = (s.total || []).at(-1);
@@ -1523,22 +1530,25 @@ function pintarShare() {
     kpi = `<p class="mk-kpi"><span class="mk-kpi-et">YPF, share en ${esc(mesLargo(ult))}</span><span class="mk-kpi-num">${pct(ypf.ultimo)}</span></p>` + (esNum(d)
       ? `<p class="mk-delta ${d > 0 ? "sube" : d < 0 ? "baja" : "neutro"}"><span aria-hidden="true">${flecha(d)}</span>${pp(d)} vs hace 12 meses</p><p class="mk-ctx">Hace 12 meses: ${pct(ypf.hace12)}.</p>`
       : `<p class="vacio">Sin variación interanual: falta el share de hace 12 meses («...»).</p>`);
+    kpi += `<p class="mk-ctx">Volumen de YPF en ${esc(mesLargo(ult))}: <b>${volTxt(ypf.volumen_ultimo, unidad)}</b>${varVol(ypf) === null ? "" : ` (${varTxt({ neutro: true }, varVol(ypf))} vs hace 12 meses)`}.</p>`;
   }
   const ctx = `<p class="mk-ctx">${esNum(total) ? `${entero.format(Math.round(total))} ${unidad} vendidos en total` : "Total del mes sin publicar («...»)"}${canalTxt}, entre las empresas que declaran.</p>`;
   const rank = `<ol class="mk-rank" aria-label="Share por empresa en ${esc(mesLargo(ult))}">${orden.map(e => `<li${esYpf(e) ? ' class="ypf"' : ""}>
       <i class="mk-sw" style="background:${info[e.empresa].color}"></i><span title="${esc(e.empresa)}">${esc(nom(e))}${insignia(rot(e))}</span>
-      <span class="d ${esNum(e.var_pp) ? "" : "vacio"}" title="vs hace 12 meses">${esNum(e.var_pp) ? pp(e.var_pp) : "..."}</span><span class="n">${pct(e.ultimo)}</span></li>`).join("")}</ol>`;
+      <span class="d ${esNum(e.var_pp) ? "" : "vacio"}" title="vs hace 12 meses">${esNum(e.var_pp) ? pp(e.var_pp) : "..."}</span><span class="v" title="Volumen del mes y variación contra hace 12 meses">${volTxt(e.volumen_ultimo, unidad)}<small>${varVol(e) === null ? "..." : varTxt({ neutro: true }, varVol(e))}</small></span><span class="n">${pct(e.ultimo)}</span></li>`).join("")}</ol>`;
   M.g.share = barrasShare(meses, s.total || [], orden, info, unidad, nom);
   const csv = `/api/mercado/share?producto=${encodeURIComponent(M.producto)}${M.canal ? "&canal=" + encodeURIComponent(M.canal) : ""}&formato=csv`;
   AMP.specs.share = () => ({ titulo: `Share mensual de ${nomProd}${M.canal ? ", canal " + M.canal : ""}`, unidad: "% del volumen que declaran las empresas", frec: "M", pp: true, neutro: true, signos: false,
     fmt: pct, fmtEje: v => dec1.format(v * 100) + " %", series: orden.map(e => ({ nombre: nom(e), color: info[e.empresa].color, rotulo: porM && e.origen?.rotulos?.length > 1 ? x => nom(e, x.slice(0, 7)) : null })),
-    filas: meses.map((m, i) => ({ x: m, v: orden.map(e => esNum(e.serie?.[i]) ? e.serie[i] : null) })),
+    fmtVol: v => volTxt(v, unidad),
+    filas: meses.map((m, i) => ({ x: m, v: orden.map(e => esNum(e.serie?.[i]) ? e.serie[i] : null), w: orden.map(e => esNum(e.volumen?.[i]) ? e.volumen[i] : null) })),
     fuente: "Secretaría de Energía, SESCO Downstream (datos.energia.gob.ar)", links: [["Dataset de la Secretaría de Energía", DATASET_SE]], csv,
     // serie completa (desde el primer mes del archivo) con las mismas empresas que la tarjeta; mientras llega se ven los 36 meses
     completar: async () => {
       const q = `mercado/share?completo=1&producto=${encodeURIComponent(M.producto)}${M.canal ? "&canal=" + encodeURIComponent(M.canal) : ""}`;
       const c = AMP.cache[q] ??= await api(q);
-      return c.meses.map((m, i) => ({ x: m, v: orden.map(e => { const f = c.empresas.find(z => z.empresa === e.empresa); return esNum(f?.serie[i]) ? f.serie[i] : null; }) }));
+      const fe = orden.map(e => c.empresas.find(z => z.empresa === e.empresa));
+      return c.meses.map((m, i) => ({ x: m, v: fe.map(f => esNum(f?.serie[i]) ? f.serie[i] : null), w: fe.map(f => esNum(f?.volumen?.[i]) ? f.volumen[i] : null) }));
     },
     nota: `Serie mensual completa desde ${mesCorto(meses[0])} si la carga termina; el CSV trae todas las empresas. Se muestran las mismas empresas que la tarjeta (las demás, en Otras). Una empresa sin fila ese mes queda como hueco (no declaró), no es 0.` });
   const datos = `<details><summary>Ver los datos</summary><div class="tabla mk-datos"><table>
@@ -1635,7 +1645,7 @@ function barrasShare(meses, total, orden, info, unidad, nom = e => info[e.empres
     },
     marcar(svg, i) { svg.querySelectorAll(".mk-bar, .mk-hueco").forEach((b, k) => b.classList.toggle("off", i !== null && k !== i)); },
     tip(i) {
-      return `<b>${esc(mesLargo(meses[i]))}</b>` + orden.map(e => `<div class="f"><i style="background:${info[e.empresa].color}"></i><span>${esc(nom(e, meses[i]))}</span><span>${pct(e.serie?.[i])}</span></div>`).join("")
+      return `<b>${esc(mesLargo(meses[i]))}</b>` + orden.map(e => `<div class="f"><i style="background:${info[e.empresa].color}"></i><span>${esc(nom(e, meses[i]))}</span><span>${pct(e.serie?.[i])}${esNum(e.volumen?.[i]) ? " · " + volTxt(e.volumen[i], unidad) : ""}</span></div>`).join("")
         + `<div class="mut">Total: ${esNum(total[i]) ? entero.format(Math.round(total[i])) + " " + esc(unidad) : "..."}</div>`;
     }
   };
@@ -1841,13 +1851,21 @@ function ampStats(sp, vis, k) {
   const acum = pts.length > 1 ? varAmp(sp, ult[1], pri[1]) : null;
   const cagr = años >= 2 && !sp.pp && pri[1] > 0 && ult[1] > 0 ? ((ult[1] / pri[1]) ** (1 / años) - 1) * 100 : null;
   const sd = (d, motivo) => d === null ? ["—", motivo] : [varTxt(sp, d), ""];
+  // volumen de la empresa en el rango (solo el share lo trae): un mes sin dato no cuenta, no es 0
+  const wp = sp.fmtVol ? vis.map(f => [f.x, f.w?.[k]]).filter(p => esNum(p[1])) : [];
+  const vol = !sp.fmtVol ? [] : !wp.length ? [["Volumen", "—", "sin volumen declarado en el rango visible"]] : (() => {
+    const wu = wp.at(-1), wmn = wp.reduce((a, p) => p[1] < a[1] ? p : a), wmx = wp.reduce((a, p) => p[1] > a[1] ? p : a), tot = wp.reduce((a, p) => a + p[1], 0);
+    return [["Volumen del último dato", sp.fmtVol(wu[1]), fe(wu[0])], ["Volumen mínimo mensual", sp.fmtVol(wmn[1]), fe(wmn[0])], ["Volumen máximo mensual", sp.fmtVol(wmx[1]), fe(wmx[0])],
+      ["Volumen promedio mensual", sp.fmtVol(tot / wp.length), `media de ${entero.format(wp.length)} meses con dato`], ["Volumen total acumulado del rango", sp.fmtVol(tot), `suma de ${entero.format(wp.length)} meses con dato`]];
+  })();
   return [
     ["Último dato", vt(ult), fe(ult[0])], ["Mínimo", vt(mn), fe(mn[0])], ["Máximo", vt(mx), fe(mx[0])],
     ["Promedio del rango", sp.fmt(prom), `media simple de ${entero.format(pts.length)} datos`],
     ["Var. interanual del último dato", ...sd(ia, esNum(refIA) ? "no se puede calcular (el dato de hace un año es 0)" : `falta el dato de hace un año (${fe(restaMeses(ymd(ult[0]), 12))})`)],
     ["Var. acumulada del rango", ...sd(acum, pts.length < 2 ? "hace falta más de un dato" : "no se puede calcular (el primer dato es 0)")],
     ["CAGR (variación anual compuesta)", ...(cagr !== null ? [varTxt({ ...sp, pp: false }, cagr), `de ${fe(pri[0])} a ${fe(ult[0])}`]
-      : ["—", años < 2 ? "el rango visible es menor a 2 años" : sp.pp ? "no aplica a participaciones (puntos porcentuales)" : "requiere valores positivos"])]
+      : ["—", años < 2 ? "el rango visible es menor a 2 años" : sp.pp ? "no aplica a participaciones (puntos porcentuales)" : "requiere valores positivos"])],
+    ...vol
   ];
 }
 
@@ -1858,7 +1876,7 @@ function ampTip(sp, f, mmN) {
   sp.series.forEach((se, k) => {
     const v = f.v[k], sg = f.s?.[k];
     const vm = varAmp(sp, v, ampRef(sp, k, iso, mp)), va = varAmp(sp, v, ampRef(sp, k, iso, 12));
-    if (varias) s += `<div class="f"><i style="background:${se.color}"></i><span>${esc(se.rotulo ? se.rotulo(f.x) : se.nombre)}</span><span>${valorTxt({ valor: v, signo: sg }, sp.fmt)}</span></div>`;
+    if (varias) s += `<div class="f"><i style="background:${se.color}"></i><span>${esc(se.rotulo ? se.rotulo(f.x) : se.nombre)}</span><span>${valorTxt({ valor: v, signo: sg }, sp.fmt)}${sp.fmtVol && esNum(f.w?.[k]) ? " · " + esc(sp.fmtVol(f.w[k])) : ""}</span></div>`;
     else s += `<div>${valorTxt({ valor: v, signo: sg }, sp.fmt)}${uni}</div>`;
     if (!varias || sp.series.length <= 2) s += `<div class="mut">${varias ? esc(se.nombre) + ": " : ""}var. ${per}: ${varTxt(sp, vm)} · interanual: ${varTxt(sp, va)}</div>`;
     if (sg && SIGNOS[sg] && !varias) s += `<div class="mut">${esc(sg)}: ${esc(SIGNOS[sg])}</div>`;
@@ -1927,7 +1945,7 @@ function ampActualizar() {
   document.querySelectorAll("#dl [data-r]").forEach(b => { const r = RANGOS.find(x => x[0] === b.dataset.r); b.disabled = dis(r); b.setAttribute("aria-pressed", String(!cu && b.dataset.r === AMP.rango)); });
   const conMM = AMP.mm && sp.mmv;
   const dentro = f => cu ? f.x.slice(0, 7) >= cu.d && f.x.slice(0, 7) <= cu.h : ymd(f.x) > desde;
-  const vis = fs.map((f, i) => ({ x: f.x, s: f.s, v: conMM ? [...f.v, sp.mmv[i]] : f.v })).filter(dentro);
+  const vis = fs.map((f, i) => ({ x: f.x, s: f.s, w: f.w, v: conMM ? [...f.v, sp.mmv[i]] : f.v })).filter(dentro);
   // selectores de mes: todos los meses de la serie completa; reflejan el rango activo (botón o personalizado)
   const m0 = fs[0].x.slice(0, 7), m1 = fs.at(-1).x.slice(0, 7), sd = $("#dl-desde"), sh = $("#dl-hasta"), meses = [];
   for (let m = m0; m <= m1; m = restaMeses(m + "-01", -1).slice(0, 7)) meses.push(m);
@@ -1942,10 +1960,9 @@ function ampActualizar() {
   AMP.blob = null;
   if (sp.csv && filasR.length === fs.length) a.href = location.origin + sp.csv;
   else {
-    AMP.blob = URL.createObjectURL(new Blob(["﻿" + ["fecha", ...sp.series.map(s => q(s.nombre))].join(",") + "\n" + filasR.map(f => [ymd(f.x), ...f.v.map(v => esNum(v) ? v : "")].join(",")).join("\n") + "\n"], { type: "text/csv;charset=utf-8" }));
+    AMP.blob = URL.createObjectURL(new Blob(["﻿" + ["fecha", ...sp.series.map(s => q(s.nombre)), ...(sp.fmtVol ? sp.series.map(s => q(s.nombre + " (volumen)")) : [])].join(",") + "\n" + filasR.map(f => [ymd(f.x), ...f.v.map(v => esNum(v) ? v : ""), ...(sp.fmtVol ? f.w.map(v => esNum(v) ? v : "") : [])].join(",")).join("\n") + "\n"], { type: "text/csv;charset=utf-8" }));
     a.href = AMP.blob;
-  }
-  a.download = (sp.macroId || sp.titulo).replace(/[^\w.-]+/g, "_") + (filasR.length === fs.length ? "" : `_${filasR[0] ? filasR[0].x.slice(0, 7) : ""}_a_${filasR.at(-1) ? filasR.at(-1).x.slice(0, 7) : ""}`) + ".csv";
+  }  a.download = (sp.macroId || sp.titulo).replace(/[^\w.-]+/g, "_") + (filasR.length === fs.length ? "" : `_${filasR[0] ? filasR[0].x.slice(0, 7) : ""}_a_${filasR.at(-1) ? filasR.at(-1).x.slice(0, 7) : ""}`) + ".csv";
   const todos = vis.flatMap(f => f.v).filter(esNum), hay = todos.length > 0;
   const logOk = hay && todos.every(v => v > 0);
   if (!logOk) AMP.log = false;

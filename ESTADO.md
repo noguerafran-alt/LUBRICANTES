@@ -5,6 +5,9 @@ Actualizado 2026-11-19 (Visualizador, página de producto y `/api/producto`; sha
 
 
 
+## Market share con volumen, no solo % (2026-11-19, rama lub-m3)
+API: `share.empresas[].volumen` = serie paralela a `serie` (m³ o Ton; null donde la empresa no declaró), también en `/api/mercado/share?completo=1`; assert en `server.py test`. Visor (Mercado): la lista de empresas suma el volumen del último mes y su variación contra hace 12 meses (`...` si falta alguno de los dos; se oculta a 520 px o menos); el tooltip del gráfico de barras y del ampliado muestran % y volumen por empresa; el bloque «YPF, share en <mes>» agrega el volumen YPF; «Estadísticas del rango visible» suma por empresa volumen del último dato, mínimo, máximo, promedio mensual y total acumulado (solo meses con dato, se dice cuántos); el CSV del rango personalizado trae columnas `(volumen)`. Unidad: m³ en lubricantes, `Ton` en grasas (`unidadSE` ahora devuelve `Ton`, antes `t`). Sin probar en navegador real (ni a 375 px).
+
 ## Gráfico ampliado: rango de mes a mes (2026-11-19, rama lub-rango)
 Junto a 1A/3A/5A/10A/Todo hay dos selectores «Desde» y «Hasta» con todos los meses de la serie completa (en las diarias, del primer al último día de esos meses). Elegir uno deselecciona los botones; tocar un botón actualiza los selectores al rango que representa. Si «Desde» es posterior a «Hasta» se intercambian y se avisa. Ejes, texto «Eje X», estadísticas (CAGR solo con 2 años o más), escala log, tooltip y `Descargar CSV` usan el rango visible; el CSV exporta solo ese rango y lo dice en el nombre del archivo (`<id>_AAAA-MM_a_AAAA-MM.csv`); con la serie entera y archivo del servidor se baja ese. La media móvil de 12 meses se calcula sobre la serie completa. Solo `site/index.html`. Sin probar en navegador real (ni a 375 px).
 ## Visualizador, página de producto y API para agentes (2026-11-19)
