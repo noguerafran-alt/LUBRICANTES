@@ -1,6 +1,6 @@
 """Una corrida diaria: YPF GraphQL + 5 VTEX + Shopify D'Atri + 2 Tiendanube + ML categorías (+ ML con token si hay secrets).
 
-python recolectar.py [--solo <fuente>] [--fecha AAAA-MM-DD]
+python recolectar.py [--solo <fuente>] [--sin <fuente>]... [--fecha AAAA-MM-DD]
 python recolectar.py --renormalizar   # recalcula el matcheo de data/obs/ sin tocar precios
 python recolectar.py --podar          # deja en data/obs/ solo lo relacionado con YPF (una vez, para el histórico)
 python recolectar.py test
@@ -501,6 +501,12 @@ def fuentes_por_defecto(env=os.environ):
     return [f for f in todas if f not in PAUSADAS and not (env.get("GITHUB_ACTIONS") == "true" and f in FUENTES_PC)]
 
 
+def sin_fuentes(fuentes, args):
+    """`--sin ml` (repetible) saca fuentes del recorrido: el recolector de casa nunca toca Mercado Libre."""
+    fuera = {args[i + 1] for i, a in enumerate(args[:-1]) if a == "--sin"}
+    return [f for f in fuentes if f not in fuera]
+
+
 def main(args):
     if "--renormalizar" in args:
         return renormalizar()
@@ -512,6 +518,7 @@ def main(args):
         fecha = args[args.index("--fecha") + 1]
     if "--solo" in args:
         fuentes = [args[args.index("--solo") + 1]]
+    fuentes = sin_fuentes(fuentes, args)
     filas_f, obs, propias, corridas, imgs, rel = [], [], [], set(), {}, relacionados()
     for fu in fuentes:
         try:
@@ -543,6 +550,8 @@ def demo():
               dict(url="u", ean="", titulo="Aceite Gulf max 20w-50 x 1l", marca_cruda="Gulf", precio=10560.0, precio_lista=10560.0, stock=None, vendedor="C")]
     assert "oficial_br_notaparana" not in fuentes_por_defecto({}) and "oficial_br_notaparana" not in fuentes_por_defecto({"GITHUB_ACTIONS": "true"})
     assert es_senuelo([dict(ncm="320096897", desc="ELAION", gtin="0")] * 3) and not es_senuelo([dict(ncm="27101932"), dict(ncm="34011190")]) and not es_senuelo([])
+    assert "ml" not in sin_fuentes(fuentes_por_defecto({}), ["--sin", "ml"]) and "ml_cat" in sin_fuentes(fuentes_por_defecto({}), ["--sin", "ml"])
+    assert sin_fuentes(["ml"], ["--solo", "ml", "--sin", "ml"]) == [] and sin_fuentes(["ml"], ["--sin"]) == ["ml"]
     assert "ml" in fuentes_por_defecto({"GITHUB_ACTIONS": "true"}) and "helix_api" in fuentes_por_defecto({"GITHUB_ACTIONS": "true"})
     # helix_api: JSON de ejemplo de GetCombosWeb (sin red). Servicio, no bidón; HX8 con filtros; clave titulo+detalle; sin precio no entra.
     hx = [dict(titulo="Combo Sintetico", descripcion="Shell Helix HX8 Professional AV 5W40 (4 Litros)", imagenWeb="https://x/firmada?sig=1",

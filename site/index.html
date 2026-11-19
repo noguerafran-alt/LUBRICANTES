@@ -660,7 +660,7 @@ obs = pd.read_csv("<span class="origen"></span>/api/obs?mes=2026-11&amp;formato=
 const NOMBRE_FUENTE = { ypf_gql: "YPF catálogo", vtex_carrefour: "Carrefour", vtex_masonline: "Masonline", vtex_easy: "Easy",
   vtex_jumbo: "Jumbo", vtex_norauto: "Norauto", shopify_datri: "Tienda D'Atri", tn_lspalermo: "LS Palermo", tn_spch: "Casa González",
   sepa: "Precios Claros (SEPA)", ml_cat: "ML categorías", ml: "Mercado Libre", vtex_br_pitstop: "Pitstop (Brasil)", vtex_br_altese: "Altese (Brasil)",
-  helix_api: "Shell Helix combos (API helixturno, automática)", oficial_br_notaparana: "Nota Paraná (Brasil, notas fiscales)", fx_bcb_ptax: "BCB PTAX (tipo de cambio)" };
+  helix_api: "Shell Helix combos (API helixturno, automática)", oficial_br_notaparana: "Nota Paraná (Brasil, notas fiscales)", fx_bcb_ptax: "BCB PTAX (tipo de cambio)", casa: "Recolector de casa (celular o PC)" };
 const MAYORISTAS = ["shopify_datri"]; // precio por caja o tambor, IVA no verificado: el índice no los usa
 const SEGMENTO = { pcmo: "Autos (PCMO)", hddo: "Pesados (HDDO)", moto4t: "Moto 4T", moto2t: "Moto 2T", transmision: "Transmisión",
   grasa: "Grasa", industrial: "Industrial", marino: "Marino", gas: "Gas", otro: "Otro" };
@@ -733,8 +733,15 @@ function motivoVacio(fuente) {
   return f && sinPrecios(f) ? "sin precios con stock" : "sin oferta con stock";
 }
 
+// La fila `casa` la escribe el recolector de casa (SEPA y la SE dependen de él): si su última fila tiene más de 2 días, se avisa.
+function casaViejo() {
+  const c = D.fuentes.find(f => f.fuente === "casa");
+  return c && c.dias_sin_correr > 2 ? c : null;
+}
+const TXT_CASA = c => `El recolector de casa (celular o PC) no corre desde ${fechaAR(c.fecha)}: SEPA y la SE no se actualizan; el resto lo cubre GitHub`;
+
 function caidas() {
-  return fp().filter(f => f.error || f.dias_sin_datos === null || f.dias_sin_datos > 1);
+  return fp().filter(f => f.fuente !== "casa").filter(f => f.error || f.dias_sin_datos === null || f.dias_sin_datos > 1);
 }
 
 // Fuente que responde bien pero toda su oferta está sin stock (Jumbo): no es una caída HTTP.
@@ -753,8 +760,9 @@ function banner() {
   const todas = caidas(), gNueva = todas.filter(f => esGrok(f.fuente) && !f.ultimo_ok);
   const c = todas.filter(f => !gNueva.includes(f)), sp = fp().filter(sinPrecios), sd = fp().filter(soloDescartados);
   const lGrok = gNueva.length ? `<li>${esc(`Grok: ${gNueva.length} ${gNueva.length === 1 ? "sitio habilitado todavía no tuvo" : "sitios habilitados todavía no tuvieron"} su primera carga (detalle en Fuentes)`)}</li>` : "";
-  if (!c.length && !sp.length && !sd.length && !lGrok) return;
-  const lis = (c.length ? "<strong>Fuentes con problemas</strong><ul>" : "<ul>") + sp.map(f => "<li>" + esc(TXT_SIN_PRECIOS(f)) + "</li>").join("") + sd.map(f => "<li>" + esc(nf(f.fuente) + ": " + TXT_GUARDADOS(f)) + "</li>").join("") + lGrok + c.map(f => "<li>" +
+  const lCasa = casaViejo() ? `<li>${esc(TXT_CASA(casaViejo()))}</li>` : "";
+  if (!c.length && !sp.length && !sd.length && !lGrok && !lCasa) return;
+  const lis = (c.length ? "<strong>Fuentes con problemas</strong><ul>" : "<ul>") + lCasa + sp.map(f => "<li>" + esc(TXT_SIN_PRECIOS(f)) + "</li>").join("") + sd.map(f => "<li>" + esc(nf(f.fuente) + ": " + TXT_GUARDADOS(f)) + "</li>").join("") + lGrok + c.map(f => "<li>" +
     esc(f.ultimo_ok ? `${nf(f.fuente)}: sin datos desde ${fechaAR(f.ultimo_ok)}${f.error ? ", " + f.error : ""}`
                     : `${nf(f.fuente)}: nunca trajo datos${f.error ? " (" + f.error + ")" : ""}`) + "</li>").join("") + "</ul>";
   const n = (lis.match(/<li>/g) || []).length;
@@ -933,7 +941,7 @@ function sparkline(filas, desde) {
 // ---------- Fuentes ----------
 function fuentes() {
   $("#fue-out").innerHTML = !D.fuentes.length ? `<div class="explica">Todavía no corrió ninguna recolección (<code>data/fuentes.csv</code> vacío).</div>` :
-    `<div class="tabla"><table><tr><th>Fuente</th><th>País</th><th>Última corrida</th><th>HTTP</th><th>Ítems</th><th>Con precio</th><th>Sin stock</th><th>Sin match</th><th>Último OK</th><th>Días sin datos</th><th>Error</th></tr>
+    (casaViejo() ? `<div class="explica caro">${esc(TXT_CASA(casaViejo()))}</div>` : "") + `<div class="tabla"><table><tr><th>Fuente</th><th>País</th><th>Última corrida</th><th>HTTP</th><th>Ítems</th><th>Con precio</th><th>Sin stock</th><th>Sin match</th><th>Último OK</th><th>Días sin datos</th><th>Error</th></tr>
     ${D.fuentes.map(f => `<tr><td>${nfh(f.fuente)}<br><span class="mut">${esc(f.fuente)}</span>${f.nota ? `<br><span class="caro">${esc(f.nota)}</span>` : ""}</td><td>${esc(f.pais || "AR")}</td><td>${fechaAR(f.fecha) || '<span class="vacio">sin cargas</span>'}</td><td>${esGrok(f.fuente) ? '<span class="mut">carga de Grok</span>' : esc(f.http) || '<span class="vacio">sin respuesta</span>'}</td>
       <td class="n">${esc(f.n_items)}</td><td class="n">${sinPrecios(f) ? '<span class="vacio" title="La fuente responde bien pero todos sus ítems están sin stock">sin precios con stock</span>' : nDesc(f) ? esc(TXT_GUARDADOS(f)) : esc(f.n_con_precio)}</td><td class="n">${esc(f.n_sin_stock)}</td><td class="n">${esc(f.n_sin_match)}</td>
       <td>${f.ultimo_ok ? fechaAR(f.ultimo_ok) : '<span class="vacio">nunca</span>'}</td>

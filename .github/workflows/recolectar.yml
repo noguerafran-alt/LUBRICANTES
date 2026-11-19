@@ -2,7 +2,7 @@ name: recolectar
 
 on:
   schedule:
-    - cron: "0 9 * * *"  # 06:00 ART
+    - cron: "0 13 * * *"  # 10:00 ART (el recolector de casa corre a las 06:00)
   workflow_dispatch:
 
 permissions:
@@ -34,12 +34,25 @@ jobs:
           else
             echo "::warning::GH_PAT falta o no tiene permiso Secrets read/write sobre este repo: ML no corre (el refresh no se canjea)"
           fi
+      # El recolector de casa (celular o PC, 06:00 ART) deja una fila fuente=casa con la fecha de hoy en data/fuentes.csv. Si está, la Action
+      # corre SOLO Mercado Libre; si no (el celu no corrió), corre todo lo que sirva desde GitHub como respaldo.
+      - name: Ver si el recolector de casa ya corrió hoy
+        id: modo
+        run: |
+          hoy=$(TZ=America/Argentina/Buenos_Aires date +%F)
+          if grep -q "^$hoy,casa," data/fuentes.csv; then
+            echo "casa=1" >> "$GITHUB_OUTPUT"
+            echo "El recolector de casa ya corrió el $hoy: solo Mercado Libre"
+          else
+            echo "::warning::El recolector de casa no corrió el $hoy: corre todo como respaldo"
+          fi
       - name: Recolectar
         env:
           ML_CLIENT_ID: ${{ secrets.ML_CLIENT_ID }}
           ML_CLIENT_SECRET: ${{ secrets.ML_CLIENT_SECRET }}
           ML_REFRESH_TOKEN: ${{ steps.pat.outputs.ok == '1' && secrets.ML_REFRESH_TOKEN || '' }}
-        run: python recolectar.py
+        run: |
+          if [ "${{ steps.modo.outputs.casa }}" = "1" ]; then python recolectar.py --solo ml; else python recolectar.py; fi
       # El refresh de ML es de un solo uso: si el canje rotó, hay que guardarlo aunque falle lo demás.
       - name: Rotar refresh token ML
         if: always() && hashFiles('.ml_refresh_nuevo') != ''
@@ -50,11 +63,11 @@ jobs:
           gh secret set ML_REFRESH_TOKEN --repo "$GITHUB_REPOSITORY" < .ml_refresh_nuevo
       # Series de datos.gob.ar (INDEC, SE, BCRA): barato y el tipo de cambio es diario. Una serie vacía queda en fuentes.csv, no rompe el job.
       - name: Series de mercado
-        if: always()
+        if: always() && steps.modo.outputs.casa != '1'
         run: python macro.py series
       # Dólar PTAX del BCB (BRL por USD) para mostrar Brasil en USD. Ventana de 10 días: la del día sale después de las 13 h. Si cae, queda en fuentes.csv.
       - name: Tipo de cambio (BCB PTAX)
-        if: always()
+        if: always() && steps.modo.outputs.casa != '1'
         run: python macro.py fx
       - name: Comitear data/
         if: always()
@@ -63,10 +76,16 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data/
           git diff --cached --quiet && exit 0
-          git commit -m "datos $(date -u +%F): recolectar"
-          git pull --rebase
-          git push
+          git commit -m "datos $(date -u +%F): $([ "${{ steps.modo.outputs.casa }}" = "1" ] && echo ml || echo recolectar)"
+          # el celu puede pushear en el medio: rebase y reintento
+          # ponytail: si el celu tocó el mismo archivo de data/ en el medio, el rebase conflictúa y el job falla (ventana de horas: casa 06:00, Action 10:00)
+          for i in 1 2 3; do
+            git pull --rebase && git push && exit 0
+            git rebase --abort 2>/dev/null || true
+            sleep 5
+          done
+          exit 1
 
-  # SEPA, Nota Paraná y las ventas de la SE (macro.py energia, ~770 MB) no corren acá: bloquean IP de datacenter (SEPA 403, Nota Paraná
-  # 0 productos, datos.energia.gob.ar timeout). Las corre tools/sepa_pc.py desde la PC (tarea LUBRICANTES-SEPA; ver CLAUDE.md, «Fuentes desde
-  # la PC»). Nota Paraná además se saltea sola en este recorrido (recolectar.FUENTES_PC con GITHUB_ACTIONS=true) para no dejar una fila de error.
+  # SEPA y las ventas de la SE (macro.py energia, ~770 MB) no corren acá: bloquean IP de datacenter (SEPA 403, datos.energia.gob.ar timeout).
+  # Las corre el recolector de casa (tools/recolector_casa.py, celular con Termux o PC; ver CLAUDE.md y docs/celular.md). Nota Paraná está pausada y
+  # además se saltea sola en este recorrido (recolectar.FUENTES_PC con GITHUB_ACTIONS=true).
