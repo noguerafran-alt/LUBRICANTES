@@ -1,4 +1,4 @@
-"""Indicadores de mercado: series de datos.gob.ar y ventas de lubricantes de la Secretaría de Energía (Res. SE 1104).
+"""Indicadores de mercado: series de datos.gob.ar y ventas de lubricantes de la Secretaría de Energía (SESCO Downstream).
 
 python macro.py series    # baja las ids de seed/macro_series.csv -> data/macro/series.csv (largo: fecha,id,valor,signo)
 python macro.py energia   # CSV de ~770 MB en streaming -> data/macro/energia.csv (mes,empresa,producto,canal,provincia,cantidad)
