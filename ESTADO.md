@@ -2,6 +2,9 @@
 
 Actualizado 2026-11-19 (Visualizador, página de producto y `/api/producto`; share por marca en Mercado; share ampliado con la serie completa desde 2010; gráficos ampliables en Mercado; modelos 3D sin foto atrás y con malla cerrada; export a Power BI; modelos 3D con Blender y modo presentación con GLB; Brasil; antes: mercado: share de la SE y series de datos.gob.ar). Remoto privado `noguerafran-alt/LUBRICANTES`; la Action corre a diario.
 
+## Rótulo «Servidor FLN Data Analysis» (2026-11-19)
+- Lo que se muestra del antiguo «Recolector de casa» ahora dice «Servidor FLN Data Analysis (celular o PC)»: nombre de la fuente `casa` y aviso del visor (`TXT_CASA`), notas de `/api/fuentes`, energía y `actualizacion` en `server.py`, y la frase citada en `CLAUDE.md`. El id `casa`, `tools/recolector_casa.py` y `data/` no cambian. `python server.py test` OK; comprobado en `/api/fuentes` y en el HTML servido.
+
 
 ## Barra de controles en una columna a 375 px (2026-11-19, solo CSS de `site/index.html`)
 - A 640 px o menos cada control de la barra (Visualizador: País, USD, Tipo de cambio con (i) en la misma fila, Modo presentación, Ver todos, Ir a un producto; página de producto: Volver, Ventana, Desde, Hasta; Mercado: `.mk-todo`) ocupa todo el ancho. Causa: `.vt-filtro .vt-toggle/.vt-buscar` (mas específicos) pisaban el `flex: 1 1 100%` móvil. Escritorio sin cambios (todo dentro de `@media (max-width: 640px)`).
