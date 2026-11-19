@@ -899,7 +899,8 @@ def share(filas, canal=None, n=MESES_SHARE, top=None):
         return {"empresa": nombre, "serie": [None if x is None else round(x, 6) for x in serie],
                 "ultimo": None if u is None else round(u, 6), "hace12": None if h is None else round(h, 6),
                 "var_pp": round((u - h) * 100, 2) if u is not None and h is not None else None,
-                "volumen_ultimo": None if vols[-1] is None else round(vols[-1], 3)}
+                "volumen_ultimo": None if vols[-1] is None else round(vols[-1], 3),
+                "volumen": [None if v is None else round(v, 3) for v in vols]}  # paralela a serie: null = no declaró
     empresas = [fila(e, [vol.get((m, e)) for m in meses]) for e in top]
     if len(ranking) > len(top):
         empresas.append(fila("Otras", [max(0.0, tot[m] - sum(vol.get((m, e), 0.0) for e in top)) if m in tot else None for m in meses]))
@@ -2033,6 +2034,8 @@ def demo():
     assert ey["var_pp"] == round((110 / 212 - 120 / 217) * 100, 2) and ey["serie"][0] is None
     es = S["empresas"][1]
     assert es["serie"][-7] is None and es["serie"][-8] is not None and es["volumen_ultimo"] == 55  # 2026-03 sin fila de Shell: null, no 0
+    assert ey["volumen"][-1] == 110 and ey["volumen"][0] is None and len(ey["volumen"]) == 36 and es["volumen"][-7] is None and es["volumen"][-1] == 55
+    assert all((e["volumen"][i] is None) == (e["serie"][i] is None) for e in S["empresas"] for i in range(36))
     assert S["empresas"][-1]["volumen_ultimo"] == 7 and S["canales"] == ["Al Público", "Agro"] and S["empresas"][2]["hace12"] == round(10 / 217, 6)
     pv = {p["provincia"]: p for p in S["provincias"]}
     assert [p["provincia"] for p in S["provincias"]] == ["Córdoba", "Salta", "Jujuy"] and pv["Córdoba"]["volumen"] == 167
@@ -2340,6 +2343,8 @@ def demo():
     assert get("/api/mercado/share?canal=Nada", k)[0] == 404
     assert json.loads(get("/api/mercado/share", k)[1])["empresas"][0]["origen"]["marcas"] == ["YPF"]
     assert json.loads(get("/api/mercado/share?completo=1", k)[1])["meses"][0] == "2025-09"
+    cv = json.loads(get("/api/mercado/share?completo=1", k)[1])
+    assert all(len(e["volumen"]) == len(cv["meses"]) == len(e["serie"]) for e in cv["empresas"]) and mj["share"]["empresas"][0]["volumen"][-1] == mj["share"]["empresas"][0]["volumen_ultimo"]
     # por marca: solo rótulo y precisión; los números son los mismos que por empresa
     se_, sm_ = (json.loads(get("/api/mercado/share" + x, k)[1]) for x in ("", "?por=marca"))
     quitar = lambda es: [{a: b for a, b in e.items() if a not in ("marca", "precision")} for e in es]
