@@ -37,7 +37,19 @@ section[hidden] { display: none; }
 .filtros label { display: flex; flex-direction: column; font-size: 12px; color: var(--mut); max-width: 100%; min-width: 0; }
 .filtros label[hidden] { display: none; }
 .filtros select, .filtros input { max-width: 100%; min-width: 0; }
-@media (max-width: 640px) { .filtros label { flex: 1 1 100%; } .filtros select, .filtros input { width: 100%; } }
+@media (max-width: 640px) { .filtros label, .filtros .mk-multi-w { flex: 1 1 100%; } .filtros select, .filtros input:not([type=checkbox]) { width: 100%; } }
+/* desplegables de selección múltiple (Mercado): <details> con casillas, sin dependencias */
+.filtros .mk-multi-w { display: flex; flex-direction: column; font-size: 12px; color: var(--mut); position: relative; min-width: 0; max-width: 100%; }
+.mk-multi summary { cursor: pointer; list-style: none; border: 1px solid var(--bor, #888); border-radius: 4px; padding: 3px 22px 3px 8px; font-size: 13px; color: var(--txt, inherit); background: var(--bg, transparent); position: relative; min-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mk-multi summary::-webkit-details-marker { display: none; }
+.mk-multi summary::after { content: "▾"; position: absolute; right: 7px; top: 3px; }
+.mk-multi summary:focus-visible, .mk-multi input:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.mk-multi-p { position: absolute; z-index: 20; top: 100%; left: 0; min-width: 100%; max-width: min(340px, 92vw); max-height: 60vh; overflow: auto; margin-top: 2px; padding: 6px 8px; border: 1px solid var(--bor, #888); border-radius: 4px; background: var(--bg-el, var(--bg, #fff)); color: var(--txt, inherit); box-shadow: 0 4px 14px rgba(0,0,0,.18); font-size: 13px; }
+.mk-multi-p label { flex-direction: row; align-items: center; gap: 6px; padding: 3px 0; font-size: 13px; color: inherit; }
+.mk-multi-p label.todo { border-bottom: 1px solid var(--bor, #888); font-weight: 600; margin-bottom: 2px; }
+.mk-multi-p .nota { margin: 6px 0 0; font-size: 12px; }
+.mk-todo { align-self: flex-end; }
+@media (max-width: 640px) { .mk-multi-p { right: 0; max-width: none; } .mk-todo { align-self: stretch; } }
 select, input { font: inherit; color: var(--tx); background: var(--panel); border: 1px solid var(--borde-ctl); border-radius: 6px; padding: 6px 8px; min-width: 0; }
 input[type=search] { width: 220px; max-width: 100%; }
 .tabla { overflow-x: auto; background: var(--panel); border: 1px solid var(--borde); box-shadow: var(--sombra); border-radius: 8px; margin-bottom: 14px; }
@@ -1271,7 +1283,7 @@ reducido.addEventListener("change", vtAuto);
 addEventListener("resize", () => { if (VT.pista && !$("#visualizador").hidden) vtIr(VT.pos, false); });
 
 // ---------- Mercado ----------
-const M = { r: null, pedido: null, producto: "automotrices", canal: "", por: "empresa", g: {}, pm: "", pvs: "12m", pvo: "" };  // pm/pvs/pvo: mes, contra qué se compara y "otro mes" de la tabla por provincia
+const M = { r: null, pedido: null, productos: ["automotrices"], canales: [], aviso: "", por: "empresa", g: {}, pm: "", pvs: "12m", pvo: "" };  // pm/pvs/pvo: mes, contra qué se compara y "otro mes" de la tabla por provincia
 const mesAnt = (m, k) => { const t = +m.slice(0, 4) * 12 + +m.slice(5, 7) - 1 - k; return `${Math.floor(t / 12)}-${String(t % 12 + 1).padStart(2, "0")}`; };
 // «Ver por: Marca» es solo un rótulo: la SE publica por empresa y los números no cambian. Los rótulos vienen de `origen.rotulos` (server.rotulos); el de PAE/Axion depende del mes.
 const rotDe = (o, mes) => (o?.rotulos || []).filter(r => !r.desde || r.desde <= mes).at(-1) || null;
@@ -1282,6 +1294,56 @@ const etqT = (emp, orig, mes) => rotP(emp, orig, mes)?.marca || emp;
 const etq = (emp, orig, mes) => esc(etqT(emp, orig, mes)) + insignia(rotP(emp, orig, mes));
 const NOTA_MARCA = "La Secretaría de Energía publica por empresa. Una línea agrupada suma varias marcas que no se pueden separar con esta fuente.";
 const PRODUCTOS_SE = { automotrices: "Automotrices", industriales: "Industriales", marinos: "Marinos", grasas: "Grasas" };
+// Selección múltiple de Mercado. Lubricantes (m³) se suman entre sí; Grasas (toneladas) nunca con m³: marcar una desmarca las otras y se avisa.
+// Canales: lista vacía = todos (es lo mismo que marcarlos todos). Producto nunca queda vacío.
+const LUBS = ["automotrices", "industriales", "marinos"];
+const AVISO_GRASAS = "Grasas va en toneladas y los lubricantes en m³: no se suman. Marcar Grasas muestra solo Grasas; marcar un lubricante la saca.";
+const qMercado = () => "producto=" + encodeURIComponent(M.productos.join(",")) + (M.canales.length ? "&canal=" + encodeURIComponent(M.canales.join(",")) : "");
+const rotProd = () => M.productos.length === LUBS.length && LUBS.every(k => M.productos.includes(k)) ? "Todos los lubricantes (m³)" : M.productos.map(k => PRODUCTOS_SE[k]).join(" + ");
+const rotCanal = (todos) => !M.canales.length ? "Todos los canales" : M.canales.length > 2 ? M.canales.length + " canales" : M.canales.join(" + ");
+function multiHTML(id, et, items, marcado, resumen, aviso) {
+  const todo = items.every(([v]) => marcado(v));
+  return `<span id="${id}-et">${esc(et)}</span><details class="mk-multi"><summary aria-labelledby="${id}-et ${id}-r"><span id="${id}-r">${esc(resumen)}</span></summary>
+    <div class="mk-multi-p" role="group" aria-labelledby="${id}-et"><label class="todo"><input type="checkbox" data-v="*"${todo ? " checked" : ""}> Seleccionar todo</label>
+    ${items.map(([v, t]) => `<label><input type="checkbox" data-v="${esc(v)}"${marcado(v) ? " checked" : ""}> ${esc(t)}</label>`).join("")}${aviso ? `<p class="nota">${esc(aviso)}</p>` : ""}</div></details>`;
+}
+// vuelve a dibujar un desplegable conservando si estaba abierto y qué casilla tenía el foco
+function pintarMulti(id, html) {
+  const w = $("#" + id); if (!w) return;
+  const abierto = w.querySelector("details")?.open, foco = w.contains(document.activeElement) ? document.activeElement.dataset?.v : null;
+  w.innerHTML = html;
+  if (abierto) w.querySelector("details").open = true;
+  if (foco != null) w.querySelector(`input[data-v="${CSS.escape(foco)}"]`)?.focus();
+}
+function pintarFiltrosMercado() {
+  pintarMulti("mk-f-prod", multiHTML("mk-f-prod-x", "Producto", Object.entries(PRODUCTOS_SE), v => M.productos.includes(v), rotProd(), AVISO_GRASAS));
+  const todos = M.r?.share?.canales || [], items = (todos.length ? todos : M.canales).map(c => [c, c]);
+  pintarMulti("mk-f-canal", multiHTML("mk-f-canal-x", "Canal", items, v => !M.canales.length || M.canales.includes(v), rotCanal(todos), ""));
+  const av = $("#mk-aviso"); if (av) av.textContent = M.aviso;
+}
+function cambioProducto(v, on) {
+  M.aviso = "";
+  let p = M.productos;
+  if (v === "*") p = on ? LUBS.slice() : p;
+  else if (on) {
+    if (v === "grasas") { p = ["grasas"]; if (M.productos.some(k => k !== "grasas")) M.aviso = "Grasas va en toneladas: no se suma con los lubricantes (m³). Se muestra sola."; }
+    else { if (M.productos.includes("grasas")) M.aviso = "Los lubricantes van en m³ y Grasas en toneladas: no se suman. Se muestran solo los lubricantes."; p = [...M.productos.filter(k => k !== "grasas"), v]; }
+  } else p = M.productos.filter(k => k !== v);
+  p = Object.keys(PRODUCTOS_SE).filter(k => p.includes(k));
+  if (!p.length || p.join() === M.productos.join()) return pintarFiltrosMercado();
+  M.productos = p; M.canales = [];   // los canales disponibles cambian con los productos
+  pintarFiltrosMercado(); pedirMercado();
+}
+function cambioCanal(v, on) {
+  const todos = M.r?.share?.canales || [], act = M.canales.length ? M.canales : todos;
+  let c = v === "*" ? (on ? todos : []) : on ? [...act, v] : act.filter(x => x !== v);
+  c = todos.filter(x => c.includes(x));
+  if (!c.length) return pintarFiltrosMercado();   // nunca queda vacío: se mantiene lo anterior
+  if (c.length === todos.length) c = [];
+  if (c.join() === M.canales.join()) return pintarFiltrosMercado();
+  M.canales = c; pintarFiltrosMercado(); pedirMercado();
+}
+function todoElMercado() { M.productos = LUBS.slice(); M.canales = []; M.aviso = ""; pintarFiltrosMercado(); pedirMercado(); }
 const GRUPOS = { liviano: "Flota liviana", pesado: "Transporte pesado", agro: "Agro", industria: "Industria y construcción", precios: "Precios, salarios y dólar", demanda: "Ventas de lubricantes (Secretaría de Energía)" };
 const SIGNOS = { "*": "dato provisorio", "**": "dato preliminar", e: "estimado por extrapolación o proyección", i: "estimado por imputación",
   u: "calidad inferior al estándar", "-": "cero absoluto", ".": "dato no registrado", "...": "no disponible a la fecha de presentación",
@@ -1342,7 +1404,7 @@ async function abrirMercado() {
 }
 
 async function pedirMercado() {
-  const q = "mercado?producto=" + encodeURIComponent(M.producto) + (M.canal ? "&canal=" + encodeURIComponent(M.canal) : "");
+  const q = "mercado?" + qMercado();
   const pedido = M.pedido = api(q);
   const caja = $("#mk-share-in");
   if (caja) caja.setAttribute("aria-busy", "true");
@@ -1372,11 +1434,13 @@ function pintarMercado() {
       <div class="mk-cab">
         <h2>Market share oficial</h2>
         <div class="filtros">
-          <label>Producto <select id="mk-prod">${Object.entries(PRODUCTOS_SE).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></label>
-          <label>Canal <select id="mk-canal"></select></label>
+          <button type="button" class="mk-todo" id="mk-todo" title="Todos los lubricantes (m³) y todos los canales">Todo el mercado</button>
+          <div class="mk-multi-w" id="mk-f-prod"></div>
+          <div class="mk-multi-w" id="mk-f-canal"></div>
           <label>Ver por <select id="mk-por"><option value="empresa">Empresa</option><option value="marca">Marca</option></select></label>
         </div>
       </div>
+      <p class="nota" id="mk-aviso" role="status" aria-live="polite"></p>
       ${glosario()}
       <div id="mk-share-in"></div>
     </div>
@@ -1418,9 +1482,11 @@ function pintarMercado() {
       <div id="mk-comp-in"></div>
     </div>`;
   $("#mk-glo-ir").onclick = (e) => { e.preventDefault(); const g = $("#mk-glosario"); g.open = true; g.scrollIntoView(); };
-  $("#mk-prod").value = M.producto;
-  $("#mk-prod").onchange = e => { M.producto = e.target.value; pedirMercado(); };
-  $("#mk-canal").onchange = e => { M.canal = e.target.value; pedirMercado(); };
+  $("#mk-todo").onclick = todoElMercado;
+  $("#mk-f-prod").onchange = e => cambioProducto(e.target.dataset.v, e.target.checked);
+  $("#mk-f-canal").onchange = e => cambioCanal(e.target.dataset.v, e.target.checked);
+  pintarFiltrosMercado();
+  if (!window.__mkCierra) { window.__mkCierra = true; document.addEventListener("click", e => document.querySelectorAll(".mk-multi[open]").forEach(d => { if (!d.contains(e.target)) d.open = false; })); }
   $("#mk-por").value = M.por;
   $("#mk-por").onchange = e => { M.por = e.target.value; pintarShare(); pintarGraficos($("#mk-share-in")); pedirPerdidas(); };
   const reP = () => { PD.todas = false; PD.dpTodas = false; pedirPerdidas(); };
@@ -1505,12 +1571,13 @@ function pintarShare() {
   const s = M.r.share || {}, caja = $("#mk-share-in");
   caja.removeAttribute("aria-busy");
   const canales = s.canales || [];
-  opciones($("#mk-canal"), canales, "Todos los canales");
-  if (M.canal && !canales.includes(M.canal)) { M.canal = ""; $("#mk-canal").value = ""; }
+  if (M.canales.some(c => !canales.includes(c))) M.canales = M.canales.filter(c => canales.includes(c));
+  pintarFiltrosMercado();
+  const canEt = M.canales.length > 1 ? "canales" : "canal", canLista = M.canales.join(" + ");
   const meses = s.meses || [], emps = s.empresas || [], unidad = unidadSE(s.producto);
-  const nomProd = (PRODUCTOS_SE[M.producto] || M.producto).toLowerCase();
+  const nomProd = M.productos.map(k => (PRODUCTOS_SE[k] || k).toLowerCase()).join(" + ");
   if (!meses.length || !emps.length) {
-    caja.innerHTML = `<div class="explica">La Secretaría de Energía no tiene ventas declaradas de lubricantes ${esc(nomProd)}${M.canal ? ` en el canal ${esc(M.canal)}` : ""} en los últimos 36 meses.</div>${s.nota ? `<p class="nota mk-limite">${esc(s.nota)}</p>` : ""}`;
+    caja.innerHTML = `<div class="explica">La Secretaría de Energía no tiene ventas declaradas de lubricantes ${esc(nomProd)}${canLista ? ` en ${canEt === "canal" ? "el canal" : "los canales"} ${esc(canLista)}` : ""} en los últimos 36 meses.</div>${s.nota ? `<p class="nota mk-limite">${esc(s.nota)}</p>` : ""}`;
     return;
   }
   const info = empresaInfo(emps);
@@ -1521,7 +1588,7 @@ function pintarShare() {
   const ypf = orden.find(esYpf), ult = meses.at(-1), total = (s.total || []).at(-1);
   const porM = M.por === "marca", rot = (e, mes = ult) => porM ? rotDe(e.origen, mes) : null;
   const nom = (e, mes = ult) => rot(e, mes)?.marca || info[e.empresa].nombre;
-  const canalTxt = M.canal ? ` en el canal ${esc(M.canal)}` : "";
+  const canalTxt = canLista ? ` en ${canEt === "canal" ? "el canal" : "los canales"} ${esc(canLista)}` : "";
   let kpi;
   if (!ypf) kpi = `<p class="vt-vacio">YPF no figura entre las empresas que declararon ${esc(nomProd)}${canalTxt}.</p>`;
   else if (!esNum(ypf.ultimo)) kpi = `<p class="mk-kpi"><span class="mk-kpi-et">YPF en ${esc(mesLargo(ult))}</span><span class="mk-kpi-num" title="${esc(SIGNOS["..."])}">...</span></p><p class="vacio">Sin share de YPF publicado para ese mes.</p>`;
@@ -1537,15 +1604,15 @@ function pintarShare() {
       <i class="mk-sw" style="background:${info[e.empresa].color}"></i><span title="${esc(e.empresa)}">${esc(nom(e))}${insignia(rot(e))}</span>
       <span class="d ${esNum(e.var_pp) ? "" : "vacio"}" title="vs hace 12 meses">${esNum(e.var_pp) ? pp(e.var_pp) : "..."}</span><span class="v" title="Volumen del mes y variación contra hace 12 meses">${volTxt(e.volumen_ultimo, unidad)}<small>${varVol(e) === null ? "..." : varTxt({ neutro: true }, varVol(e))}</small></span><span class="n">${pct(e.ultimo)}</span></li>`).join("")}</ol>`;
   M.g.share = barrasShare(meses, s.total || [], orden, info, unidad, nom);
-  const csv = `/api/mercado/share?producto=${encodeURIComponent(M.producto)}${M.canal ? "&canal=" + encodeURIComponent(M.canal) : ""}&formato=csv`;
-  AMP.specs.share = () => ({ titulo: `Share mensual de ${nomProd}${M.canal ? ", canal " + M.canal : ""}`, unidad: "% del volumen que declaran las empresas", frec: "M", pp: true, neutro: true, signos: false,
+  const csv = `/api/mercado/share?${qMercado()}&formato=csv`;
+  AMP.specs.share = () => ({ titulo: `Share mensual de ${nomProd}${canLista ? ", " + canEt + " " + canLista : ""}`, unidad: "% del volumen que declaran las empresas", frec: "M", pp: true, neutro: true, signos: false,
     fmt: pct, fmtEje: v => dec1.format(v * 100) + " %", series: orden.map(e => ({ nombre: nom(e), color: info[e.empresa].color, rotulo: porM && e.origen?.rotulos?.length > 1 ? x => nom(e, x.slice(0, 7)) : null })),
     fmtVol: v => volTxt(v, unidad),
     filas: meses.map((m, i) => ({ x: m, v: orden.map(e => esNum(e.serie?.[i]) ? e.serie[i] : null), w: orden.map(e => esNum(e.volumen?.[i]) ? e.volumen[i] : null) })),
     fuente: "Secretaría de Energía, SESCO Downstream (datos.energia.gob.ar)", links: [["Dataset de la Secretaría de Energía", DATASET_SE]], csv,
     // serie completa (desde el primer mes del archivo) con las mismas empresas que la tarjeta; mientras llega se ven los 36 meses
     completar: async () => {
-      const q = `mercado/share?completo=1&producto=${encodeURIComponent(M.producto)}${M.canal ? "&canal=" + encodeURIComponent(M.canal) : ""}`;
+      const q = `mercado/share?completo=1&${qMercado()}`;
       const c = AMP.cache[q] ??= await api(q);
       const fe = orden.map(e => c.empresas.find(z => z.empresa === e.empresa));
       return c.meses.map((m, i) => ({ x: m, v: fe.map(f => esNum(f?.serie[i]) ? f.serie[i] : null), w: fe.map(f => esNum(f?.volumen?.[i]) ? f.volumen[i] : null) }));
@@ -1584,7 +1651,7 @@ function pintarShare() {
   };
   caja.innerHTML = `<div class="mk-share">
       <div>${kpi}${ctx}${rank}</div>
-      <div class="graf"><div class="graf-cab"><h3>Share mensual de ${esc(nomProd)}, últimos ${meses.length} meses</h3>${botonAmp("share", "Share mensual de " + nomProd)}</div>
+      <div class="graf"><div class="graf-cab"><h3>Share mensual de ${esc(nomProd)}${canLista ? `, ${canEt} ${esc(canLista)}` : ""}, últimos ${meses.length} meses</h3>${botonAmp("share", "Share mensual de " + nomProd + (canLista ? ", " + canEt + " " + canLista : ""))}</div>
         <div class="mk-svg" data-g="share"></div>
         <p class="mk-fuente">Fuente: Secretaría de Energía, SESCO Downstream (datos.energia.gob.ar). Ventas en ${esc(unidad)}; excluye ventas a empresas del sector.</p>${datos}</div>
     </div>

@@ -856,10 +856,37 @@ def series_macro(d):
     return meta, ser
 
 
+def _cs(canal):
+    """canal(es) → set o None (sin filtro): acepta un nombre, una lista o None."""
+    return None if not canal else {canal} if isinstance(canal, str) else set(canal)
+
+
+def lista(v):
+    """'a,b' → ['a','b'] sin vacíos ni repetidos, en orden."""
+    return list(dict.fromkeys(x.strip() for x in (v or "").split(",") if x.strip()))
+
+
+def producto_multi(prods):
+    """Claves de PRODUCTOS_SHARE → (nombre del conjunto, unidad). ValueError con el mensaje del 400 si hay una clave inválida o si se mezclan unidades:
+    los lubricantes (m3) se suman entre sí; Grasas (Ton) nunca con m3."""
+    mal = [p for p in prods if p not in PRODUCTOS_SHARE]
+    if mal:
+        raise ValueError(f"producto inválido: {', '.join(mal)}")
+    us = {unidad_se(PRODUCTOS_SHARE[p]) for p in prods}
+    if len(us) > 1:
+        raise ValueError("no se pueden sumar productos en m3 con Grasas (toneladas): elegí los lubricantes juntos o Grasas sola")
+    return (PRODUCTOS_SHARE[prods[0]] if len(prods) == 1 else f"Lubricantes {' + '.join(prods)}({us.pop()})"), unidad_se(PRODUCTOS_SHARE[prods[0]])
+
+
+def filas_productos(d, prods):
+    return [f for p in prods for f in d["energia_por_producto"].get(PRODUCTOS_SHARE[p], [])]
+
+
 def agregado(filas, canal=None):
+    canal = _cs(canal)
     vol, tot = defaultdict(float), defaultdict(float)
     for mes, emp, _prod, can, _prov, q in filas:
-        if not canal or can == canal:
+        if not canal or can in canal:
             vol[(mes, emp)] += q
             tot[mes] += q
     return vol, tot
@@ -877,6 +904,7 @@ def share_completo(filas, canal=None):
 
 def share(filas, canal=None, n=MESES_SHARE, top=None):
     """Share mensual por empresa de un producto (`filas` = tuplas de energia.csv de ese producto), últimos n meses, top 7 + Otras (o `top` fijo)."""
+    canal = _cs(canal)
     vol, tot = agregado(filas, canal)
     out = {"meses": [], "total": [], "empresas": [], "canales": [], "provincias": [], "nota": NOTA_SHARE}
     if not tot:
@@ -908,7 +936,7 @@ def share(filas, canal=None, n=MESES_SHARE, top=None):
     tp, yp = defaultdict(float), {}
     mp = set(meses[-MESES_SHARE:])  # el selector de mes del visor: solo la ventana de 36, no la serie completa
     for mes, emp, _p, can, prov, q in filas:
-        if mes in mp and (not canal or can == canal):
+        if mes in mp and (not canal or can in canal):
             tp[(mes, prov)] += q
             if emp == "YPF":
                 yp[(mes, prov)] = yp.get((mes, prov), 0.0) + q
@@ -1220,10 +1248,11 @@ def origen(d, emp, agrupa=None):
 
 def share_origen(d, filas, canal=None):
     """share() con `origen` en cada empresa; 'Otras' dice qué etiquetas agrupa."""
+    canal = _cs(canal)
     S = share(filas, canal)
     nombres = {e["empresa"] for e in S["empresas"]}
     ventana = set(S["meses"])
-    otras = sorted({f[1] for f in filas if f[0] in ventana and (not canal or f[3] == canal)} - nombres)
+    otras = sorted({f[1] for f in filas if f[0] in ventana and (not canal or f[3] in canal)} - nombres)
     for e in S["empresas"]:
         e["origen"] = origen(d, e["empresa"], otras if e["empresa"] == "Otras" else None)
     return S
@@ -1293,11 +1322,13 @@ def actividad(meta, ser):
 
 
 def mercado(d, producto="automotrices", canal=None, por="empresa"):
+    prods = [producto] if isinstance(producto, str) else list(producto)
+    nom, _u = producto_multi(prods)
     ok = [r["fecha"] for r in d["fuentes"] if r["fuente"] == "macro_series" and not r["error"]]
     meses_e = [f[0] for f in d["energia"]]
     return {"actualizado": {"energia": max(meses_e) if meses_e else None, "series": max(ok) if ok else None},
-            "share": {"producto": PRODUCTOS_SHARE[producto], "canal": canal, "por": por,
-                      **(etiquetar if por == "marca" else lambda d, S: S)(d, share_origen(d, d["energia_por_producto"].get(PRODUCTOS_SHARE[producto], []), canal))},
+            "share": {"producto": nom, "productos": prods, "canal": canal, "por": por,
+                      **(etiquetar if por == "marca" else lambda d, S: S)(d, share_origen(d, filas_productos(d, prods), canal))},
             "marcas": marcas_empresas(d),
             "actividad": actividad(d["macro_meta"], d["macro_series"]),
             "compuestos": compuestos(d, d["macro_series"])}
@@ -1764,29 +1795,36 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(200, [{"id": i, **meta[i], "serie": ser[i]} for i in ids])
         if nombre == "mercado/filas":
             return self.mercado_filas(q)
-        prod, canal = q.get("producto", "automotrices"), q.get("canal") or None
-        if nombre == "mercado/perdidas":
-            return self.mercado_perdidas(q, prod, canal)
-        if prod not in PRODUCTOS_SHARE:
-            return self.json(400, {"error": f"producto inválido: {prod!r}", "productos": list(PRODUCTOS_SHARE)})
-        filas = d["energia_por_producto"].get(PRODUCTOS_SHARE[prod], [])
+        if nombre == "mercado/perdidas":   # ponytail: una sola clave por ahora; listas = siguiente paso (ver ESTADO.md)
+            if "," in q.get("producto", "") + q.get("canal", ""):
+                return self.json(400, {"error": "perdidas acepta un solo producto y un solo canal (las listas valen en /api/mercado y /api/mercado/share)"})
+            return self.mercado_perdidas(q, q.get("producto", "automotrices"), q.get("canal") or None)
+        prods = lista(q.get("producto")) or ["automotrices"]
+        try:
+            nom, _u = producto_multi(prods)
+        except ValueError as e:
+            return self.json(400, {"error": str(e), "productos": list(PRODUCTOS_SHARE)})
+        lc = lista(q.get("canal"))
+        canal = None if not lc else lc[0] if len(lc) == 1 else lc
+        filas = filas_productos(d, prods)
         por = q.get("por", "empresa")
         if por not in ("empresa", "marca"):
             return self.json(400, {"error": f"por inválido: {por!r}", "por": ["empresa", "marca"]})
         canales = share(filas)["canales"]
-        if canal and canal not in canales:
-            return self.json(404, {"error": f"canal sin datos: {canal!r}", "canales": canales})
+        mal = [c for c in lc if c not in canales]
+        if mal:
+            return self.json(404, {"error": f"canal sin datos: {', '.join(mal)}", "canales": canales})
         if nombre == "mercado/share" and q.get("formato") == "csv":
             return self.enviar(200, a_csv("mercado_share", share_filas(filas, canal)), "text/csv; charset=utf-8")
         if nombre == "mercado/share" and q.get("completo") == "1":
             c = share_completo(filas, canal)
             if por == "marca":
                 etiquetar(d, c, True)
-            return self.json(200, {"producto": PRODUCTOS_SHARE[prod], "canal": canal, "por": por, "meses": c["meses"], "total": c["total"], "empresas": c["empresas"]})
+            return self.json(200, {"producto": nom, "productos": prods, "canal": canal, "por": por, "meses": c["meses"], "total": c["total"], "empresas": c["empresas"]})
         if nombre == "mercado/share":
             S = share_origen(d, filas, canal)
-            return self.json(200, {"producto": PRODUCTOS_SHARE[prod], "canal": canal, "por": por, **(etiquetar(d, S) if por == "marca" else S)})
-        self.json(200, self.calc["mercado"] if prod == "automotrices" and not canal and por == "empresa" else mercado(d, prod, canal, por))
+            return self.json(200, {"producto": nom, "productos": prods, "canal": canal, "por": por, **(etiquetar(d, S) if por == "marca" else S)})
+        self.json(200, self.calc["mercado"] if prods == ["automotrices"] and not canal and por == "empresa" else mercado(d, prods, canal, por))
 
     def mercado_perdidas(self, q, prod, canal):
         d = self.datos
@@ -1910,7 +1948,8 @@ def demo():
         E_ += [(m, e, LA, AP, "Córdoba", v) for e, v in zip("ABCDEF", (10, 9, 8, 7, 6, 5))]
         E_ += [(m, "Z1", LA, AP, "Córdoba", 1), (m, "Z2", LA, AP, "Córdoba", 1)]
         E_ += [(m, "Todas", "Gasoil Grado 2(m3)", "Transporte de Carga", "Todas", 1000)] * (m != "2026-03")  # 2026-03: mes sin fila
-    E_ += [("2026-09", "YPF", LA, "Agro", "Córdoba", 10), ("2026-09", "Shell/Raízen", LA, AP, "Jujuy", 5), ("2026-09", "YPF", "Grasas(Ton)", AP, "Córdoba", 7)]
+    E_ += [("2026-09", "YPF", LA, "Agro", "Córdoba", 10), ("2026-09", "Shell/Raízen", LA, AP, "Jujuy", 5), ("2026-09", "YPF", "Grasas(Ton)", AP, "Córdoba", 7),
+           ("2026-09", "YPF", "Lubricantes industriales(m3)", "Agro", "Córdoba", 30), ("2026-09", "Shell/Raízen", "Lubricantes industriales(m3)", "Agro", "Córdoba", 10)]
     with open(raiz / "data" / "macro" / "energia.csv", "w", encoding="utf-8", newline="") as f:
         csv.writer(f, lineterminator="\n").writerows([("mes", "empresa", "producto", "canal", "provincia", "cantidad"), *E_])
     (raiz / "data" / "macro" / "series.csv").write_text(
@@ -2341,6 +2380,18 @@ def demo():
     assert mg["producto"] == "Grasas(Ton)" and mg["empresas"][0]["ultimo"] == 1.0 and get("/api/mercado?producto=nada", k)[0] == 400
     assert json.loads(get("/api/mercado/share?canal=" + urllib.parse.quote("Al Público"), k)[1])["empresas"][0]["ultimo"] == round(100 / 202, 6)
     assert get("/api/mercado/share?canal=Nada", k)[0] == 404
+    # multi-selección: lubricantes (m3) se suman, Grasas (Ton) nunca con m3; compatibilidad con un solo valor
+    ms2 = json.loads(get("/api/mercado/share?producto=automotrices,industriales&canal=Agro", k)[1])
+    assert ms2["productos"] == ["automotrices", "industriales"] and ms2["producto"] == "Lubricantes automotrices + industriales(m3)" and ms2["canal"] == "Agro"
+    y2 = ms2["empresas"][0]
+    assert y2["empresa"] == "YPF" and y2["volumen_ultimo"] == 40 and y2["ultimo"] == 0.8 and ms2["total"][-1] == 50 and ms2["total"][-2] is None   # (10 + 30) / (10 + 30 + 10)
+    mc2 = json.loads(get("/api/mercado/share?producto=automotrices,industriales&canal=Agro,Al%20P%C3%BAblico&completo=1", k)[1])
+    assert mc2["canal"] == ["Agro", "Al Público"] and mc2["total"][-1] == 50 + 202
+    assert get("/api/mercado/share?producto=automotrices,grasas", k)[0] == 400 and get("/api/mercado?producto=industriales,grasas", k)[0] == 400
+    assert get("/api/mercado/share?producto=automotrices,nada", k)[0] == 400 and get("/api/mercado/share?canal=Agro,Nada", k)[0] == 404
+    assert b"2026-09,YPF,40.0,50.0,0.8" in get("/api/mercado/share?producto=automotrices,industriales&canal=Agro&formato=csv", k)[1]
+    assert json.loads(get("/api/mercado?producto=automotrices,industriales&canal=Agro", k)[1])["share"]["empresas"][0]["volumen_ultimo"] == 40
+    assert json.loads(get("/api/mercado/share?producto=industriales", k)[1])["empresas"][0]["volumen_ultimo"] == 30 and get("/api/mercado/perdidas?producto=automotrices,industriales", k)[0] == 400
     assert json.loads(get("/api/mercado/share", k)[1])["empresas"][0]["origen"]["marcas"] == ["YPF"]
     assert json.loads(get("/api/mercado/share?completo=1", k)[1])["meses"][0] == "2025-09"
     cv = json.loads(get("/api/mercado/share?completo=1", k)[1])
@@ -2371,7 +2422,7 @@ def demo():
     assert json.loads(get("/api/mercado/perdidas?ventana=mes&canal=Agro&provincia=C%C3%B3rdoba", k)[1])["foco"]["total_t"] == 10
     fc = get("/api/mercado/filas?producto=grasas", k)[1]
     assert fc.startswith(b"\xef\xbb\xbfmes,empresa,producto,canal,provincia,cantidad\n2026-09,YPF,Grasas(Ton),") and get("/api/mercado/filas?desde=2026-13", k)[0] == 400
-    assert get("/api/mercado/filas?empresa=YPF&canal=Agro&desde=2026-09&hasta=2026-09", k)[1].count(b"\n") == 2 and get("/api/mercado/filas")[0] == 200
+    assert get("/api/mercado/filas?empresa=YPF&canal=Agro&desde=2026-09&hasta=2026-09", k)[1].count(b"\n") == 3 and get("/api/mercado/filas")[0] == 200
     assert [x["id"] for x in json.loads(get("/api/macro", k)[1])][:3] == ["A", "B", "C"] and get("/api/macro?ids=A,zzz", k)[0] == 404
     ma = json.loads(get("/api/macro?ids=A,B", k)[1])
     assert [m["id"] for m in ma] == ["A", "B"] and ma[0]["serie"][1] == {"fecha": "2026-07-01", "valor": None, "signo": "..."}
