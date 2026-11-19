@@ -60,6 +60,7 @@ data/fx.csv            # tipo de cambio: fecha,moneda,por_usd,fuente (hoy BRL po
 data/ml_oferta.csv     # total de publicaciones por categoría ML por día
 data/catalogo_ypf.json # foto del catálogo oficial YPF (el diff de git avisa altas/bajas); cada ítem trae `imagen` (URL https absoluta o "")
 data/imagenes.csv      # una foto por producto_id (ver esquema)
+seed/marcas_empresas.csv # marca,empresa_se,desde,hasta,estado,evidencia,fuente_url,nota: qué marca va dentro de qué empresa declarante de la SE (a mano, con fuente; `inferida` si no sale de una ficha)
 seed/macro_series.csv  # ids de datos.gob.ar que baja `macro.py series`: id,nombre,grupo,frec,unidad,fuente (grupo: liviano|pesado|agro|industria|precios|demanda)
 data/macro/series.csv  # series largas de datos.gob.ar (ver Mercado)
 data/macro/energia.csv # ventas de lubricantes y gasoil de la Secretaría de Energía por mes (ver Mercado)
@@ -348,7 +349,7 @@ Relevamiento y fuentes en `docs/relevamiento/mercado.md`. Dos fuentes, dos corri
   `mes,empresa,producto,canal,provincia,cantidad` (`mes` AAAA-MM; `canal` = `subtipodecomercializacion`; ~130 mil filas, 9 MB).
   El archivo rellena con `0.0000` toda la grilla empresa × canal × provincia: esas filas **no se escriben**, así que una empresa sin fila ese mes es
   "sin dato", nunca 0. **Gasoil** va sin empresa ni provincia (`empresa=Todas`, `provincia=Todas`): solo se usa por canal.
-  `empresa` lleva una etiqueta corta (`macro.ETIQUETAS`: YPF, Shell/Raízen, TotalEnergies, PAE/Axion, Petronas, Fercol, DAPSA, Fuchs, Nynas, Esso, …;
+  `empresa` lleva una etiqueta corta (`macro.ETIQUETAS`: YPF, Shell/Raízen, TotalEnergies, PAE/Axion, Petronas, Fercol, DAPSA, Fuchs, Nynas, …; `ESSO` etiqueta `PAE/Axion`: Esso → Axion → PAE (2018) es la misma empresa, sin corte;
   lo no mapeado queda con su nombre). Si la fuente falla o el último mes retrocede, no se escribe nada y `macro_energia` queda con el error en `fuentes.csv`.
 
 **Signos INDEC** (tabla en el relevamiento §3). datos.gob.ar manda null sin signo: en `series.csv` es `valor` vacío + `signo` `...`. Un null **nunca es 0**;
@@ -360,6 +361,8 @@ solo `-` (cero absoluto) vale 0. Las variaciones (`var_ia`, compuestos) se calcu
   (top 7 por volumen de la ventana + `Otras`; `serie` de share 0–1 o null, `ultimo`, `hace12`, `var_pp` en puntos porcentuales, `volumen_ultimo`), `canales`
   (del producto, por volumen), `provincias` (último mes: `share_ypf`, `share_ypf_hace12`, `var_pp`, `volumen`; mes contra el mismo mes del año anterior), `nota` (límites).
   Share = volumen de la empresa / suma de las empresas que declaran ese mes. Un mes o empresa sin fila = null.
+- `marcas`: `seed/marcas_empresas.csv` como lista (`marca, empresa_se, desde, hasta, estado, evidencia, fuente_url, nota`); `desde/hasta` vacíos de las que declaran se calculan de `energia.csv`.
+- `share.empresas[].origen` = `{fuente, razones_sociales[] (prefijos de macro.ETIQUETAS de esa etiqueta), marcas[], desde, hasta (meses con datos), filas_url (/api/mercado/filas?empresa=…), dataset}`; en `Otras`, `razones_sociales` = las etiquetas que agrupa y `filas_url` null. `/api/mercado/perdidas` trae `origenes {empresa: origen}`.
 - `actividad`: una entrada por serie de `seed/macro_series.csv` más las derivadas de la SE (`se_lub_automotrices`, `se_lub_industriales`, `se_gasoil_carga`,
   `se_gasoil_agro`; `server.DERIVADAS`): `id,nombre,grupo,unidad,frec,fuente`, `serie` (últimos 60 puntos `{fecha,valor,signo}`), `ultimo` (el último punto, aunque sea null),
   `var_ia` (% contra el mismo mes del año anterior).

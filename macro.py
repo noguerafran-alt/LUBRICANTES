@@ -60,7 +60,7 @@ ETIQUETAS = [
     ("DESTILERIA ARGENTINA", "DAPSA"),
     ("FUCHS", "Fuchs"),
     ("NYNAS", "Nynas"),
-    ("ESSO", "Esso"),
+    ("ESSO", "PAE/Axion"),  # Esso Petrolera Argentina → Axion Energy → fusionada en Pan American Energy (2018): la misma empresa
     ("PETROBRAS", "Petrobras"),
     ("GULF", "Gulf"),
     ("INTERLUB", "Interlub"),
@@ -323,6 +323,7 @@ def demo():
     # etiquetas: prefijo, tildes y puntos
     assert etiqueta("YPF S.A.") == "YPF" and etiqueta("SHELL C.A.P.S.A.") == "Shell/Raízen" and etiqueta("TOTAL ESPECIALIDADES ARGENTINA S.A.") == "TotalEnergies"
     assert etiqueta("PAN AMERICAN ENERGY SL") == "PAE/Axion" and etiqueta("Destilería Argentina de Petróleo S.A.") == "DAPSA"
+    assert etiqueta("ESSO PETROLERA ARGENTINA S.R.L.") == "PAE/Axion" == etiqueta("AXION ENERGY ARGENTINA S.A.")  # sin corte en 2018
     assert etiqueta(" Empresa Rara SA ") == "Empresa Rara SA"
     # agregado: filtra productos, junta empresas y meses, cantidad 0 declarada se conserva
     cab = "anio,mes,empresa,tipodecomercializacion,subtipodecomercializacion,producto,unidad,provincia,cantidad,pais,indice_tiempo"

@@ -1,0 +1,12 @@
+marca,empresa_se,desde,hasta,estado,evidencia,fuente_url,nota
+YPF,YPF,,,declara,confirmada,,La razón social de la SE es YPF
+Shell,Shell/Raízen,,,declara,confirmada,https://www.raizen.com.ar/es/home,Raízen es licenciataria de Shell en Argentina
+TotalEnergies (y Elf),TotalEnergies,,,declara,confirmada,,
+Petronas,Petronas,,,declara,confirmada,,
+Castrol,PAE/Axion,2019,,declara (dentro de PAE/Axion),confirmada,https://www.autoweb.com.ar/?p=8007,Axion fabrica y vende Castrol bajo licencia; las hojas de seguridad de Castrol nombran a Pan American Energy S.L. como proveedor. Además: https://premioseikon.com/wp-content/uploads/2024/06/C14.2_2024_PAE_Capos-del-Capot_PremiosEikon-1.pdf
+Mobil,Esso (hoy PAE/Axion),,2018,sin dato desde 2018,inferida,https://mobil.com/en-ar/commercial-vehicle-lube/pds/la-xx-mobil-delvac-legend-axle-oil-series,"hasta 2018 dentro de Esso; hoy las fichas de Mobil Argentina nombran a Cosan Lubricantes S.R.L., que no declara a la SE"
+Lubrax,Petrobras,,2018-05,sin dato desde 2018,confirmada,https://www.lubesngreases.com/lubereport-americas/2_15/puma-in-petrobras-out-at-argentina-plant/,lo fabricaba Pampa Energía bajo licencia; Trafigura compró la planta en 2018 y pasó a Puma
+Puma,(no declara),,,sin dato,confirmada,https://www.lubesngreases.com/lubereport-americas/2_15/puma-in-petrobras-out-at-argentina-plant/,Lubricantes Avellaneda / Trafigura no figura en ningún mes
+Gulf,Gulf,2012-02,2023-01,dejó de declarar,confirmada,,último mes con datos en la SE: 2023-01
+Fercol,Fercol,,,declara,confirmada,,
+DAPSA,DAPSA,,,declara,confirmada,,
