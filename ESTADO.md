@@ -3,7 +3,11 @@
 Actualizado 2026-11-19 (Visualizador, página de producto y `/api/producto`; share por marca en Mercado; share ampliado con la serie completa desde 2010; gráficos ampliables en Mercado; modelos 3D sin foto atrás y con malla cerrada; export a Power BI; modelos 3D con Blender y modo presentación con GLB; Brasil; antes: mercado: share de la SE y series de datos.gob.ar). Remoto privado `noguerafran-alt/LUBRICANTES`; la Action corre a diario.
 
 
-
+## Calendario en la página de producto (2026-11-19, rama lub-calendario)
+- `/api/producto` acepta `desde` y `hasta` (AAAA-MM-DD, inclusivos; mandan sobre `dias`; solo `desde` = hasta el último día con datos; solo `hasta` = `dias` hacia atrás). 400 con mensaje si el formato es malo, `desde > hasta` o el rango pasa de 366 días. `desde_hasta` y `_avisos` reciben `desde`/`hasta` opcionales (el resto de los endpoints no cambió: sin ellos dan lo mismo). La respuesta suma `datos{desde, hasta}` para los límites del calendario. Asserts en `demo()` y en el test HTTP.
+- Visor: «Desde» y «Hasta» (`<input type=date>`, min/max = primer/último día con datos) junto a Ventana, que suma «Personalizado». Un atajo rellena las fechas; tocar una fecha pone «Personalizado»; Desde > Hasta se intercambian y se avisa; se conservan al cambiar de producto con las fotos y viajan en el link `/api/producto` de la nota.
+- Corrección tras revisión: el `change` de Desde/Hasta ignora (restaura las fechas anteriores) todo valor fuera de [min, max] o inválido, así el tipeo no pasa por años intermedios (0002…) ni manda 400 a la API; un 400 con rango explícito se muestra como mensaje de fechas (no «el producto no existe») y limpia el aviso viejo de `#pr-fecha`.
+- Verificado: `server.py test` OK, curl de los casos de la API, captura en Chrome headless a 1280 y 375 px (sin errores nuevos de consola). No verificado: elegir fechas con el calendario nativo, el intercambio y el cambio de producto por clic (sin herramienta de navegador interactiva), ni el desborde real a 375 px (headless recorta a ~500).
 
 ## Nombres de producto sin la línea repetida (2026-11-19, rama lub-titulo)
 

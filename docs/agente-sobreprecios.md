@@ -13,7 +13,7 @@ Mercado Libre y relevamientos cargados por Grok. Las `url` apuntan a las publica
 ## Pedido
 
 ```
-GET /api/producto?producto_id=<id>[&dias=N][&mayoristas=1][&umbral=N][&formato=csv][&pais=AR|BR]
+GET /api/producto?producto_id=<id>[&dias=N][&desde=AAAA-MM-DD][&hasta=AAAA-MM-DD][&mayoristas=1][&umbral=N][&formato=csv][&pais=AR|BR]
 ```
 
 - Lectura abierta, sin clave ni header. La URL del visor equivalente es `#producto/<producto_id>`.
@@ -22,6 +22,8 @@ GET /api/producto?producto_id=<id>[&dias=N][&mayoristas=1][&umbral=N][&formato=c
 - `mayoristas=1`: suma los mayoristas (precio por caja o tambor, IVA sin verificar) al cálculo. Por defecto quedan listados pero fuera.
 - `umbral`: opcional y **sin valor por defecto**. Un porcentaje N: cada publicación trae `sobre_umbral = desvio_pct_vs_mediana >= N`. Si no se manda, el campo no existe.
 - Errores: 400 si `producto_id` falta o no existe, si `dias` no es un entero entre 1 y 366 o si `umbral` no es un número.
+
+`desde`/`hasta` (inclusivos) mandan sobre `dias`; máximo 366 días; `ventana` en la respuesta muestra el rango real.
 
 Ejemplo: `GET /api/producto?producto_id=ypf-elaion-ts1040-10w40&dias=30&umbral=15`
 

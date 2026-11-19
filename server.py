@@ -630,23 +630,27 @@ def bi_tabla(d, nombre, q):
     return {"fuentes": lambda: bi_fuentes(d), "provincias": bi_provincias}.get(nombre, lambda: None)()
 
 
-def desde_hasta(d, dias):
-    """Ventana de `dias` días que termina en el último día con datos (no en hoy: si la Action se atrasa, no queda vacía)."""
-    hasta = max((r["fecha"] for r in d["obs"]), default="")
-    if not hasta:
+def desde_hasta(d, dias, desde=None, hasta=None):
+    """Ventana de `dias` días que termina en el último día con datos (no en hoy: si la Action se atrasa, no queda vacía).
+    `desde`/`hasta` (AAAA-MM-DD, ya validados) la fijan: ambos = ese rango; solo `desde` = hasta el último día con datos; solo `hasta` = `dias` días hacia atrás."""
+    ult = max((r["fecha"] for r in d["obs"]), default="")
+    if not ult:
         return "", ""
+    hasta = hasta or ult
+    if desde:
+        return desde, hasta
     return (date.fromisoformat(hasta) - timedelta(days=dias - 1)).isoformat(), hasta
 
 
-def _avisos(d, dias, pids, prov_en_url=True):
+def _avisos(d, dias, pids, prov_en_url=True, desde=None, hasta=None):
     """→ (hasta, {producto_id: avisos}): cada aviso una vez, con su observación más reciente de la ventana (misma idea que la vitrina,
     más la provincia en la clave: SEPA trae un aviso por comercio × bandera × provincia × EAN).
     prov_en_url=False (/api/producto): un aviso con url y que no es Grok es una publicación, así que la provincia no entra en la clave
     (ML la pasó de vacía a 'online' y contaba doble); sin url (SEPA) y Grok la provincia sigue distinguiendo avisos."""
-    desde, hasta = desde_hasta(d, dias)
+    desde, hasta = desde_hasta(d, dias, desde, hasta)
     ult = {}
     for r in d["obs"]:
-        if r["producto_id"] in pids and r["fecha"] >= desde:
+        if r["producto_id"] in pids and desde <= r["fecha"] <= hasta:
             prov = "" if r["url"] and not prov_en_url and canal(r["fuente"]) != "grok" else r.get("provincia", "")
             k = (r["producto_id"], r["fuente"], r["url"], r["ean"], r["titulo"], r["vendedor"], r["litros"], r["unidades"], prov)
             if k not in ult or r["fecha"] >= ult[k]["fecha"]:
@@ -794,15 +798,17 @@ def _publicaciones(d, rs, mayoristas, umbral):
     return res, pubs
 
 
-def producto(d, pid, dias=30, mayoristas=False, umbral=None, pais="AR"):
+def producto(d, pid, dias=30, mayoristas=False, umbral=None, pais="AR", desde=None, hasta=None):
     """Todo lo que muestra la página de un producto: sus publicaciones (una por aviso, con link y desvío contra la mediana), las de cada equivalente
     y la comparación YPF vs competencia. Reusa `_avisos` (clave de aviso), `cuerdos` (sanidad) y `precio_litro`. No decide qué es un sobreprecio."""
     d = de_pais(d, pais)
     prod = {p["producto_id"]: p for p in d["productos"]}
     foto = {f["producto_id"]: f for f in d.get("imagenes", [])}
     eqs = [e for e in d["equivalencias"] if e["ypf_id"] == pid]
-    hasta, por = _avisos(d, dias, {pid} | {e["comp_id"] for e in eqs}, prov_en_url=False)
-    desde, _ = desde_hasta(d, dias)
+    hasta, por = _avisos(d, dias, {pid} | {e["comp_id"] for e in eqs}, False, desde, hasta)
+    desde, _ = desde_hasta(d, dias, desde, hasta)
+    if desde and hasta:
+        dias = (date.fromisoformat(hasta) - date.fromisoformat(desde)).days + 1  # con rango explícito `dias` es el largo real
     res, pubs = _publicaciones(d, por.get(pid, []), mayoristas, umbral)
     p = prod[pid]
     equivalentes, pool = [], []
@@ -822,6 +828,7 @@ def producto(d, pid, dias=30, mayoristas=False, umbral=None, pais="AR"):
                          "base": p["base"], "es_ypf": p["marca"] == "YPF", "specs": specs(p), "imagen": (foto.get(pid) or {}).get("url"),
                          "imagen_fuente": (foto.get(pid) or {}).get("fuente"), "modelo": modelo(pid)},
             "pais": pais, "moneda": PAISES[pais][1], "ventana": {"dias": dias, "desde": desde, "hasta": hasta}, "nota": NOTA_FRESCURA, "metodo": METODO,
+            "datos": {"desde": min((r["fecha"] for r in d["obs"]), default=""), "hasta": max((r["fecha"] for r in d["obs"]), default="")},  # límites del calendario del visor
             "mayoristas_incluidos": mayoristas, **({"umbral_pct": umbral} if umbral is not None else {}),
             "resumen": res, "publicaciones": pubs, "equivalentes": equivalentes,
             "comparacion": {"mediana_ypf_litro": res["mediana_litro"], "mediana_comp_litro": mc, "n_comp": len(pool),
@@ -1873,7 +1880,23 @@ class Handler(BaseHTTPRequestHandler):
                 umbral = math.nan
             if not math.isfinite(umbral):
                 return self.json(400, {"error": "umbral tiene que ser un número (porcentaje de desvío contra la mediana)"})
-        v = producto(d, pid, dias, q.get("mayoristas") == "1", umbral, self.pais)
+        desde, hasta = q.get("desde") or None, q.get("hasta") or None
+        try:
+            for nombre_, f in (("desde", desde), ("hasta", hasta)):
+                if f:
+                    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", f):
+                        raise ValueError
+                    date.fromisoformat(f)
+        except ValueError:
+            return self.json(400, {"error": f"{nombre_} tiene que ser una fecha AAAA-MM-DD válida"})
+        if desde or hasta:  # el rango manda sobre `dias`; el mismo cálculo que usa producto() para resolver los extremos que falten
+            rd, rh = desde_hasta(de_pais(d, self.pais), dias, desde, hasta)
+            if rd and rh:
+                if rd > rh:
+                    return self.json(400, {"error": f"desde ({rd}) no puede ser posterior a hasta ({rh})"})
+                if (date.fromisoformat(rh) - date.fromisoformat(rd)).days + 1 > 366:
+                    return self.json(400, {"error": "el rango no puede pasar de 366 días"})
+        v = producto(d, pid, dias, q.get("mayoristas") == "1", umbral, self.pais, desde, hasta)
         if q.get("formato") == "csv":
             return self.enviar(200, a_csv("producto", aplanar_producto(v)), "text/csv; charset=utf-8")
         self.salida(v)
@@ -2371,6 +2394,13 @@ def demo():
     assert vacio["resumen"]["n"] == 0 and vacio["resumen"]["mediana_litro"] is None and vacio["publicaciones"] == [] and vacio["comparacion"]["dif_pct_mediana_comp_vs_ypf"] is None
     assert len(aplanar_producto(pr)) == 11 and aplanar_producto(pr)[-1]["rol"] == "equivalente" and a_csv("producto", aplanar_producto(pr)).decode().startswith("rol,producto_id,marca,nombre,tipo,evidencia,fuente,")
     assert [x[0] for x in cuerdos([(1, 0), (5, 0), (5.2, 0)])] == [5, 5.2]
+    # rango explícito: manda sobre `dias`; solo desde = hasta el último día con datos; solo hasta = `dias` hacia atrás; sin rango, igual que antes
+    pe_ = producto(dp, "ypf-a", 30, desde="2026-11-01", hasta="2026-11-03")
+    assert pe_["ventana"] == {"dias": 3, "desde": "2026-11-01", "hasta": "2026-11-03"} and pe_["datos"]["hasta"] == "2026-11-05" and pe_["datos"]["desde"] <= "2026-11-01"
+    assert all("2026-11-01" <= x["fecha"] <= "2026-11-03" for x in pe_["publicaciones"])
+    assert producto(dp, "ypf-a", 30, desde="2026-11-03")["ventana"] == {"dias": 3, "desde": "2026-11-03", "hasta": "2026-11-05"}
+    assert producto(dp, "ypf-a", 5, hasta="2026-11-03")["ventana"] == {"dias": 5, "desde": "2026-10-30", "hasta": "2026-11-03"}
+    assert producto(dp, "ypf-a", 30)["ventana"] == pr["ventana"] and producto(dp, "ypf-a", 30)["publicaciones"] == pr["publicaciones"]
     # misma publicación de ML que cambió provincia ('' → 'online'): una sola en /api/producto (la más nueva), dos en provincias
     ml_ = {"producto_id": "p", "fuente": "ml", "url": "u", "ean": "", "titulo": "t", "vendedor": "v", "litros": "1", "unidades": "1", "precio": "9"}
     dm = {"obs": [{**ml_, "fecha": "2026-11-17", "provincia": ""}, {**ml_, "fecha": "2026-11-18", "provincia": "online"}]}
@@ -2586,6 +2616,14 @@ def demo():
                 "?producto_id=ypf-a-10w40&umbral=x", "?producto_id=ypf-a-10w40&umbral=nan"):
         assert get("/api/producto" + mal)[0] == 400, mal
     assert json.loads(get("/api/producto?producto_id=ypf-a-10w40&umbral=10")[1])["umbral_pct"] == 10
+    base_ = "/api/producto?producto_id=ypf-a-10w40"
+    ult_ = pj_["datos"]["hasta"]
+    rg_ = json.loads(get(f"{base_}&desde={ult_}&hasta={ult_}&dias=7")[1])["ventana"]
+    assert rg_ == {"dias": 1, "desde": ult_, "hasta": ult_} and json.loads(get(f"{base_}&desde={ult_}")[1])["ventana"]["hasta"] == ult_
+    assert get(f"{base_}&desde={ult_}&hasta={ult_}&formato=csv")[0] == 200
+    for mal in ("&desde=2026-11-05&hasta=2026-11-01", "&desde=2025-01-01&hasta=2026-11-05", "&desde=2026-13-01", "&hasta=ayer", "&desde=2026-1-1"):
+        assert get(base_ + mal)[0] == 400, mal
+    assert json.loads(get(base_ + "&dias=30")[1])["ventana"] == pj_["ventana"]
     # ---------- carga de Grok (sin red: BAJAR y GH son fakes) ----------
     global BAJAR, GH
     hoy_s = date.today().isoformat()
