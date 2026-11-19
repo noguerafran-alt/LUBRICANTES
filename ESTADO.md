@@ -5,6 +5,10 @@ Actualizado 2026-11-19 (Visualizador, página de producto y `/api/producto`; sha
 
 
 
+## Nombres de producto sin la línea repetida (2026-11-19, rama lub-titulo)
+
+145 productos del seed traen `nombre` que ya empieza con `linea` (castrol-magnatec-a3-10w40: «MAGNATEC 10W-40 A3»), y el visor armaba «Castrol MAGNATEC MAGNATEC 10W-40 A3». Arreglo solo en el visor, no en el seed: `nombreCompleto(...partes)` en `site/index.html` omite una parte si la siguiente ya empieza con ella (por palabra, sin mayúsculas ni acentos). `nombreVt` y todos los lugares que unían marca/línea/nombre (título de producto, Visualizador, Comparador, Mapa, tira de equivalentes, presentación) lo usan. Sin repetición el nombre no cambia («YPF Elaion TS 1040»).
+
 ## Diseño del visor: Mercado primero, sistema para todo (2026-11-19, rama lub-diseno)
 - Solo CSS y un ajuste de posición en `atar()`; sin cambios de datos, API ni cálculo.
 - Tooltip del gráfico: ahora se acota verticalmente al rectángulo del SVG, así que no tapa título ni controles (en el ampliado también).

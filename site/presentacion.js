@@ -170,7 +170,7 @@ function mostrar(i, animar = true) {
   else {
     escenaEl.querySelector(".pz-2d")?.remove();
     const eq2 = (p.competencia?.equivalentes || []).filter(q => q.tipo !== "no_equivalente" && !q.excluido);
-    escenaEl.insertAdjacentHTML("afterbegin", `<figure class="pz-2d"><button type="button" class="pz-2d-p" data-pid="${esc(p.producto_id)}" aria-label="Ver fuentes de ${esc(nombreVt(p))}">${foto(p.imagen, nombreVt(p), true)}</button>${eq2.length ? `<ul class="pz-2d-eq" aria-label="Equivalentes de la competencia">${eq2.map(q => `<li><button type="button" data-pid="${esc(q.producto_id)}" aria-label="Ver fuentes de ${esc(q.marca)} ${esc(q.nombre)}">${foto(q.imagen, `${q.marca} ${q.nombre}`, false)}<span>${esc(q.marca)}</span></button></li>`).join("")}</ul>` : ""}</figure>`);
+    escenaEl.insertAdjacentHTML("afterbegin", `<figure class="pz-2d"><button type="button" class="pz-2d-p" data-pid="${esc(p.producto_id)}" aria-label="Ver fuentes de ${esc(nombreVt(p))}">${foto(p.imagen, nombreVt(p), true)}</button>${eq2.length ? `<ul class="pz-2d-eq" aria-label="Equivalentes de la competencia">${eq2.map(q => `<li><button type="button" data-pid="${esc(q.producto_id)}" aria-label="Ver fuentes de ${esc(nombreCompleto(q.marca, q.nombre))}">${foto(q.imagen, nombreCompleto(q.marca, q.nombre), false)}<span>${esc(q.marca)}</span></button></li>`).join("")}</ul>` : ""}</figure>`);
   }
   programar();
 }
@@ -194,7 +194,7 @@ function ficha(p) {
       ${typeof d !== "number" ? `<p class="vt-vacio">Sin diferencia: falta el precio YPF de hoy.</p>` : Math.abs(d) < .05 ? `<p class="vt-dif">Mismo precio por litro que YPF</p>`
         : `<p class="vt-dif ${d > 0 ? "barato" : "caro"}">${d > 0 ? `YPF ${dec1.format(d)} % más barato` : `YPF ${dec1.format(-d)} % más caro`}</p>`}`;
   const fuera = e => e.tipo === "no_equivalente" ? "no equivalente, fuera del promedio" : e.excluido === "fuera_de_rango" ? "precio fuera de rango, fuera del promedio" : "";
-  const filas = eqs.map(e => `<tr${e.en_promedio === false ? ' class="fuera"' : ""}><td><a href="#producto/${encodeURIComponent(e.producto_id)}" data-ver="${esc(e.producto_id)}">${esc(e.marca)} ${esc(e.nombre)}</a>${fuera(e) ? `<span class="mut">${fuera(e)}</span>` : ""}</td>
+  const filas = eqs.map(e => `<tr${e.en_promedio === false ? ' class="fuera"' : ""}><td><a href="#producto/${encodeURIComponent(e.producto_id)}" data-ver="${esc(e.producto_id)}">${esc(nombreCompleto(e.marca, e.nombre))}</a>${fuera(e) ? `<span class="mut">${fuera(e)}</span>` : ""}</td>
       <td>${esc(TIPO[e.tipo] || e.tipo)}</td><td>${esc(e.evidencia)}</td>
       <td class="n">${typeof e.promedio_litro === "number" ? `${pesos.format(e.promedio_litro)}<span class="mut">${entero.format(e.n)} obs.</span>` : '<span class="vacio">sin precio hoy</span>'}</td></tr>`).join("");
   return `<p class="pz-linea">${esc(p.linea || "")}</p>
@@ -308,7 +308,8 @@ function etiqueta(p, col, lw, lh) {
     const pad = W * .06, fw = img ? H * .7 : 0, ancho = W - pad * 2 - (fw ? fw + pad : 0);
     x.fillStyle = "#fff"; x.textBaseline = "alphabetic";
     x.font = `700 ${H * .12}px ${FUENTE}`; x.fillText("YPF", pad, pad + H * .1);
-    ajustarTxt(p.linea || "", 600, H * .13, ancho); x.fillText(p.linea || "", pad, H * .36);
+    const lin = nombreCompleto(p.linea, p.nombre) === nombreCompleto(p.nombre) ? "" : p.linea || "";  // si el nombre ya trae la línea, no se repite
+    ajustarTxt(lin, 600, H * .13, ancho); x.fillText(lin, pad, H * .36);
     ajustarTxt(p.nombre || "", 500, H * .1, ancho); x.globalAlpha = .9; x.fillText(p.nombre || "", pad, H * .5); x.globalAlpha = 1;
     if (p.sae) { ajustarTxt(p.sae, 700, H * .2, ancho); x.fillText(p.sae, pad, H * .73); }
     x.font = `500 ${H * .075}px ${FUENTE}`; x.globalAlpha = .85;
