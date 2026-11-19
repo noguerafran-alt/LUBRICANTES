@@ -19,11 +19,11 @@ Notas sobre `precios`:
 ## Conectarse
 
 1. Power BI Desktop: **Obtener datos → Web → Básica**, pegá la URL (por ejemplo `https://<tu-servicio>.onrender.com/api/bi/productos`).
-2. Credenciales **Básica**: usuario cualquiera, contraseña = `LUB_CLAVE`. Power BI las recuerda por host, así que alcanza una vez para las cinco tablas.
+2. Credenciales **Anónimo**: desde 2026-11-19 la lectura es abierta y ya no hace falta clave. Si tenés configurada la credencial **Básica** con la clave, no molesta: el server la ignora y sigue andando.
 3. Mejor crear cada tabla con **Consulta en blanco → Editor avanzado** y pegar la consulta M de abajo. Ponés la URL base en un parámetro:
    **Inicio → Administrar parámetros → Nuevo**: nombre `Base`, tipo Texto, valor `https://<tu-servicio>.onrender.com`.
 
-La clave nunca va en la URL.
+Nunca pongas una clave en la URL (la lectura no la necesita).
 
 ## Consultas M
 

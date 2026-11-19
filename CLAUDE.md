@@ -2,7 +2,7 @@
 
 Centraliza los lubricantes que se venden en Argentina (YPF y competencia), sus
 precios en el tiempo y las equivalencias YPF ↔ competidor, y los expone en un
-visor y una API con clave para que YPF los analice internamente.
+visor y una API (lectura abierta, sin clave; solo la carga de Grok la pide) para que YPF los analice internamente.
 
 **Arquitectura:** GitHub Actions recolecta una vez por día y comitea CSV en
 `data/`. El push redeploya el Render Web Service free, que sirve visor y API
@@ -24,8 +24,7 @@ El relevamiento que fundamenta todo esto está en `docs/relevamiento/`
   exactamente un candidato. Si no, `producto_id` vacío y `match=none`.
 - **Sin scraping de Mercado Libre** (Términos del Programa de Desarrolladores
   7.5/7.6). Solo API: categorías sin token, precios con OAuth de app propia.
-- **Clave obligatoria en Render.** Si `RENDER` está definida y falta
-  `LUB_CLAVE`, el server no arranca. Nunca una clave en la URL.
+- **Lectura abierta, escritura con clave** (decisión del usuario, 2026-11-19: la página es privada pero sin clave). El visor, los estáticos y todo `GET` de `/api/*` responden sin clave; un `X-API-Key` o Basic Auth que llegue se ignora (Power BI ya configurado sigue andando). Todo `POST` (hoy solo `/api/cargar`) exige clave y, si no hay ninguna configurada (`LUB_CLAVE` ni `LUB_CARGA_CLAVE`), se rechaza. Ya no hay `sys.exit` por falta de `LUB_CLAVE` en Render. Toda respuesta lleva `X-Robots-Tag: noindex, nofollow` y `/robots.txt` da `Disallow: /`. **Ningún GET puede exponer secretos** (tokens de ML, `GH_PAT`, claves, env, rutas locales, stacks): cualquier campo nuevo se audita contra eso. Nunca una clave en la URL.
 - **Única excepción a "solo stdlib": three.js vendorizado** (`site/vendor/three.module.min.js` y `GLTFLoader.js` + `BufferGeometryUtils.js`, three@0.170.0, licencia MIT en
   `site/vendor/three.LICENSE`; `three` se resuelve con un importmap en `index.html`), solo para el modo presentación y cargado on-demand (import dinámico) para que el resto del visor no lo
   pague. Versión fijada, nada de CDN en runtime; `server.py` sirve los `.js`/`.mjs` de `site/` como `text/javascript` (`immutable` de un año solo en `vendor/`, el resto revalida a los 60 s) y los `.glb` de `site/modelos/` como `model/gltf-binary` (`max-age=86400`, sin `immutable`). Los GLB (`site/modelos/<producto_id>.glb`) los genera `tools/modelos3d.py` en la Action `.github/workflows/modelos3d.yml` (Blender headless: silueta de la foto inflada y cerrada atrás, con la foto de textura solo en el frente y un color liso en costados y dorso, porque las fotos no tienen dorso; la malla es manifold y de una pieza y cada generación lo verifica; Blender no entra en el server ni en la corrida diaria).
@@ -245,8 +244,7 @@ en `fuentes.csv` con `error="sin token"`. Búsquedas por marca/línea (`BUSQUEDA
 
 ## API (server.py)
 
-Autenticación: header `X-API-Key: <LUB_CLAVE>` o Basic Auth (usuario cualquiera,
-contraseña `LUB_CLAVE`). Respuestas JSON; `?formato=csv` devuelve CSV. `/api/bi/*` es siempre CSV.
+Sin autenticación para leer (ver «Lectura abierta»). Respuestas JSON; `?formato=csv` devuelve CSV. `/api/bi/*` es siempre CSV.
 
 | ruta | contenido |
 |---|---|
@@ -272,7 +270,8 @@ contraseña `LUB_CLAVE`). Respuestas JSON; `?formato=csv` devuelve CSV. `/api/bi
 | `/api/cobertura` | por producto YPF del seed: equivalencias, fuentes y provincias con precio en 7 días, última fecha; ver abajo |
 | `/api/bi/precios[?desde=AAAA-MM-DD]` | **Power BI, tabla de hechos** (CSV UTF-8 con BOM): una fila por observación con `producto_id` (`fecha,capturado,producto_id,fuente,canal,vendedor,sucursal,provincia,pais,moneda,precio,litros,unidades,precio_litro,precio_usd_litro,url,match,verificado`). Incluye Grok como `/api/reventa`: `verificado` `0`/`1` solo en Grok y vacío en el resto, el modelo decide si filtra `0`. `precio_usd_litro` con la cotización de ese día exacto (vacío si no hay). `desde` = `fecha >=`, para carga incremental; mal formado = 400 |
 | `/api/bi/productos` · `/api/bi/equivalencias` · `/api/bi/fuentes` · `/api/bi/provincias` | dimensiones del modelo estrella, CSV con BOM: `seed/productos.csv` + `es_ypf` (1/0); `ypf_id,comp_id,tipo,criterio,evidencia,fuente`; `fuente,canal,pais,tipo,ultima_fecha` (`tipo` = tienda\|mayorista\|grok\|sepa\|ml; las `oficial_*` de Brasil cuentan como `sepa`; solo fuentes con observaciones); `codigo,nombre,region,pais,online` (AR, BR y la fila `online`, con `online=1`). Guía en `docs/powerbi.md` |
-| `/salud` | sin clave, `{"ok":true}` para el health check de Render |
+| `/salud` | `{"ok":true}` para el health check de Render |
+| `/robots.txt` | `Disallow: /` (con el header `X-Robots-Tag: noindex, nofollow` en todo) |
 
 **País y USD** (`pais`, `usd`): `indice`, `vitrina`, `ultimo`, `serie`, `provincias`, `reventa` y `cobertura` filtran `?pais=AR` por defecto; `?pais=BR` muestra Brasil en BRL; cualquier otro valor da 400. Cada respuesta lleva `pais` y `moneda`
 (los que devuelven lista, en cada fila; `?formato=csv` suma las columnas). El índice YPF = 100 se calcula **solo dentro de un país y una moneda**. `mercado`, `mercado/share` y `macro` son solo Argentina (`?pais=BR` = 400); el mapa también.
@@ -283,7 +282,7 @@ objeto (en la vitrina, la del último día con datos); sin cotización ese día 
 `seed/grok_sitios.csv` o de los datos: la "corrida" es la última carga, `ultimo_ok` la fecha del último dato.
 
 ### Precio de reventa por provincia — `/api/provincias`, `/api/reventa`, `/api/cobertura`
-Con clave, calculados por pedido sobre `obs` (Grok `verificado=0` se muestra marcado, no se oculta). La ventana `dias` (1 a 366, default 30) termina en el **último día con datos**, no en hoy. Todas las
+Calculados por pedido sobre `obs` (Grok `verificado=0` se muestra marcado, no se oculta). La ventana `dias` (1 a 366, default 30) termina en el **último día con datos**, no en hoy. Todas las
 respuestas llevan `hasta` y `nota` ("no es tiempo real: recolección diaria, SEPA con ~1 día de atraso"). `?formato=csv` aplana. Una mediana **nunca mezcla fuentes**. Cada aviso (fuente + url + ean + título + vendedor + envase + provincia)
 cuenta una vez, con su observación más reciente de la ventana; `$/L = precio / (litros × unidades)`, igual que `/api/indice`; avisos sin litros no entran.
 - `GET /api/provincias?producto_id=<id>[&fuente=][&mayoristas=1][&dias=N]` → `{producto_id, dias, hasta, nota, celdas[], regiones[], n_sin_provincia}`.
@@ -323,7 +322,7 @@ que tienen precio hoy (por `ypf.n` desc), después los que no. Cada uno:
 
 ### Carga de Grok — `POST /api/cargar`
 Cuerpo = el CSV (`Content-Type: text/csv` o `text/plain`; o formulario con el campo `csv`). Auth: header `X-Carga-Clave` = env
-`LUB_CARGA_CLAVE` (solo sirve para cargar: el resto de la API da 401) o la clave principal. Nunca en la URL. Sin `LUB_CARGA_CLAVE`, solo la principal.
+`LUB_CARGA_CLAVE` (solo sirve para cargar) o la clave principal `LUB_CLAVE`. Nunca en la URL. Sin `LUB_CARGA_CLAVE`, solo la principal; sin ninguna, la carga da 401.
 Encabezado malo, más de 500 filas o ninguna fila válida → 400 sin guardar nada; filas con error se listan en `errores` (con `fila`) y las
 demás se guardan. Respuesta: `ok`, `verificadas`, `no_verificadas`, `errores`, `duplicadas`, `filas` (una por fila guardada) y `commit` (lista de sha) o
 `"solo local"`. Persistencia: escribe `data/grok/AAAA-MM.csv` y, con `GH_CARGA_TOKEN`, lo comitea por la GitHub Contents API
@@ -380,10 +379,10 @@ solo `-` (cero absoluto) vale 0. Las variaciones (`var_ia`, compuestos) se calcu
 
 **Share por marca** (`?por=marca`, solo rótulo): la SE publica por empresa, así que cada empresa de `share.empresas` suma `marca` (rótulo del último mes) y `precision` (`exacto` = una sola marca relevante; `agrupado` = varias marcas inseparables; null en `Otras` y en empresas sin regla), y con `?completo=1` `marca_mes` si el rótulo cambia. Los números no cambian. Tabla `server.ROTULOS`; PAE/Axion cambia en el `desde` de Castrol del seed (antes «Axion/Esso (incluía Mobil hasta 2018, inferida)», desde 2019-01 «Castrol + Axion (no separable)»). `origen.rotulos` (`[{desde, marca, precision}]`) va siempre, también en `/api/mercado/perdidas` → `origenes`. `?por` inválido = 400. En el visor: selector «Ver por», insignia de precisión, bloque «Marcas sin dato en la SE» (las filas del seed que no declaran) y la nota fija de que la SE publica por empresa.
 
-**`GET /api/mercado/perdidas?producto=&canal=&provincia=&ventana=12m|mes&min=`** (con clave, solo AR; `producto` = automotrices|industriales|marinos|grasas; canal/provincia vacío o `todos` = sin filtro; 400 por producto/ventana/min inválido, 404 por canal/provincia sin datos). Gasoil queda afuera (no trae empresa). Calcula `server.perdidas` (cacheado en `d["_cache_perdidas"]`):
+**`GET /api/mercado/perdidas?producto=&canal=&provincia=&ventana=12m|mes&min=`** (solo AR; `producto` = automotrices|industriales|marinos|grasas; canal/provincia vacío o `todos` = sin filtro; 400 por producto/ventana/min inválido, 404 por canal/provincia sin datos). Gasoil queda afuera (no trae empresa). Calcula `server.perdidas` (cacheado en `d["_cache_perdidas"]`):
 - Períodos: `12m` = últimos 12 meses contra los 12 anteriores; `mes` = último mes contra el mismo mes del año anterior. `min` = piso de volumen (m3 o Ton del producto; default 50 en `12m`, 5 en `mes`, `MIN_DEFECTO`): si `min(total_t, total_t0)` queda debajo, el segmento es `volumen chico` y no se rankea.
 - Segmento = producto × canal × provincia. Por segmento: `total_t, total_t0, ypf_t, ypf_t0, s_t, s_t0, delta_ypf`, `efecto_share = (s_t − s_t0) × total_t`, `efecto_mercado = s_t0 × (total_t − total_t0)` (suman exactamente `delta_ypf`), `estado` (`ok|volumen chico|sin dato YPF|sin dato`), `meses_con_dato {t,t0}`, `huecos` (falta algún mes: se informa, no se rellena), `ganadores` (top 5 con Δshare > 0), y en `foco` `competidores` (todos los que declaran en los dos períodos: `s_t, s_t0, delta_pp, m3_eq = Δs × total_t`), `entraron_salieron` y `serie` (share mensual 36 meses de YPF y los ganadores).
 - Nulos: empresa sin fila en un período = no declaró (nunca 0). Entra o sale entre períodos = `entraron_salieron` (no es ganancia ni pérdida). YPF sin fila en un período = `sin dato YPF`, sin efectos.
 - Respuesta: `foco` (el filtro entero), `segmentos` (celdas canal × provincia: ok, luego volumen chico, sin dato YPF, sin dato; ok por `efecto_share` ascendente), `por_producto` (cada uno con su `unidad`, nunca sumados), `por_canal`, `por_provincia`, `por_competidor` (suma celda por celda de lo ganado, y de lo ganado donde YPF pierde), `perdido_por_share_m3`, `opciones`, `fuente` (links verificados, licencia, norma, frecuencia de actualización) y `nota` (avisos: declarantes, sell-in, segmento, atraso, descomposición, nulos). Los efectos por celda no suman el efecto del agregado (cambio de mezcla).
 
-**`GET /api/mercado/filas?producto=&canal=&provincia=&empresa=&desde=&hasta=`** (con clave): CSV UTF-8 con BOM `mes,empresa,producto,canal,provincia,cantidad` con las filas exactas de `energia.csv` (`desde`/`hasta` AAAA-MM inclusive, `empresa` = etiqueta corta; producto como clave o nombre completo). Es lo que enlaza cada número de la pestaña Mercado («ver filas»).
+**`GET /api/mercado/filas?producto=&canal=&provincia=&empresa=&desde=&hasta=`**: CSV UTF-8 con BOM `mes,empresa,producto,canal,provincia,cantidad` con las filas exactas de `energia.csv` (`desde`/`hasta` AAAA-MM inclusive, `empresa` = etiqueta corta; producto como clave o nombre completo). Es lo que enlaza cada número de la pestaña Mercado («ver filas»).
