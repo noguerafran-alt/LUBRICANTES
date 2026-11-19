@@ -1343,7 +1343,7 @@ const PRODUCTOS_SE = { automotrices: "Automotrices", industriales: "Industriales
 const LUBS = ["automotrices", "industriales", "marinos"];
 const AVISO_GRASAS = "Grasas va en toneladas y los lubricantes en m³: no se suman. Marcar Grasas muestra solo Grasas; marcar un lubricante la saca.";
 const qMercado = () => "producto=" + encodeURIComponent(M.productos.join(",")) + (M.canales.length ? "&canal=" + encodeURIComponent(M.canales.join(",")) : "");
-const rotProd = () => M.productos.length === LUBS.length && LUBS.every(k => M.productos.includes(k)) ? "Todos los lubricantes (m³)" : M.productos.map(k => PRODUCTOS_SE[k]).join(" + ");
+const rotProd = (ps = M.productos) => ps.length === LUBS.length && LUBS.every(k => ps.includes(k)) ? "Todos los lubricantes (m³)" : ps.map(k => PRODUCTOS_SE[k]).join(" + ");
 const rotCanal = (todos) => !M.canales.length ? "Todos los canales" : M.canales.length > 2 ? M.canales.length + " canales" : M.canales.join(" + ");
 function multiHTML(id, et, items, marcado, resumen, aviso) {
   const todo = items.every(([v]) => marcado(v));
@@ -1365,26 +1365,34 @@ function pintarFiltrosMercado() {
   pintarMulti("mk-f-canal", multiHTML("mk-f-canal-x", "Canal", items, v => !M.canales.length || M.canales.includes(v), rotCanal(todos), ""));
   const av = $("#mk-aviso"); if (av) av.textContent = M.aviso;
 }
-function cambioProducto(v, on) {
-  M.aviso = "";
-  let p = M.productos;
+// reglas de la selección, compartidas con «¿Dónde perdemos share?»: → [nueva lista, aviso]
+function nuevoProd(act, v, on) {
+  let p = act, aviso = "";
   if (v === "*") p = on ? LUBS.slice() : p;
   else if (on) {
-    if (v === "grasas") { p = ["grasas"]; if (M.productos.some(k => k !== "grasas")) M.aviso = "Grasas va en toneladas: no se suma con los lubricantes (m³). Se muestra sola."; }
-    else { if (M.productos.includes("grasas")) M.aviso = "Los lubricantes van en m³ y Grasas en toneladas: no se suman. Se muestran solo los lubricantes."; p = [...M.productos.filter(k => k !== "grasas"), v]; }
-  } else p = M.productos.filter(k => k !== v);
-  p = Object.keys(PRODUCTOS_SE).filter(k => p.includes(k));
+    if (v === "grasas") { p = ["grasas"]; if (act.some(k => k !== "grasas")) aviso = "Grasas va en toneladas: no se suma con los lubricantes (m³). Se muestra sola."; }
+    else { if (act.includes("grasas")) aviso = "Los lubricantes van en m³ y Grasas en toneladas: no se suman. Se muestran solo los lubricantes."; p = [...act.filter(k => k !== "grasas"), v]; }
+  } else p = act.filter(k => k !== v);
+  return [Object.keys(PRODUCTOS_SE).filter(k => p.includes(k)), aviso];
+}
+// canales o provincias: [] = todos; null = no cambia (nunca queda vacío)
+function nuevaSel(act, todos, v, on) {
+  const a = act.length ? act : todos;
+  let c = v === "*" ? (on ? todos : []) : on ? [...a, v] : a.filter(x => x !== v);
+  c = todos.filter(x => c.includes(x));
+  if (!c.length) return null;
+  return c.length === todos.length ? [] : c;
+}
+function cambioProducto(v, on) {
+  const [p, av] = nuevoProd(M.productos, v, on);
+  M.aviso = av;
   if (!p.length || p.join() === M.productos.join()) return pintarFiltrosMercado();
   M.productos = p; M.canales = [];   // los canales disponibles cambian con los productos
   pintarFiltrosMercado(); pedirMercado();
 }
 function cambioCanal(v, on) {
-  const todos = M.r?.share?.canales || [], act = M.canales.length ? M.canales : todos;
-  let c = v === "*" ? (on ? todos : []) : on ? [...act, v] : act.filter(x => x !== v);
-  c = todos.filter(x => c.includes(x));
-  if (!c.length) return pintarFiltrosMercado();   // nunca queda vacío: se mantiene lo anterior
-  if (c.length === todos.length) c = [];
-  if (c.join() === M.canales.join()) return pintarFiltrosMercado();
+  const c = nuevaSel(M.canales, M.r?.share?.canales || [], v, on);
+  if (!c || c.join() === M.canales.join()) return pintarFiltrosMercado();
   M.canales = c; pintarFiltrosMercado(); pedirMercado();
 }
 function todoElMercado() { M.productos = LUBS.slice(); M.canales = []; M.aviso = ""; pintarFiltrosMercado(); pedirMercado(); }
@@ -1492,9 +1500,9 @@ function pintarMercado() {
       <div class="mk-cab">
         <h2>¿Dónde perdemos share?</h2>
         <div class="filtros">
-          <label>Producto <select id="mk-p-prod">${Object.entries(PRODUCTOS_SE).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></label>
-          <label>Canal <select id="mk-p-canal"></select></label>
-          <label>Provincia <select id="mk-p-prov"></select></label>
+          <div class="mk-multi-w" id="mk-p-f-prod"></div>
+          <div class="mk-multi-w" id="mk-p-f-canal"></div>
+          <div class="mk-multi-w" id="mk-p-f-prov"></div>
           <label>Desde <select id="mk-p-desde"></select></label>
           <label>Hasta <select id="mk-p-hasta"></select></label>
           <label>Comparar con <select id="mk-p-vs"><option value="anterior">Período anterior</option><option value="12m">Mismo período del año anterior</option><option value="otro">Otro período</option></select></label>
@@ -1508,6 +1516,7 @@ function pintarMercado() {
           <button type="button" class="link" data-v="12m">Últimos 12 vs 12 anteriores</button>
         </div>
       </div>
+      <p class="nota" id="mk-p-aviso" role="status" aria-live="polite"></p>
       <p class="nota">Cuánto share le sacaron a YPF, en qué producto, canal y provincia y quién, con los datos oficiales de la Secretaría de Energía. Cada producto va con su unidad: nunca se mezclan m³ con toneladas. <a href="#mk-glosario" id="mk-glo-ir">ⓘ Qué es cada producto y canal</a></p>
       <div id="mk-p-in"><div class="explica">Calculando…</div></div>
     </div>
@@ -1536,10 +1545,20 @@ function pintarMercado() {
   $("#mk-por").value = M.por;
   $("#mk-por").onchange = e => { M.por = e.target.value; pintarShare(); pintarGraficos($("#mk-share-in")); pedirPerdidas(); };
   const reP = () => { PD.todas = false; PD.dpTodas = false; pedirPerdidas(); };
-  $("#mk-p-prod").value = PD.producto;
-  $("#mk-p-prod").onchange = e => { PD.producto = e.target.value; PD.canal = PD.provincia = ""; PD.desde = PD.hasta = ""; reP(); };   // otro producto, otro rango de meses: vuelve al atajo
-  $("#mk-p-canal").onchange = e => { PD.canal = e.target.value; reP(); };
-  $("#mk-p-prov").onchange = e => { PD.provincia = e.target.value; reP(); };
+  pintarFiltrosPerdidas();
+  $("#mk-p-f-prod").onchange = e => {
+    const [p, av] = nuevoProd(PD.productos, e.target.dataset.v, e.target.checked);
+    PD.aviso = av;
+    if (!p.length || p.join() === PD.productos.join()) return pintarFiltrosPerdidas();
+    PD.productos = p; PD.canales = []; PD.provincias = []; PD.desde = PD.hasta = ""; pintarFiltrosPerdidas(); reP();   // otros productos, otros canales y otro rango de meses: vuelve al atajo
+  };   // otro producto, otro rango de meses: vuelve al atajo
+  [["canales", "#mk-p-f-canal"], ["provincias", "#mk-p-f-prov"]].forEach(([k, id]) => {
+    $(id).onchange = e => {
+      const c = nuevaSel(PD[k], PD.r?.opciones?.[k] || [], e.target.dataset.v, e.target.checked);
+      if (!c || c.join() === PD[k].join()) return pintarFiltrosPerdidas();
+      PD[k] = c; pintarFiltrosPerdidas(); reP();
+    };
+  });
   // período editable: Desde/Hasta + Comparar con; cualquier cambio pasa a período explícito (los atajos vuelven a `ventana`)
   const largo = (d, h) => (+h.slice(0, 4) - +d.slice(0, 4)) * 12 + +h.slice(5, 7) - +d.slice(5, 7) + 1;
   const ctlP = e => {
@@ -2127,8 +2146,8 @@ $("#mk-out").addEventListener("click", e => {
 });
 
 // ----- A2. ¿Dónde perdemos share? (/api/mercado/perdidas) -----
-const PD = { producto: "automotrices", canal: "", provincia: "", ventana: "12m", desde: "", hasta: "", vsModo: "anterior", vsDesde: "", vsHasta: "", min: "", r: null, pedido: null, sel: null, todas: false, dpTodas: false };
-const filasUrl = o => "/api/mercado/filas?" + Object.entries(o).filter(([, v]) => v).map(([k, v]) => k + "=" + encodeURIComponent(v)).join("&");
+const PD = { productos: ["automotrices"], canales: [], provincias: [], aviso: "", ventana: "12m", desde: "", hasta: "", vsModo: "anterior", vsDesde: "", vsHasta: "", min: "", r: null, pedido: null, sel: null, todas: false, dpTodas: false };
+const filasUrl = o => "/api/mercado/filas?" + Object.entries(o).filter(([, v]) => v && v.length).map(([k, v]) => k + "=" + encodeURIComponent(v)).join("&");
 const m3s = (v, u) => esNum(v) ? `${signo(v)}${num(Math.abs(v))} ${u}` : "...";
 const rangoMes = p => p[0] === p[1] ? mesLargo(p[0]) : `${mesCorto(p[0])} a ${mesCorto(p[1])}`;
 const vistaVent = r => `${rangoMes(r.periodo_t)} contra ${rangoMes(r.periodo_t0)}`;
@@ -2137,14 +2156,14 @@ const colEmp = i => `var(--e${[1, 2, 3, 4, 5, 6][i] || 8})`;
 const verFilas = (o, txt = "ver filas") => `<a href="${esc(filasUrl(o))}" target="_blank" rel="noopener" title="CSV con las filas exactas de la Secretaría detrás de este número">${txt}</a>`;
 const qPeriodo = () => !PD.desde ? "ventana=" + PD.ventana
   : `desde=${PD.desde}&hasta=${PD.hasta}&vs=` + (PD.vsModo === "otro" ? `${PD.vsDesde}:${PD.vsHasta}` : PD.vsModo);
-const qPerdidas = (canal, provincia) => `mercado/perdidas?producto=${PD.producto}&${qPeriodo()}` + (canal ? "&canal=" + encodeURIComponent(canal) : "")
-  + (provincia ? "&provincia=" + encodeURIComponent(provincia) : "") + (PD.min !== "" ? "&min=" + encodeURIComponent(PD.min) : "");
+const lst = (k, a) => a.length ? `&${k}=` + encodeURIComponent(a.join(",")) : "";   // listas separadas por coma; vacío = sin filtro
+const qPerdidas = (canales, provincias) => `mercado/perdidas?producto=${encodeURIComponent(PD.productos.join(","))}&${qPeriodo()}` + lst("canal", canales) + lst("provincia", provincias) + (PD.min !== "" ? "&min=" + encodeURIComponent(PD.min) : "");
 
 async function pedirPerdidas() {
   const caja = $("#mk-p-in");
   if (!caja) return;
   caja.setAttribute("aria-busy", "true");
-  const pedido = PD.pedido = api(qPerdidas(PD.canal, PD.provincia));
+  const pedido = PD.pedido = api(qPerdidas(PD.canales, PD.provincias));
   let r;
   try { r = await pedido; }
   catch (e) {
@@ -2157,11 +2176,23 @@ async function pedirPerdidas() {
   pintarPerdidas();
 }
 
+const rotPerd = (sel, n) => !sel.length ? "Todos los " + n : sel.length > 2 ? sel.length + " " + n : sel.join(" + ");
+function pintarFiltrosPerdidas() {
+  const op = PD.r?.opciones || { canales: [], provincias: [] };
+  const lista = (k, ops) => (ops.length ? ops : PD[k]).map(c => [c, c]);
+  pintarMulti("mk-p-f-prod", multiHTML("mk-p-f-prod-x", "Producto", Object.entries(PRODUCTOS_SE), v => PD.productos.includes(v), rotProd(PD.productos), AVISO_GRASAS));
+  pintarMulti("mk-p-f-canal", multiHTML("mk-p-f-canal-x", "Canal", lista("canales", op.canales), v => !PD.canales.length || PD.canales.includes(v), rotPerd(PD.canales, "canales"), ""));
+  pintarMulti("mk-p-f-prov", multiHTML("mk-p-f-prov-x", "Provincia", lista("provincias", op.provincias), v => !PD.provincias.length || PD.provincias.includes(v), rotPerd(PD.provincias, "provincias"), ""));
+  const av = $("#mk-p-aviso"); if (av) av.textContent = PD.aviso;
+}
+// la selección en pocas palabras: 1 a 3 valores por nombre, más = «N canales»
+const selCorta = (a, n) => !a.length ? "" : a.length <= 3 ? a.join(", ") : a.length + " " + n;
+const nomProd = () => PD.productos.length === LUBS.length && LUBS.every(k => PD.productos.includes(k)) ? "todos los lubricantes" : PD.productos.map(k => PRODUCTOS_SE[k].toLowerCase()).join(" + ");
 function fraseResumen(r) {
-  const f = r.foco, u = r.unidad, nom = (PRODUCTOS_SE[PD.producto] || "").toLowerCase();
-  const donde = (PD.canal || PD.provincia) ? ` (${[PD.canal, PD.provincia].filter(Boolean).join(", ")})` : "";
+  const f = r.foco, u = r.unidad, nom = nomProd();
+  const sc = [selCorta(PD.canales, "canales"), selCorta(PD.provincias, "provincias")].filter(Boolean), donde = sc.length ? ` (${sc.join(" · ")})` : "";
   if (!f || f.estado === "sin dato" || f.estado === "sin dato YPF") return `En ${nom}${donde} no hay datos de YPF en los dos períodos (${f?.ypf_flag || "sin dato"}): no se calcula la pérdida.`;
-  const ef = f.efecto_share, una = !!(PD.canal && PD.provincia), vent = vistaVent(r);
+  const ef = f.efecto_share, una = PD.canales.length === 1 && PD.provincias.length === 1, vent = vistaVent(r);
   const perd = r.segmentos.filter(s => s.estado === "ok" && s.efecto_share < 0);
   const partes = [];
   if (perd.length) {
@@ -2181,7 +2212,7 @@ function fraseResumen(r) {
 function filasTabla(segs, r) {
   const u = r.unidad, desde = r.periodo_t0[0], hasta = r.periodo_t[1];
   return segs.map((s, i) => {
-    const ef = { producto: r.producto, canal: s.canal, provincia: s.provincia, desde, hasta };
+    const ef = { producto: r.productos.join(","), canal: s.canal, provincia: s.provincia, desde, hasta };
     const g = s.ganadores?.[0];
     return `<tr class="mk-fila" tabindex="0" data-i="${i}" role="button" aria-label="Ver el detalle de ${esc(s.canal)}, ${esc(s.provincia)}">
       <td>${esc(s.canal)}</td><td>${esc(s.provincia)}</td>
@@ -2217,9 +2248,7 @@ function pintarPerdidas() {
   const r = PD.r, caja = $("#mk-p-in");
   caja.removeAttribute("aria-busy");
   const op = r.opciones || { canales: [], provincias: [] };
-  opciones($("#mk-p-canal"), op.canales, "Todos los canales");
-  opciones($("#mk-p-prov"), op.provincias, "Todas las provincias");
-  $("#mk-p-canal").value = PD.canal; $("#mk-p-prov").value = PD.provincia;
+  pintarFiltrosPerdidas();
   if (r.primer_mes) {   // selectores de mes: todos los meses con dato del producto; reflejan el período que devolvió el server (también tras un atajo)
     const ms = []; for (let m = r.primer_mes; m <= r.ultimo_mes; m = mesAnt(m, -1)) ms.push(m);
     const poner = (id, v) => { const s = $(id); s.innerHTML = ms.map(m => `<option value="${m}">${esc(mesCorto(m))}</option>`).join(""); s.value = v; };
@@ -2233,9 +2262,9 @@ function pintarPerdidas() {
   const ok = segs.filter(s => s.estado === "ok"), chicas = segs.filter(s => s.estado === "volumen chico"), sinYpf = segs.filter(s => s.estado === "sin dato YPF"), sinDato = segs.filter(s => s.estado === "sin dato");
   const perd = ok.filter(s => s.efecto_share < 0), mostrar = PD.todas ? ok : perd.slice(0, 15);
   const filtro = `producto = ${r.producto} · meses ${r.periodo_t[0]} a ${r.periodo_t[1]} contra ${r.periodo_t0[0]} a ${r.periodo_t0[1]}`
-    + `${PD.canal ? " · canal = " + PD.canal : ""}${PD.provincia ? " · provincia = " + PD.provincia : ""} · piso ${num(r.min)} ${u}`;
+    + `${PD.canales.length ? " · canal = " + PD.canales.join(", ") : ""}${PD.provincias.length ? " · provincia = " + PD.provincias.join(", ") : ""} · piso ${num(r.min)} ${u}`;
   const comp = r.por_competidor.filter(c => c.ganado_m3 > 0).slice(0, 8);
-  const ef = (extra = {}) => ({ producto: r.producto, canal: PD.canal, provincia: PD.provincia, desde: r.periodo_t0[0], hasta: r.periodo_t[1], ...extra });
+  const ef = (extra = {}) => ({ producto: r.productos.join(","), canal: PD.canales, provincia: PD.provincias, desde: r.periodo_t0[0], hasta: r.periodo_t[1], ...extra });
   const hueco = f.huecos ? `<p class="nota">Meses con dato en este filtro: ${f.meses_con_dato.t} (actual) y ${f.meses_con_dato.t0} (anterior); lo que falta no se rellena.</p>` : "";
   const agg = (tit, lista, k) => lista.length ? `<details class="mk-agg" open><summary>${tit} · ${esc(corto(r.periodo_t0))} → ${esc(corto(r.periodo_t))}</summary><div class="tabla"><table>
       <tr><th>${k === "producto" ? "Producto" : k === "canal" ? "Canal" : "Provincia"}</th><th class="n">Share YPF</th><th class="n">Por share</th><th class="n mk-h12">Por mercado</th><th class="n mk-h12">Volumen</th></tr>
@@ -2264,7 +2293,7 @@ function pintarPerdidas() {
     ${perd.length ? `<div class="tabla"><table class="mk-tp"><thead>${cabDonde(r)}</thead><tbody>${filasDonde(PD.dpTodas ? perd : perd.slice(0, 10), r)}</tbody></table></div>
       ${perd.length > 10 ? `<button class="link" id="mk-dp-mas">${PD.dpTodas ? "Ver solo las 10 primeras" : `Ver todas (${perd.length})`}</button>` : ""}` : `<div class="explica">YPF no pierde share en ningún segmento con volumen suficiente (piso ${num(r.min)} ${esc(u)}).</div>`}
     <h3 class="mk-sub">Detalle de los segmentos, de mayor a menor pérdida por share</h3>
-    <p class="nota">Cada fila es un segmento canal × provincia de ${esc(PRODUCTOS_SE[PD.producto].toLowerCase())}. «Por share» es lo que YPF dejó de vender por tener menos participación; «por mercado», lo que cambió porque el segmento creció o se achicó. Tocá una fila para ver el detalle.</p>
+    <p class="nota">Cada fila es un segmento canal × provincia de ${esc(nomProd())}. «Por share» es lo que YPF dejó de vender por tener menos participación; «por mercado», lo que cambió porque el segmento creció o se achicó. Tocá una fila para ver el detalle.</p>
     ${mostrar.length ? `<div class="tabla"><table class="mk-tp"><thead>${cabTabla(r)}</thead><tbody id="mk-p-tb">${filasTabla(mostrar, r)}</tbody></table></div>`
       : `<div class="explica">YPF no pierde share en ningún segmento con volumen suficiente (piso ${num(r.min)} ${esc(u)}).</div>`}
     <p class="mk-fuente">${perd.length} segmentos pierden de ${ok.length} con datos y volumen suficiente (${esc(rangoMes(r.periodo_t))} contra ${esc(rangoMes(r.periodo_t0))}). ${perd.length > 15 ? `<button class="link" id="mk-p-mas">${PD.todas ? "Mostrar solo los 15 mayores" : "Mostrar todos, también los que ganan"}</button> ` : ""}
@@ -2297,11 +2326,11 @@ async function abrirDetalle(s) {
   caja.innerHTML = `<div class="explica" aria-busy="true">Cargando el detalle de ${esc(s.canal)}, ${esc(s.provincia)}…</div>`;
   caja.scrollIntoView({ block: "nearest", behavior: "smooth" });
   let r;
-  try { r = await api(qPerdidas(s.canal, s.provincia)); }
+  try { r = await api(qPerdidas([s.canal], [s.provincia])); }
   catch (e) { return caja.innerHTML = `<div class="explica">No se pudo leer el detalle (${esc(e.message)}).</div>`; }
   if (PD.sel !== s) return;
   const f = r.foco, u = r.unidad;
-  const ef = (extra = {}) => ({ producto: r.producto, canal: s.canal, provincia: s.provincia, desde: r.periodo_t0[0], hasta: r.periodo_t[1], ...extra });
+  const ef = (extra = {}) => ({ producto: r.productos.join(","), canal: s.canal, provincia: s.provincia, desde: r.periodo_t0[0], hasta: r.periodo_t[1], ...extra });
   const ganan = f.competidores.filter(c => c.m3_eq > 0), pierden = f.competidores.filter(c => c.m3_eq <= 0);
   const serie = f.serie, nombres = serie.empresas.map(e => etqT(e.empresa, r.origenes));
   const Y = nombres.map((n, i) => ({ nombre: n, color: i === 0 ? "var(--e1)" : colEmp(i) }));
