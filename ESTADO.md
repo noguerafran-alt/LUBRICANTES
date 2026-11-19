@@ -3,6 +3,10 @@
 Actualizado 2026-11-19 (Visualizador, página de producto y `/api/producto`; share por marca en Mercado; share ampliado con la serie completa desde 2010; gráficos ampliables en Mercado; modelos 3D sin foto atrás y con malla cerrada; export a Power BI; modelos 3D con Blender y modo presentación con GLB; Brasil; antes: mercado: share de la SE y series de datos.gob.ar). Remoto privado `noguerafran-alt/LUBRICANTES`; la Action corre a diario.
 
 
+## Logo de YPF en el header (2026-11-19, rama lub-logo)
+- El `<h1>` ahora es el logo de YPF (SVG inline, blanco con `currentColor`, mismos paths sin tocar) + «Lubricantes» en blanco y negrita con un filete; `aria-label="YPF Lubricantes: YPF vs competencia"`. `<title>` igual. 24 px de alto (20 en móvil). Solo CSS/HTML; no hay ruta nueva en `server.py`.
+- Fuente: `https://ypf.com/images/menu-principal/ypf_logoazul.svg` (el que usa el header de lubricantes.ypf.com), copia original en `site/ypf-logo.svg` (viewBox 0 0 74 20, `#0451DD`; no se sirve, es la referencia).
+
 ## Favicon (2026-11-19, rama lub-favicon)
 - `site/favicon.svg` (propio, no es el logo de YPF): cuadrado redondeado azul `#0047ba` con gota blanca/celeste. `index.html` suma `<link rel="icon">` y `theme-color`. `server.py` sirve `/favicon.svg` y `/favicon.ico` (mismo SVG, `image/svg+xml`, cache 1 día): ya no dan 404. Assert en el test HTTP.
 
