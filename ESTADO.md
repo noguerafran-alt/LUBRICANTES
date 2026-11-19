@@ -5,6 +5,16 @@ Actualizado 2026-11-19 (Visualizador, página de producto y `/api/producto`; sha
 
 
 
+## Diseño del visor: Mercado primero, sistema para todo (2026-11-19, rama lub-diseno)
+- Solo CSS y un ajuste de posición en `atar()`; sin cambios de datos, API ni cálculo.
+- Tooltip del gráfico: ahora se acota verticalmente al rectángulo del SVG, así que no tapa título ni controles (en el ampliado también).
+- Controles: una altura (`--ctl-h`, 36 px) y un tamaño de letra para selects, desplegables múltiples y «Todo el mercado»; rótulos de 12 px alineados abajo; el título del bloque queda arriba y los controles debajo, alineados a la izquierda. Los desplegables usaban variables sin definir (`--bor`, `--txt`): ahora usan los tokens del tema.
+- Paleta categórica `--e1..--e8` nueva (claro y oscuro): YPF en su azul de marca, sin dos verdes parecidos, tonos más oscuros en claro; etiqueta del 37,7 % con halo. Alcanza también a Evolución, que usa los mismos tokens.
+- Columna izquierda: filas del ranking con columnas fijas (cifras alineadas, `tabular-nums`) y columna algo más ancha.
+- Tipografía: los títulos usan la fuente de la interfaz (`--f-ui`), sin Bahnschrift condensada; Bahnschrift queda solo para cifras grandes.
+- Verificado (Edge headless por CDP, server local en :8811): capturas de Mercado a 1280 y 375 px en claro y oscuro; sin desborde horizontal a 375 en las 9 pestañas; las 9 pestañas abren; 0 errores de consola; tooltip dentro del gráfico; `python server.py test` OK.
+- No verificado: contraste AA medido con herramienta (la paleta se eligió a ojo, sin simulación de daltonismo; no pude cargar los skills impeccable/dataviz), selección múltiple, Grasas, ampliado, CSV, Visualizador y modo presentación solo por ausencia de errores (no se recorrieron a mano), Safari/Firefox.
+
 ## El celular también es el servidor principal (2026-11-19, rama lub-celuserver)
 - Decisión del usuario: el celu (Termux) sirve la página en `https://lubricantes.fln-data-analysis.com` con Cloudflare Tunnel; Cloudera consume de ahí; Render queda de respaldo (`render.yaml` sin tocar) y GitHub hace ML y respaldo.
 - `server.py`: recarga de datos sin reiniciar (`firma_datos`: commit de HEAD, o mtime de `fuentes.csv` sin git; `recargar`: construye el estado entero y reemplaza la referencia, si falla sigue con lo anterior y loguea; hilo `vigilar` cada `LUB_RECARGA_MIN`, 5 por defecto, apagado en Render). `/salud` ahora devuelve `{ok, commit, ultimo_dato}` (sin secretos). Siempre 127.0.0.1 fuera de Render (ya era así).
