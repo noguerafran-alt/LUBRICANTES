@@ -953,7 +953,7 @@ function comparador() {
         ${fuentesV.map(f => celda(e.comp_id, f, p.producto_id)).join("")}</tr>`;
     }).join("") : `<tr><td colspan="${fuentesV.length + 2}" class="vacio">${equivDe(p.producto_id).length ? "Ningún equivalente tiene precio en esta presentación" : "Sin equivalencias cargadas en seed/equivalencias.csv"}</td></tr>`;
     return `<div class="tabla"><table class="comp" style="--nf:${fuentesV.length}">${cab}
-      <tr class="ypf"><td>YPF ${esc(p.linea)} ${esc(p.nombre)} <span class="mut">${esc(p.sae)} · ${esc(SEGMENTO[p.segmento] || p.segmento)}</span><br>
+      <tr class="ypf"><td>${esc(nombreCompleto("YPF", p.linea, p.nombre))} <span class="mut">${esc(p.sae)} · ${esc(SEGMENTO[p.segmento] || p.segmento)}</span><br>
         <button class="link" data-evo="${esc(p.producto_id)}">ver evolución</button></td><td></td>
         ${fuentesV.map(f => celda(p.producto_id, f)).join("")}</tr>${filasEq}</table></div>`;
   }).join("");
@@ -963,7 +963,7 @@ function comparador() {
 // ---------- Evolución ----------
 function initEvolucion() {
   const ys = ypfs();
-  opciones($("#e-prod"), ys.map(p => p.producto_id), null, id => `${prod(id).linea} ${prod(id).nombre} ${prod(id).sae}`);
+  opciones($("#e-prod"), ys.map(p => p.producto_id), null, id => `${nombreVt(prod(id))} ${prod(id).sae}`);
   $("#e-prod").addEventListener("input", evolucion);
 }
 
@@ -978,7 +978,7 @@ async function evolucion() {
   } catch (e) { return out.innerHTML = `<div class="explica">No se pudo leer la serie: ${esc(e.message)}</div>`; }
   if ($("#e-prod").value !== id) return;
   const color = {}; ids.forEach((x, i) => color[x] = `var(${COLORES[i % COLORES.length]})`);
-  const nombre = x => `${prod(x).marca} ${prod(x).nombre}`;
+  const nombre = x => nombreCompleto(prod(x).marca, prod(x).nombre);
   const idsV = SD.on ? ids.filter(x => series[x].length) : ids;
   const ley = avisoSD([[ids.length - idsV.length, "producto sin precios", "productos sin precios", "m"]]) + `<div class="ley">${idsV.map(x => `<span><i style="background:${color[x]}"></i>${esc(nombre(x))}${series[x].length ? "" : " (sin precios)"}</span>`).join("")}</div>`;
   const fuentes = [...new Set(ids.flatMap(x => series[x].map(s => s.fuente)))].sort();
@@ -1119,7 +1119,7 @@ function ixDetalle(marca, g) {
   const kp = (t, v) => `<div><b>${v}</b><span>${t}</span></div>`;
   const lY = lit(yp).at(-1), lM = lit(mk).at(-1);
   const prods = D.productos.filter(p => p.segmento === seg && p.sae === sae && (p.marca === marca || p.marca === "YPF") && p.producto_id.endsWith("-br") === (P.pais === "BR"));
-  const lista = m => prods.filter(p => p.marca === m).map(p => `<li><a href="#producto/${encodeURIComponent(p.producto_id)}">${esc(p.marca)} ${esc(`${p.linea} ${p.nombre}`.trim())}</a> <span class="mut">${esc(p.sae)}</span></li>`).join("");
+  const lista = m => prods.filter(p => p.marca === m).map(p => `<li><a href="#producto/${encodeURIComponent(p.producto_id)}">${esc(nombreCompleto(p.marca, p.linea, p.nombre))}</a> <span class="mut">${esc(p.sae)}</span></li>`).join("");
   $("#ix-cuerpo").innerHTML = `
     <p class="nota">Cada punto es un día con precio de ambos. Un día sin dato corta la línea: no se interpola. Hasta el ${fechaAR(IX.ultimo)}, últimos 90 días.</p>
     <div class="ix-kpis">${ult ? kp(`índice el ${fechaAR(ult[0])} (YPF = 100)`, dec1.format(ult[1])) : ""}
@@ -1245,7 +1245,14 @@ const vendedorTxt = v => v && !/^\d+$/.test(String(v).split(" ")[0]) ? ` (${esc(
 const ICONO = { prev: '<path d="M15 5l-7 7 7 7"/>', next: '<path d="M9 5l7 7-7 7"/>', pausa: '<path d="M8 5v14M16 5v14"/>', play: '<path d="M7 5l12 7-12 7z"/>', cerrar: '<path d="M6 6l12 12M18 6L6 18"/>' };
 const icono = k => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONO[k]}</svg>`;
 
-function nombreVt(p) { return `${p.linea} ${p.nombre}`.trim(); }
+// Une marca/línea/nombre sin repetir: una parte se omite si la siguiente ya empieza con ella (por palabra, sin mayúsculas ni acentos).
+function nombreCompleto(...partes) {
+  const n = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+  const ps = partes.map(x => String(x ?? "").replace(/\s+/g, " ").trim()).filter(Boolean);
+  return ps.filter((x, i) => { const s = ps[i + 1]; return s === undefined || !(n(s) === n(x) || n(s).startsWith(n(x) + " ")); }).join(" ");
+}
+
+function nombreVt(p) { return nombreCompleto(p.linea, p.nombre); }
 
 // sin foto (o foto rota): un bidón dibujado con el nombre, nunca la foto de otro producto
 function bidon(nombre, conTexto) {
@@ -1301,7 +1308,7 @@ function bloqueYpf(y) {
 }
 
 function filaEq(e) {
-  const nom = `${e.marca} ${e.nombre}`;
+  const nom = nombreCompleto(e.marca, e.nombre);
   const precio = typeof e.promedio_litro === "number"
     ? (e.mas_barato?.url ? `<a href="${esc(e.mas_barato.url)}" rel="noreferrer noopener" target="_blank" title="Más barato: ${esc(nf(e.mas_barato.fuente))}, ${mon.format(e.mas_barato.precio)} por ${litrosTxt(e.mas_barato.litros)}">${mon.format(e.promedio_litro)}/L</a>` : `${mon.format(e.promedio_litro)}/L`)
       + `<span class="mut">${entero.format(e.n)} obs.</span>`
@@ -2692,7 +2699,7 @@ function initMapa() {
 
 function opcionesEquiv() {
   const id = $("#mp-ypf").value, eqs = equivDe(id);
-  const et = i => { const p = prod(i); return `${p.marca} ${p.nombre} ${p.sae || ""}`.trim(); };
+  const et = i => { const p = prod(i); return `${nombreCompleto(p.marca, p.nombre)} ${p.sae || ""}`.trim(); };
   $("#mp-prod").innerHTML = `<option value="${esc(id)}">${esc(et(id))} (YPF)</option>` +
     eqs.map(e => `<option value="${esc(e.comp_id)}">${esc(et(e.comp_id))} · ${esc(TIPO[e.tipo] || e.tipo)}</option>`).join("");
 }
@@ -2795,7 +2802,7 @@ async function abrirCobertura() {
     const todosP = v.productos.filter(p => !falta || !p.fuentes_7d || !p.tiene_equivalencia), nOc = SD.on && !falta ? todosP.filter(vacioP).length : 0;
     const ps = todosP.filter(p => !nOc || !vacioP(p)).sort((a, b) => (a.fuentes_7d > 0) - (b.fuentes_7d > 0) || a.nombre.localeCompare(b.nombre, "es"));
     $("#cob-out").innerHTML = avisoSD([[nOc, "producto sin precio, sin equivalente ni historia", "productos sin precio, sin equivalente ni historia", "m"]]) + `<div class="tabla"><table><tr><th>Producto</th><th>SAE</th><th>Segmento</th><th>Equivalentes</th><th>Fuentes (7 d)</th><th>Provincias (7 d)</th><th>Último precio</th></tr>` +
-      ps.map(p => `<tr><td>${esc(p.linea)} ${esc(p.nombre)}</td><td>${esc(p.sae)}</td><td>${esc(SEGMENTO[p.segmento] || p.segmento)}</td>
+      ps.map(p => `<tr><td>${esc(nombreVt(p))}</td><td>${esc(p.sae)}</td><td>${esc(SEGMENTO[p.segmento] || p.segmento)}</td>
         <td class="n">${p.tiene_equivalencia ? p.equivalencias : '<span class="mp-sin">sin equivalente</span>'}</td>
         <td class="n">${p.fuentes_7d || '<span class="mp-sin">sin precio</span>'}</td><td class="n">${p.fuentes_7d ? p.provincias_7d : ""}</td>
         <td>${p.ultima_fecha ? fechaAR(p.ultima_fecha) : '<span class="mp-sin">nunca</span>'}</td></tr>`).join("") + "</table></div>";
@@ -2829,7 +2836,7 @@ function pintarTira() {
   if (items.length < 2) { el.innerHTML = ""; el.hidden = true; return; }
   el.hidden = false;
   el.innerHTML = `<p class="nota" id="pr-tira-t">${v.producto.es_ypf || items.some(i => i.id === PR.raiz && i.marca === "YPF") ? "El producto y sus equivalentes de la competencia" : "El producto y el YPF con el que se compara"}: tocá uno para ver sus publicaciones, con los mismos filtros.</p>
-    <ul aria-labelledby="pr-tira-t">${items.map(i => `<li><a href="#producto/${encodeURIComponent(i.id)}"${i.id === pid ? ' aria-current="page"' : ""}><span class="mini">${foto(i.imagen, `${i.marca} ${i.nombre}`, false)}</span><b>${esc(i.marca)}</b><span>${esc(i.nombre)}</span></a></li>`).join("")}</ul>`;
+    <ul aria-labelledby="pr-tira-t">${items.map(i => `<li><a href="#producto/${encodeURIComponent(i.id)}"${i.id === pid ? ' aria-current="page"' : ""}><span class="mini">${foto(i.imagen, nombreCompleto(i.marca, i.nombre), false)}</span><b>${esc(i.marca)}</b><span>${esc(i.nombre)}</span></a></li>`).join("")}</ul>`;
 }
 const MOTIVO = { sin_litros: "sin litros: no se puede calcular el $/L", mayorista: "mayorista: fuera del cálculo por defecto", grok_sin_verificar: "Grok sin verificar: fuera del cálculo",
   fuera_de_sanidad: "fuera de [mediana ÷ 2,5; mediana × 2,5]: envase mal leído", no_equivalente: "no equivalente: fuera de la comparación", fuera_de_rango: "mediana a más de 3 veces la de YPF: fuera de la comparación" };
@@ -2866,17 +2873,17 @@ function sinYpf(p) {
     : `<p class="vt-vacio">Este producto no figura como equivalente de ningún YPF.</p>`;
 }
 function paginaProducto(v) {
-  const p = v.producto, nom = `${p.linea} ${p.nombre}`.trim(), s = p.specs || {}, w = v.ventana, cmp = v.comparacion;
+  const p = v.producto, nom = nombreVt(p), s = p.specs || {}, w = v.ventana, cmp = v.comparacion;
   const sd = x => x ? esc(x) : '<span class="vacio">sin dato</span>';
-  const eqs = v.equivalentes.map(e => `<div class="pr-sec"><h3>${esc(e.marca)} ${esc(e.nombre)}</h3>
+  const eqs = v.equivalentes.map(e => `<div class="pr-sec"><h3>${esc(nombreCompleto(e.marca, e.nombre))}</h3>
       <p class="nota">${esc(TIPO[e.tipo] || e.tipo)}, evidencia ${esc(e.evidencia)}. ${e.en_comparacion ? "Entra a la comparación con YPF." : `Fuera de la comparación: ${esc(MOTIVO[e.motivo_exclusion] || e.motivo_exclusion)}.`}</p>
       ${resumenPub(e.resumen)}${tablaPub(e.publicaciones)}</div>`).join("");
   const dif = cmp.dif_pct_mediana_comp_vs_ypf;
-  return `<div class="pr-cab"><figure>${foto(p.imagen, nom, true)}</figure><div><h3 class="vt-nombre">${esc(p.marca)} ${esc(nom)}</h3>
+  return `<div class="pr-cab"><figure>${foto(p.imagen, nom, true)}</figure><div><h3 class="vt-nombre">${esc(nombreCompleto(p.marca, nom))}</h3>
       <ul class="vt-specs">${[p.sae && `<li class="sae">${esc(p.sae)}</li>`, BASE[p.base] && `<li>${BASE[p.base]}</li>`, p.segmento && `<li>${esc(SEGMENTO[p.segmento] || p.segmento)}</li>`].filter(Boolean).join("")}</ul>
       <dl class="pz-dl" style="margin-top:8px"><dt>API</dt><dd>${sd(s.api)}</dd><dt>ACEA</dt><dd>${sd(s.acea)}</dd><dt>ILSAC</dt><dd>${sd(s.ilsac)}</dd><dt>JASO</dt><dd>${sd(s.jaso)}</dd>
       <dt>OEM</dt><dd>${s.oem?.length ? esc(s.oem.join(", ")) : '<span class="vacio">sin dato</span>'}</dd></dl></div><div class="pr-tira" id="pr-tira" hidden></div></div>
-    <div class="pr-sec"><h3>${p.es_ypf ? "Precio de YPF según terceros que lo venden" : `Precio de ${esc(`${p.marca} ${p.linea && p.nombre.startsWith(p.linea) ? p.nombre : nom}`.replace(/\s+/g, " ").trim())} según quienes lo venden`}</h3>
+    <div class="pr-sec"><h3>${p.es_ypf ? "Precio de YPF según terceros que lo venden" : `Precio de ${esc(nombreCompleto(p.marca, nom))} según quienes lo venden`}</h3>
       <p class="nota">${p.es_ypf ? "YPF no publica precio en canales propios: estos son avisos" : "Son avisos"} de tiendas, supermercados, Mercado Libre y relevamientos de terceros. Ventana del ${fechaAR(w.desde)} al ${fechaAR(w.hasta)} (${w.dias} días). ${esc(v.nota)}</p>
       ${resumenPub(v.resumen)}${tablaPub(v.publicaciones)}</div>
     ${v.equivalentes.length ? `<div class="pr-sec"><h3>Comparación con la competencia</h3>${typeof dif === "number"
@@ -2904,7 +2911,7 @@ async function abrirProducto(pid) {
   catch (e) { if (tok === PR.tok) out.innerHTML = `<div class="explica">No se pudo leer el producto «${esc(pid)}» (${esc(e.message)}). Puede que no exista: volvé al Visualizador y elegí uno.</div>`; return; }
   if (tok !== PR.tok) return;
   PR.listo = true;
-  $("#pr-titulo").textContent = `${v.producto.marca} ${v.producto.linea} ${v.producto.nombre}`.replace(/\s+/g, " ").trim();
+  $("#pr-titulo").textContent = nombreCompleto(v.producto.marca, v.producto.linea, v.producto.nombre);
   $("#pr-fecha").textContent = `Datos hasta el ${fechaAR(v.ventana.hasta)}.`;
   PR.v = v;
   out.innerHTML = paginaProducto(v);
