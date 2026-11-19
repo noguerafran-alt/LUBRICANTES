@@ -186,7 +186,7 @@ el User-Agent no cambia nada) y `datos.energia.gob.ar` da timeout desde GitHub; 
 (también vale `.sepa_pc`, el de la tarea de Windows; el script aborta sin marcador porque hace `reset --hard`). Ciclo: fetch + `reset --hard origin/main`, pasos, fila `casa`, un commit
 `datos AAAA-MM-DD: casa (<pasos>)` y push (3 intentos; cada reintento re-corre los pasos tras el reset). Pasos en orden, cada uno aislado (si uno falla, siguen los demás y su fila de error se pushea):
 1. `recolectar.py --sin ml` (**nunca Mercado Libre**: `--sin <fuente>` saca la fuente del recorrido y el entorno del subproceso se limpia de `ML_*`; no se lee `.ml_local` ni ningún secreto de ML en casa, el token vive solo en GitHub),
-2. `sepa.py`, 3. `macro.py series`, 4. `macro.py fx`,
+2. `sepa.py` (opt-in: con `SEPA_ARCHIVO=<carpeta>` guarda el zip crudo como `sepa-AAAA-MM-DD.zip` —`.tmp` + rename, sin recopiar si existe— y rota borrando el más viejo mientras el total supere `SEPA_ARCHIVO_MAX_GB`, default 60; un fallo del archivo se loguea y no afecta las filas ni la fila `sepa`; en Termux lo define el crontab, con la carpeta `~/sepa-archivo` fuera del clon), 3. `macro.py series`, 4. `macro.py fx`,
 5. `macro.py energia` **solo si la SE publicó algo nuevo**: consulta CKAN `package_show` del dataset `5bdc436c-…` y compara el `last_modified` del recurso `f0e4e10a-…` con el de la última bajada buena,
    guardado en `data/macro/energia_origen.json` (`{"last_modified", "bajada"}`, se escribe solo si `macro_energia` quedó sin error ese día). Baja si el `last_modified` es más nuevo o si nunca hubo bajada buena;
    si CKAN no responde o no trae fecha, no se adivina (paso fallido / sin bajada). Reemplaza la vieja regla de 28 días.

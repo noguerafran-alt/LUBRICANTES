@@ -43,8 +43,9 @@ touch "$CLON/.recolector_casa"   # marcador: el script hace reset --hard y solo 
 mkdir -p "$CLON/logs"
 
 # crontab: recolección 06:00 hora argentina y pull liviano cada hora en el minuto 20 (se sacan las líneas viejas si ya estaban)
-( crontab -l 2>/dev/null | grep -v -e recolector_casa -e '^CRON_TZ=' || true
+( crontab -l 2>/dev/null | grep -v -e recolector_casa -e '^CRON_TZ=' -e '^SEPA_ARCHIVO=' || true
   echo "CRON_TZ=$ZONA"
+  echo "SEPA_ARCHIVO=$HOME/sepa-archivo"   # zips crudos de SEPA con rotación, fuera del clon (que hace reset --hard)
   echo "0 6 * * * python $CLON/tools/recolector_casa.py >> $CLON/cron.log 2>&1"
   echo "20 * * * * python $CLON/tools/recolector_casa.py --solo-pull >> $CLON/logs/pull-cron.log 2>&1" ) | crontab -
 

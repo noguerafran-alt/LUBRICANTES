@@ -6,6 +6,7 @@ python sepa.py test   # asserts del filtro y del agregado, sin red
 import csv
 import io
 import json
+import os
 import re
 import shutil
 import statistics
@@ -167,6 +168,30 @@ def escribir_fuente(fila):
     escribir_fuentes(str(RAIZ / "data" / "fuentes.csv"), [{k: str(v) for k, v in fila.items()}])
 
 
+def archivar(tmp, fecha, carpeta, max_gb):
+    """Guarda el zip crudo como sepa-<fecha>.zip y rota por tamaño. Nunca levanta: el archivo no tumba la corrida."""
+    try:
+        max_gb = float(max_gb)  # un valor mal escrito cae en el except, no tumba SEPA
+        carpeta = Path(carpeta)
+        carpeta.mkdir(parents=True, exist_ok=True)
+        destino = carpeta / f"sepa-{fecha}.zip"
+        if not destino.exists():
+            parcial = destino.with_name(destino.name + ".tmp")
+            tmp.seek(0)
+            with open(parcial, "wb") as f:
+                shutil.copyfileobj(tmp, f)
+            parcial.replace(destino)
+        zips = sorted(carpeta.glob("sepa-*.zip"))  # la fecha ISO en el nombre ordena por antigüedad
+        total = sum(z.stat().st_size for z in zips)
+        for z in zips:
+            if total <= max_gb * 1e9 or z == destino:
+                break
+            total -= z.stat().st_size
+            z.unlink()
+    except Exception as e:
+        print(f"archivo SEPA: no se pudo guardar/rotar ({type(e).__name__}: {e}); la corrida sigue")
+
+
 def correr():
     t0 = time.time()
     try:
@@ -176,6 +201,8 @@ def correr():
         # Los zips internos vienen sin comprimir (stored), así que se abren y leen de a línea sin extraerlos.
         with tempfile.TemporaryFile() as tmp:
             mb = bajar(url, tmp) / 1e6
+            if os.environ.get("SEPA_ARCHIVO"):
+                archivar(tmp, fecha, os.environ["SEPA_ARCHIVO"], os.environ.get("SEPA_ARCHIVO_MAX_GB") or 60)
             with zipfile.ZipFile(tmp) as z:
                 for info in z.infolist():
                     if info.filename.endswith(".zip") and info.file_size:
@@ -270,6 +297,17 @@ def demo():
         {"url": "x/sepa_martes.zip", "description": "Precios SEPA Minoristas martes, 2026-10-27"},
         {"url": "x/sepa_lunes.zip", "description": "Precios SEPA Minoristas lunes, 2026-11-02"},
         {"url": "x/maestro.xlsx", "description": "Excel"}]}) == ("2026-11-02", "x/sepa_lunes.zip")
+    # archivo con rotación: zips falsos chicos, tope de 25 bytes (~2 zips de 10 bytes)
+    with tempfile.TemporaryDirectory() as d, tempfile.TemporaryFile() as z:
+        z.write(b"x" * 10)
+        for dia in ("2026-11-01", "2026-11-02", "2026-11-03"):
+            archivar(z, dia, d, 25e-9)
+        assert sorted(q.name for q in Path(d).glob("*")) == ["sepa-2026-11-02.zip", "sepa-2026-11-03.zip"]
+        archivar(z, "2026-11-03", d, 25e-9)  # ya existe: no copia
+        assert (Path(d) / "sepa-2026-11-03.zip").stat().st_size == 10
+        archivar(z, "2026-11-04", d, 5e-9)  # tope menor que un zip: borra todo menos el de hoy
+        assert [q.name for q in Path(d).glob("*")] == ["sepa-2026-11-04.zip"]
+        archivar(z, "2026-11-05", Path(d) / "sepa-2026-11-04.zip", 1)  # carpeta imposible: no levanta
     print("OK")
 
 

@@ -2,6 +2,13 @@
 
 Actualizado 2026-11-19 (Visualizador, página de producto y `/api/producto`; share por marca en Mercado; share ampliado con la serie completa desde 2010; gráficos ampliables en Mercado; modelos 3D sin foto atrás y con malla cerrada; export a Power BI; modelos 3D con Blender y modo presentación con GLB; Brasil; antes: mercado: share de la SE y series de datos.gob.ar). Remoto privado `noguerafran-alt/LUBRICANTES`; la Action corre a diario.
 
+## Archivo de zips de SEPA con rotación (2026-11-19, rama lub-sepa-archivo)
+
+- Decisión del usuario: el celu tiene 100 GB libres y SEPA publica pocos días hacia atrás; guardar el zip permite reprocesar el pasado si se suman productos al seed.
+- `sepa.archivar` (opt-in): con `SEPA_ARCHIVO=<carpeta>` copia el zip del día a `sepa-<fecha>.zip` (`.tmp` + rename; si existe no recopia) y rota por fecha del nombre mientras el total supere `SEPA_ARCHIVO_MAX_GB` (default 60), sin borrar el de hoy. Nunca levanta: si falla se loguea y SEPA escribe sus filas igual. Sin la variable, nada cambia (Action, PC). Asserts en `demo()`.
+- `tools/termux_setup.sh` agrega `SEPA_ARCHIVO=$HOME/sepa-archivo` al crontab (idempotente); `recolector_casa.py` solo saca `ML_*`, así que llega a `sepa.py`. Documentado en `docs/celular.md` y `CLAUDE.md`.
+- Verificado: `python sepa.py test`, `python tools/recolector_casa.py test`, `bash -n tools/termux_setup.sh`. No verificado: corrida real en el celu ni que cron pase la variable (cron de Termux/crond).
+
 ## Rótulo «Servidor FLN Data Analysis» (2026-11-19)
 - Lo que se muestra del antiguo «Recolector de casa» ahora dice «Servidor FLN Data Analysis (celular o PC)»: nombre de la fuente `casa` y aviso del visor (`TXT_CASA`), notas de `/api/fuentes`, energía y `actualizacion` en `server.py`, y la frase citada en `CLAUDE.md`. El id `casa`, `tools/recolector_casa.py` y `data/` no cambian. `python server.py test` OK; comprobado en `/api/fuentes` y en el HTML servido.
 
