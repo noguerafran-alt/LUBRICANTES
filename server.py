@@ -133,22 +133,51 @@ def tabla_fx(d):
 USD_CAMPOS = ("precio", "precio_litro", "mediana_litro", "promedio_litro", "min_litro", "max_litro", "promedio_presentacion")
 
 
-def con_usd(o, moneda, tabla, fecha=""):
+ID_TC = "92.2_TIPO_CAMBIION_0_0_21_24"
+FX_FUENTES = {"bcb_ptax": ("BCB PTAX (venta)", "https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/aplicacao#!/recursos"),
+              "BCRA (datos.gob.ar)": ("BCRA, tipo de cambio de valuación (datos.gob.ar)", "https://datos.gob.ar/series/api/series/?ids=" + ID_TC)}
+
+
+def fx_lista(tabla, moneda):
+    """Cotizaciones reales de una moneda, la más reciente primero: alimenta el selector de /api/fx."""
+    return [{"fecha": f, "por_usd": v[0], "fuente": v[1], "fuente_nombre": FX_FUENTES.get(v[1], (v[1], ""))[0], "fuente_url": FX_FUENTES.get(v[1], ("", ""))[1]}
+            for (m, f), v in sorted(tabla.items(), reverse=True) if m == moneda]
+
+
+def fx_fecha_error(tabla, moneda, fx_fecha):
+    """None si fx_fecha es AAAA-MM-DD con cotización de esa moneda; si no, el mensaje de 400 (con las fechas cercanas que sí existen; nunca se interpola)."""
+    try:
+        date.fromisoformat(fx_fecha)
+    except ValueError:
+        return {"error": "fx_fecha tiene que ser AAAA-MM-DD"}
+    if (moneda, fx_fecha) in tabla:
+        return None
+    fs = sorted(f for (m, f) in tabla if m == moneda)
+    cerca = [f for f in fs if f < fx_fecha][-3:] + [f for f in fs if f > fx_fecha][:3]
+    return {"error": f"sin cotización de {moneda} el {fx_fecha}", "fechas_cercanas": cerca}
+
+
+USD_CAMPOS = ("precio", "precio_litro", "mediana_litro", "promedio_litro", "min_litro", "max_litro", "promedio_presentacion")
+
+
+def con_usd(o, moneda, tabla, fecha="", fx_fecha=""):
     """?usd=1: agrega `<campo>_usd` junto a cada precio, con `fx_fecha` y `fx_fuente` de ESE día exacto (sin cotización ese día = null, nunca el
-    día anterior). La fecha es la del propio objeto o, si no tiene, la del que lo contiene. Solo para visualizar: lo guardado sigue en su moneda."""
+    día anterior). La fecha es la del propio objeto o, si no tiene, la del que lo contiene. Con `fx_fecha` (?fx_fecha=) todo usa esa cotización.
+    Solo para visualizar: lo guardado sigue en su moneda."""
     if isinstance(o, list):
-        return [con_usd(x, moneda, tabla, fecha) for x in o]
+        return [con_usd(x, moneda, tabla, fecha, fx_fecha) for x in o]
     if not isinstance(o, dict):
         return o
     f = o["fecha"] if isinstance(o.get("fecha"), str) else fecha
     m = o.get("moneda") or moneda
-    out = {k: con_usd(v, m, tabla, f) for k, v in o.items()}
+    out = {k: con_usd(v, m, tabla, f, fx_fecha) for k, v in o.items()}
     campos = [k for k in USD_CAMPOS if k in o and not isinstance(o[k], (dict, list))]
     if campos:
-        fx = tabla.get((m, f)) if m != "USD" else (1.0, "USD")
+        kd = fx_fecha or f
+        fx = tabla.get((m, kd)) if m != "USD" else (1.0, "USD")
         for k in campos:
             out[k + "_usd"] = round(o[k] / fx[0], 3) if fx and isinstance(o[k], (int, float)) else None
-        out["fx_fecha"], out["fx_fuente"] = (f, fx[1]) if fx else (None, None)
+        out["fx_fecha"], out["fx_fuente"] = (kd, fx[1]) if fx else (None, None)
     return out
 
 
@@ -785,7 +814,7 @@ PRODUCTOS_SHARE = {"automotrices": "Lubricantes automotrices(m3)", "industriales
                    "marinos": "Lubricantes marinos(m3)", "grasas": "Grasas(Ton)"}
 TOP_EMPRESAS, MESES_SHARE, PUNTOS_ACTIVIDAD = 7, 36, 60
 ID_PEAJES, ID_AGRO, ID_IPC = "302.3_S_ORIGINALJES_0_S_17", "11.3_ISOM_2004_M_39", "148.3_INIVELNAL_DICI_M_26"
-ID_SALARIO, ID_TC = "149.1_SOR_PRIADO_OCTU_0_25", "92.2_TIPO_CAMBIION_0_0_21_24"
+ID_SALARIO = "149.1_SOR_PRIADO_OCTU_0_25"
 ID_GASOIL_CARGA = "se_gasoil_carga"
 # ponytail: pesos supuestos del relevamiento, sin calibrar contra el volumen de la SE (regresión pendiente).
 PESOS_IDP = {ID_PEAJES: 0.5, ID_GASOIL_CARGA: 0.3, ID_AGRO: 0.2}
@@ -1622,7 +1651,7 @@ class Handler(BaseHTTPRequestHandler):
     clave_carga = ""
     raiz = RAIZ
     candado = threading.Lock()
-    pais, usd = "AR", False  # por pedido (do_GET los fija; los handlers son por conexión)
+    pais, usd, fx_fecha = "AR", False, ""  # por pedido (do_GET los fija; los handlers son por conexión)
 
     def enviar(self, codigo, cuerpo, tipo, extra=()):
         if "gzip" in self.headers.get("Accept-Encoding", "") and len(cuerpo) > 1024:
@@ -1664,10 +1693,19 @@ class Handler(BaseHTTPRequestHandler):
         if not u.path.startswith("/api/"):
             return self.json(404, {"error": "no existe"})
         nombre = u.path[5:]
+        if nombre == "fx":  # cotizaciones disponibles de una moneda (alimenta el selector de fecha del visor)
+            mon = (q.get("moneda") or "").upper()
+            if mon not in ("ARS", "BRL"):
+                return self.json(400, {"error": "moneda tiene que ser ARS o BRL"})
+            return self.json(200, {"moneda": mon, "cotizaciones": fx_lista(self.datos.get("fx_tabla", {}), mon)})
         pais = (q.get("pais") or "AR").upper()
         if pais not in PAISES:
             return self.json(400, {"error": f"pais inválido: {q.get('pais')!r}", "paises": list(PAISES)})
-        self.pais, self.usd = pais, q.get("usd") == "1"
+        self.pais, self.usd, self.fx_fecha = pais, q.get("usd") == "1", q.get("fx_fecha", "")
+        if self.fx_fecha:
+            err = fx_fecha_error(self.datos.get("fx_tabla", {}), PAISES[pais][1], self.fx_fecha)
+            if err:
+                return self.json(400, err)
         if nombre in ("mercado", "mercado/share", "mercado/perdidas", "mercado/filas", "macro") and pais != "AR":
             return self.json(400, {"error": "mercado y macro son solo Argentina (datos de la Secretaría de Energía y el INDEC)"})
         if nombre in ("mercado", "mercado/share", "mercado/perdidas", "mercado/filas", "macro"):
@@ -1719,7 +1757,7 @@ class Handler(BaseHTTPRequestHandler):
     def salida(self, obj):
         """JSON de la respuesta; con ?usd=1 suma los campos *_usd (conversión solo para visualizar, ver con_usd)."""
         if self.usd:
-            obj = con_usd(obj, PAISES[self.pais][1], self.datos.get("fx_tabla", {}))
+            obj = con_usd(obj, PAISES[self.pais][1], self.datos.get("fx_tabla", {}), fx_fecha=self.fx_fecha)
         self.json(200, obj)
 
     def analisis(self, nombre, q):
@@ -2656,6 +2694,18 @@ def demo():
     assert all(r["pais"] == "BR" and r["moneda"] == "BRL" for r in json.loads(get("/api/indice?pais=BR", k)[1])) and json.loads(get("/api/provincias?pais=BR", k)[1])["pais"] == "BR"
     assert "precio_litro_usd" in json.loads(get("/api/ultimo?usd=1", k)[1])[0] and "precio_litro_usd" not in json.loads(get("/api/ultimo", k)[1])[0]
     assert all("pais" in f and "nota" in f and "dias_sin_correr" in f for f in json.loads(get("/api/fuentes", k)[1]))
+    # fx_fecha: esa cotización para todo; sin cotización o mal formada = 400; /api/fx lista las reales
+    for r_ in Handler.datos["obs"]:
+        Handler.datos["fx_tabla"].setdefault(("ARS", r_["fecha"]), (1000.0, "BCRA (datos.gob.ar)"))
+    ars = [x["fecha"] for x in fx_lista(Handler.datos["fx_tabla"], "ARS")]
+    assert ars, "el test necesita al menos una cotización ARS"
+    ju = json.loads(get(f"/api/ultimo?usd=1&fx_fecha={ars[0]}", k)[1])
+    assert all(r["fx_fecha"] == ars[0] for r in ju if r.get("fx_fecha")) and any(r.get("precio_litro_usd") for r in ju)
+    r400 = get("/api/ultimo?usd=1&fx_fecha=1999-01-01", k)
+    assert r400[0] == 400 and "fechas_cercanas" in json.loads(r400[1]) and get("/api/ultimo?usd=1&fx_fecha=ayer", k)[0] == 400
+    assert get("/api/ultimo?usd=1&fx_fecha=2026-02-30", k)[0] == 400 and get("/api/ultimo?pais=BR&usd=1&fx_fecha=" + ars[0], k)[0] in (200, 400)
+    jf = json.loads(get("/api/fx?moneda=ARS", k)[1])
+    assert jf["moneda"] == "ARS" and [x["fecha"] for x in jf["cotizaciones"]] == ars and jf["cotizaciones"][0]["fuente_url"].startswith("https://") and get("/api/fx?moneda=CLP", k)[0] == 400
     shutil.rmtree(raiz / "data" / "grok")
     BAJAR, GH, normalizar.normalizar = bajar, gh_api, norm_real
     srv.shutdown()

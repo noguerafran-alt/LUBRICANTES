@@ -23,8 +23,13 @@ nav { display: flex; gap: 2px; flex: 1 1 auto; min-width: 0; overflow-x: auto; s
 nav::-webkit-scrollbar { display: none; }
 nav button { background: none; border: 0; border-bottom: 3px solid transparent; color: #dbe6fb; font: inherit; padding: 8px 10px; min-height: 44px; cursor: pointer; white-space: nowrap; flex: none; }
 nav button[aria-selected="true"] { color: #fff; border-color: #fff; font-weight: 600; }
-.pais-barra { align-items: flex-end; margin: 8px 0 4px; }
-.pais-barra .nota { flex: 1 1 260px; margin: 0 0 4px; }
+.pais-barra { align-items: flex-end; justify-content: flex-end; margin: 8px 0 4px; }
+.vt-filtro .pais-barra { display: contents; }
+.vt-filtro { align-items: flex-end; }
+#pais-nota { margin: 0 0 4px; max-width: none; text-align: right; }
+@media (max-width: 640px) { #pais-nota { text-align: left; } }
+#pais-nota:empty, #vt-minis-box:empty { display: none; }
+#vt-minis-box { flex: none; min-width: 0; }
 .pais-barra .chk input { width: auto; }
 .pais-barra .chk span { display: flex; align-items: center; gap: 6px; min-height: 32px; font-size: 13px; color: var(--tx); }
 #banner:empty { display: none; }
@@ -513,10 +518,12 @@ body:has(#dl[open]) { overflow: hidden; }
   <div class="filtros pais-barra" id="pais-barra">
     <label>País <select id="pais"><option value="AR">Argentina</option><option value="BR">Brasil</option></select></label>
     <label class="chk"><span><input type="checkbox" id="usd"> Ver también en USD</span></label>
-    <p class="nota" id="pais-nota" aria-live="polite"></p>
+    <label id="fx-sel" hidden>Tipo de cambio del <select id="fx-fecha"><option value="">día de cada precio</option></select></label>
   </div>
+  <p class="nota" id="pais-nota" aria-live="polite"></p>
 
   <section id="visualizador" hidden>
+    <div id="vt-minis-box"></div>
     <div class="vt-cab">
       <div>
         <h2 class="vt-titulo">Visualizador</h2>
@@ -687,7 +694,8 @@ const dia = iso => Date.parse(iso + "T00:00:00Z") / 864e5;
 
 // País elegido (?pais=BR&usd=1; Argentina por defecto). Lo usan Comparador, Visualizador, Índice y Evolución; Mapa, Cobertura y Mercado son solo Argentina.
 const Q = new URLSearchParams(location.search);
-const P = { pais: (Q.get("pais") || "AR").toUpperCase() === "BR" ? "BR" : "AR", usd: Q.get("usd") === "1" };
+const P = { pais: (Q.get("pais") || "AR").toUpperCase() === "BR" ? "BR" : "AR", usd: Q.get("usd") === "1", fx: /^\d{4}-\d{2}-\d{2}$/.test(Q.get("fx_fecha") || "") ? Q.get("fx_fecha") : "" };
+let FX = [];  // cotizaciones reales de la moneda del país (/api/fx), la más reciente primero
 const reales = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const dolares = new Intl.NumberFormat("es-AR", { style: "currency", currency: "USD" });
 const mon = { format: v => (P.pais === "BR" ? reales : pesos).format(v) };  // moneda de publicación del país elegido
@@ -701,21 +709,44 @@ const usdDe = (o, campo, sep = "<br>", largo = false) => {
     ? `${sep}<span class="mut" title="${esc(rot)} (${esc(o.fx_fuente)})">${dolares.format(v)} · ${largo ? esc(rot) : "TC " + fechaAR(o.fx_fecha)}</span>`
     : `${sep}<span class="vacio" title="Sin cotización oficial ese día: no se convierte y no se arrastra la del día anterior">${largo ? "sin tipo de cambio oficial ese día: no se convierte (no se arrastra el del día anterior)" : "sin TC ese día"}</span>`;
 };
-const apiP = ruta => api(ruta + (ruta.includes("?") ? "&" : "?") + "pais=" + P.pais + (P.usd ? "&usd=1" : ""));
+const apiP = ruta => api(ruta + (ruta.includes("?") ? "&" : "?") + "pais=" + P.pais + (P.usd ? "&usd=1" + (P.fx ? "&fx_fecha=" + P.fx : "") : ""));
 const fp = () => D.fuentes.filter(f => (f.pais || "AR") === P.pais);  // fuentes del país elegido (la pestaña Fuentes las muestra todas)
 
 function barraPais() {
   $("#pais").value = P.pais; $("#usd").checked = P.usd;
-  const ir_ = () => { const q = new URLSearchParams(); if ($("#pais").value !== "AR") q.set("pais", $("#pais").value); if ($("#usd").checked) q.set("usd", "1"); location.search = q.toString(); };
-  $("#pais").onchange = ir_; $("#usd").onchange = ir_;
+  const ir_ = cambioPais => { const q = new URLSearchParams(); if ($("#pais").value !== "AR") q.set("pais", $("#pais").value);
+    if ($("#usd").checked) { q.set("usd", "1"); if (!cambioPais && $("#fx-fecha").value) q.set("fx_fecha", $("#fx-fecha").value); } location.search = q.toString(); };
+  $("#pais").onchange = () => ir_(true);  // otro país = otra moneda: la fecha elegida no vale
+  $("#usd").onchange = $("#fx-fecha").onchange = () => ir_(false);
   notaPais();
+  if (P.usd) fxCargar();
+}
+// selector con las fechas reales de cotización de la moneda del país; la fuente (con link) va en la nota de arriba
+async function fxCargar() {
+  try { FX = (await api("fx?moneda=" + (P.pais === "BR" ? "BRL" : "ARS"))).cotizaciones; } catch { FX = []; }
+  const sel = $("#fx-fecha");
+  sel.innerHTML = `<option value="">día de cada precio</option>` + FX.map(c => `<option value="${esc(c.fecha)}">${esc(fechaAR(c.fecha))}</option>`).join("");
+  sel.value = P.fx; $("#fx-sel").hidden = false;
+  if (P.fx && sel.value !== P.fx) sel.value = "";
+  notaPais($("section:not([hidden])")?.id);
+}
+// el filtro de país/USD vive en la fila de controles del Visualizador y, en las demás pestañas, arriba a la derecha
+function ubicarBarra(tab) {
+  const b = $("#pais-barra");
+  if (tab === "visualizador") $(".vt-filtro").prepend(b); else if (b.parentElement.id !== "pais-barra-sitio") $("#banner").after(b);
 }
 function notaPais(tab) {
   const t = [];
   if (P.pais === "BR") t.push("Brasil: precios en reales (R$) tal como se publican, sin mezclar con Argentina; el índice YPF = 100 se calcula solo dentro de Brasil. Nota Paraná (notas fiscales de Paraná) es una API interna sin términos publicados: se usa con cautela.");
-  if (P.usd) t.push("USD: conversión al tipo de cambio oficial de la fecha de cada precio (TC dd/mm/aaaa; BCB PTAX para R$, BCRA para $): solo referencia. Sin cotización ese día, sin conversión.");
+  let html = "";
+  if (P.usd) {
+    const c = P.fx && FX.find(x => x.fecha === P.fx), mo = P.pais === "BR" ? "BRL" : "ARS";
+    const f = c || FX[0], fuente = f ? (f.fuente_url ? `<a href="${esc(f.fuente_url)}" target="_blank" rel="noopener">${esc(f.fuente_nombre)}</a>` : esc(f.fuente_nombre)) : "";
+    html = c ? `USD al tipo de cambio ${fuente} del ${esc(fechaAR(c.fecha))}: ${esc(String(c.por_usd).replace(".", ","))} ${mo} por USD (el mismo para todos los precios): solo referencia.`
+      : `USD al tipo de cambio de la fecha de cada precio${fuente ? " (fuente: " + fuente + ")" : ""}: solo referencia. Sin cotización ese día, sin conversión.`;
+  }
   if (["mercado", "mapa", "cobertura"].includes(tab)) t.push("Esta pestaña muestra solo Argentina" + (P.pais === "BR" ? ", aunque elegiste Brasil" : "") + ".");
-  $("#pais-nota").textContent = t.join(" ");
+  $("#pais-nota").innerHTML = [...t.map(esc), html].filter(Boolean).join(" ");
 }
 
 async function api(ruta) {
@@ -1159,6 +1190,8 @@ function pintarVt(irA) {
   bt.textContent = `Ver todos (${todos.length})`;
   bt.title = VT.ver ? "Mostrando también los productos sin precio hoy; tocá para dejar solo los que tienen precio" : `Ahora solo los ${ps.length} con precio hoy; tocá para sumar los ${todos.length - ps.length} sin precio`;
   VT.lista = ps; VT.pista = null; clearInterval(VT.timer);
+  const mb = $("#vt-minis-box");  // la tira de miniaturas va arriba de todo, debajo del banner
+  mb.innerHTML = ps.length ? `<div class="vt-minis" aria-label="Todos los productos">${ps.map((p, i) => `<button class="vt-mini" data-i="${i}" aria-label="${esc(nombreVt(p))}"><span class="mini">${foto(p.imagen, nombreVt(p), false)}</span><span aria-hidden="true">${esc(p.nombre || p.linea)}</span></button>`).join("")}</div>` : "";
   if (!ps.length) { out.innerHTML = `<div class="explica">${todos.length ? "Ningún producto YPF tiene precio hoy en las fuentes. Con «Ver todos» se listan los demás y se explica por qué no hay precio." : "Todavía no hay productos YPF en el catálogo."}</div>`; return; }
   const n = ps.length, K = VT.K = n > 1 ? Math.min(2, n) : 0;
   const idx = j => ((j % n) + n) % n;
@@ -1174,13 +1207,12 @@ function pintarVt(irA) {
       <div class="vt-pista">${antes.map(i => slideVt(ps[i], i, n, true)).join("")}${ps.map((p, i) => slideVt(p, i, n, false)).join("")}${despues.map(i => slideVt(ps[i], i, n, true)).join("")}</div>
       <p class="vt-nota" id="vt-nota" role="status"></p>
       <p class="sr" id="vt-vivo" aria-live="polite" aria-atomic="true"></p>
-      <div class="vt-minis" aria-label="Todos los productos">${ps.map((p, i) => `<button class="vt-mini" data-i="${i}" aria-label="${esc(nombreVt(p))}"><span class="mini">${foto(p.imagen, nombreVt(p), false)}</span><span aria-hidden="true">${esc(p.nombre || p.linea)}</span></button>`).join("")}</div>
     </div>`;
   VT.pista = out.querySelector(".vt-pista");
   const car = out.querySelector(".vt-car");
   const manual = () => { if (!VT.pausa) { VT.pausa = true; vtAuto(); } };
   out.querySelectorAll("[data-paso]").forEach(b => b.onclick = () => { manual(); vtPaso(Number(b.dataset.paso)); });
-  out.querySelectorAll(".vt-mini").forEach(b => b.onclick = () => { manual(); vtIr(Number(b.dataset.i) + K); });
+  mb.querySelectorAll(".vt-mini").forEach(b => b.onclick = () => { manual(); vtIr(Number(b.dataset.i) + K); });
   // play limpia la pausa por hover/foco: si no, el foco que queda en el botón la vuelve a activar y el pase nunca arranca
   $("#vt-play").onclick = () => {
     if (reducido.matches) return $("#vt-nota").textContent = "El pase automático está desactivado porque el sistema pide reducir el movimiento. Usá las flechas.";
@@ -1241,8 +1273,8 @@ function vtMarcar(i) {
   out.querySelectorAll(".vt-slide").forEach((s, k) => s.classList.toggle("actual", k === VT.pos));
   out.querySelector(".vt-pos").textContent = `${i + 1} de ${n}`;
   out.querySelector(".vt-avance i").style.width = ((i + 1) / n * 100) + "%";
-  out.querySelectorAll(".vt-mini").forEach(b => b.setAttribute("aria-current", Number(b.dataset.i) === i));
-  const m = out.querySelector(`.vt-mini[data-i="${i}"]`), tira = out.querySelector(".vt-minis");
+  $("#vt-minis-box").querySelectorAll(".vt-mini").forEach(b => b.setAttribute("aria-current", Number(b.dataset.i) === i));
+  const m = $(`#vt-minis-box .vt-mini[data-i="${i}"]`), tira = $("#vt-minis-box .vt-minis");
   if (m && tira.scrollWidth > tira.clientWidth) tira.scrollTo({ left: m.offsetLeft - (tira.clientWidth - m.offsetWidth) / 2, behavior: reducido.matches ? "auto" : "smooth" });
   const vivo = $("#vt-vivo"), txt = `${i + 1} de ${n}: ${nombreVt(VT.lista[i])}`;
   if (vivo.textContent !== txt) vivo.textContent = txt;
@@ -2622,8 +2654,8 @@ function ir(hash) {
   const nav = tab === "producto" ? "visualizador" : tab;
   document.querySelectorAll("nav button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === nav));
   document.querySelectorAll("main section").forEach(s => s.hidden = s.id !== tab);
-  notaPais(tab);
-  for (const id of ["#banner", "#pais-barra"]) $(id).style.display = tab === "mercado" ? "none" : "";  // Mercado es solo SE/INDEC: ni avisos de precios ni país/USD
+  notaPais(tab); ubicarBarra(tab);
+  for (const id of ["#banner", "#pais-barra", "#pais-nota"]) $(id).style.display = tab === "mercado" ? "none" : "";  // Mercado es solo SE/INDEC: ni avisos de precios ni país/USD
   const h = tab === "producto" ? hash : tab;
   if (location.hash !== "#" + h) history.replaceState(null, "", "#" + h);
   if (tab === "producto") abrirProducto(pid);
