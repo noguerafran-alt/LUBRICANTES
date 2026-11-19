@@ -26,7 +26,7 @@
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--tx); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-main, .cab { max-width: 1200px; margin: 0 auto; padding: 0 16px; }
+main, .cab { max-width: none; margin: 0; padding: 0 clamp(12px, 1.4vw, 24px); }
 header { background: var(--marca); color: #fff; }
 .cab { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0 24px; }
 header :focus-visible { outline-color: #fff; }
@@ -242,25 +242,12 @@ a.vt-toggle { display: inline-flex; align-items: center; text-decoration: none; 
   button.link { min-height: 44px; padding: 0 8px; }
   .vt-buscar, .vt-filtro { flex: 1 1 100%; justify-content: flex-start; }
 }
-/* escritorio con alto suficiente: el Visualizador ocupa la ventana (sin scroll de página); lo que no entra scrollea dentro de .vt-datos */
-@media (min-width: 1025px) and (min-height: 641px) {
-  body:has(#visualizador:not([hidden])) { height: 100dvh; display: flex; flex-direction: column; }
-  body:has(#visualizador:not([hidden])) header { flex: none; }
-  body:has(#visualizador:not([hidden])) main { flex: 1; min-height: 0; width: 100%; display: flex; flex-direction: column; }
-  #banner { flex: none; margin: 6px 0; }
-  #visualizador:not([hidden]) { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 0 0 4px; }
-  .vt-cab { flex: none; margin: 0 0 6px; }
-  #vt-out, .vt-car { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-  .vt-ctrl { flex: none; margin-bottom: 4px; }
-  .vt-pista { flex: 1; min-height: 0; padding: 2px 0; }
-  .vt-slide { grid-template-columns: 340px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
-  .vt-foto { align-self: stretch; min-height: 0; }
-  .vt-foto img, .vt-foto svg { position: absolute; inset: 12px 12px 30px; width: calc(100% - 24px); height: calc(100% - 42px); max-width: none; }
-  .vt-datos { min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--borde-ctl) transparent; }
-  .vt-minis { flex: none; padding: 4px 2px 4px; }
+/* escritorio: la ficha crece con su contenido y scrollea la página (nada de barra interna); la foto queda de alto fijo, no se estira */
+@media (min-width: 1025px) {
+  .vt-slide { grid-template-columns: 340px minmax(0, 1fr); }
+  .vt-foto img, .vt-foto svg { max-width: none; height: 280px; }
   .vt-mini { flex: 0 0 92px; }
   .vt-mini .mini { width: 72px; height: 72px; }
-  .vt-mini span:not(.mini) { -webkit-line-clamp: 1; }
 }
 @media (prefers-reduced-motion: reduce) { .vt-slide, .vt-avance i { transition: none; } }
 .vt-nota { font-size: 12px; color: var(--mut); margin: 0 0 6px; }
