@@ -398,7 +398,66 @@ def fuentes(d, hoy):
         out.append({**{k: filas[-1].get(k, "") for k in FUENTES_F}, "ultimo_ok": ultimo_ok, "dias_sin_datos": dias,
                     "dias_sin_correr": (hoy - date.fromisoformat(filas[-1]["fecha"])).days,  # contra la última fila, con o sin error (aviso de la fila `casa`)
                     "pais": pais_de_fuente(fuente), "nota": NOTAS_FUENTE.get(fuente, "")})
-    return sorted(out + fuentes_grok(d, hoy), key=lambda r: r["fuente"])
+    return avisos(sorted(out + fuentes_grok(d, hoy), key=lambda r: r["fuente"]), d["fuentes"], hoy)
+
+
+# Cadencia esperada de cada fuente: lo que no está acá es diaria. `pausada` = decisión documentada, no falla; `manual` = carga a mano.
+CADENCIA = {"macro_energia": "mensual", "oficial_br_notaparana": "pausada"}
+MENSUAL_DIAS, MANUAL_DIAS = 45, 30  # tope de antigüedad de la última bajada buena (la SE publica una vez por mes) / de una carga manual
+# fuente → la que la cubre: si la cubridora está al día, la cubierta no es un aviso (la carga manual alternativa, la serie que ya no es la fuente del dato)
+CUBIERTA = {"grok_helix": "helix_api", "macro_92_2_tipo_cambiion_0_0_21_24": "fx_bcra"}
+
+
+def cadencia(f):
+    if f in CADENCIA:
+        return CADENCIA[f]
+    return "manual" if f.startswith("grok_") else "serie" if f.startswith("macro_") and f != "macro_series" else "diaria"
+
+
+def avisos(rows, filas, hoy):
+    """Agrega a cada fila `cadencia`, `alerta` (bool: hay algo que arreglar), `motivo` (por qué; "" si no alerta) y `aviso`
+    (nota informativa que no es falla: pausada, cubierta, sin primera carga). El visor usa esto y no recalcula.
+    Una `macro_<id>` sin error propio toma su edad de la última corrida de `macro_series` sin error (solo escribe fila al fallar o recuperarse);
+    `macro_energia` (mensual, hoy solo en casa) alerta por antigüedad de la bajada o porque el paso `energia` de `casa` falló después de ella,
+    no por una fila vieja de una ruta que ya no corre (GitHub)."""
+    ms = max((r["fecha"] for r in filas if r["fuente"] == "macro_series" and not r["error"]), default=None)
+    por = {r["fuente"]: r for r in rows}
+    for r in rows:
+        f, c, mot, av = r["fuente"], cadencia(r["fuente"]), "", ""
+        r["cadencia"], dias, nunca = c, r["dias_sin_datos"], r["ultimo_ok"] is None
+        if f == "casa":
+            pass  # su aviso (más de 2 días sin correr) lo arma el visor con dias_sin_correr
+        elif c == "pausada":
+            av = "pausada por decisión documentada" if nunca else ""
+        elif c == "serie":
+            if ms and not r["error"]:
+                r["ultimo_ok"], r["dias_sin_datos"] = ms, (hoy - date.fromisoformat(ms)).days
+            if r["error"]:
+                mot = f"falló: {r['error']}"
+            elif not ms:
+                mot = "macro_series nunca corrió bien"
+            elif r["dias_sin_datos"] > 1:
+                mot = f"macro_series sin correr bien hace {r['dias_sin_datos']} días"
+        elif c == "mensual":
+            malo = [x for x in filas if x["fuente"] == "casa" and "energia" in x["error"].split(":", 1)[-1] and (nunca or x["fecha"] > r["ultimo_ok"])]
+            if nunca:
+                mot = "nunca hubo una bajada buena"
+            elif dias > MENSUAL_DIAS:
+                mot = f"última bajada buena hace {dias} días (la SE publica una vez por mes)"
+            elif malo:
+                mot = f"el recolector de casa falló en el paso energia el {malo[-1]['fecha']}, después de la última bajada buena"
+        elif c == "manual":
+            if nunca:
+                av = "habilitado, todavía sin su primera carga"
+            elif dias > MANUAL_DIAS:
+                mot = f"carga manual con {dias} días"
+        elif r["error"] or nunca or dias > 1:
+            mot = f"falló: {r['error']}" if r["error"] else "nunca trajo datos" if nunca else f"sin datos hace {dias} días"
+        r["alerta"], r["motivo"], r["aviso"] = bool(mot), mot, av
+    for f, cub in CUBIERTA.items():  # la cubridora al día = la cubierta no alerta
+        if f in por and cub in por and por[f]["alerta"] and not por[cub]["alerta"] and (por[cub]["dias_sin_datos"] or 0) <= 1:
+            por[f].update(alerta=False, motivo="", aviso=f"cubierto por {cub}")
+    return rows
 
 
 def fuentes_grok(d, hoy):
@@ -2086,6 +2145,34 @@ def demo():
         "id,nombre,grupo,frec,unidad,fuente\nA,Serie A,liviano,M,u,INDEC\nB,Serie B,precios,M,u,BCRA\nC,Serie C,agro,M,u,INDEC\n", encoding="utf-8")
     with open(raiz / "data" / "fuentes.csv", "a", encoding="utf-8") as f:
         f.write("2026-11-02,macro_series,200,3,3,0,0,,0\n2026-11-03,macro_series,200,3,0,0,0,sin datos,0\n2026-10-29,casa,,5,5,0,0,,0\n2026-10-30,casa,,5,4,0,0,fallaron: sepa,0\n")
+
+    # avisos de fuentes: alerta/motivo por cadencia (casos del 2026-11-19)
+    def _av(extra, hoy=date(2026, 11, 19), grok=()):
+        base = {"fuentes": [], "grok": list(grok), "grok_sitios": []}
+        for x in extra:
+            base["fuentes"].append({**dict.fromkeys(FUENTES_F, ""), "http": "200", "n_items": "5", "n_con_precio": "0", "n_sin_stock": "5",
+                                    "n_sin_match": "0", "n_descartados": "0", **dict(zip(("fecha", "fuente", "error"), x))})
+        return {r["fuente"]: r for r in fuentes(base, hoy)}
+    assert not _av([("2026-11-19", "vtex_jumbo", "")])["vtex_jumbo"]["alerta"]   # todo sin stock pero responde bien: no es falla
+    g_ = {"fecha": "2026-10-01", "fuente": "grok_helix", "cargado": "2026-10-01T10:00", "producto_id": "", "provincia": "", "pais": "AR", "moneda": "ARS"}
+    assert not _av([("2026-11-19", "helix_api", "")], grok=[dict(g_, fecha="2026-11-04")])["grok_helix"]["alerta"]
+    h_ = _av([("2026-11-19", "helix_api", "")], grok=[g_])["grok_helix"]   # 49 días: alertaría, pero helix_api lo cubre
+    assert not h_["alerta"] and h_["aviso"] == "cubierto por helix_api", h_
+    assert _av([("2026-11-17", "helix_api", "")], grok=[g_])["grok_helix"]["alerta"]   # helix_api atrasada no cubre
+    s_ = _av([("2026-11-05", "macro_x", ""), ("2026-11-19", "macro_series", "")])
+    assert not s_["macro_x"]["alerta"] and s_["macro_x"]["dias_sin_datos"] == 0, s_["macro_x"]   # sin fila propia hace 14 días, macro_series al día
+    assert _av([("2026-11-05", "macro_x", ""), ("2026-11-17", "macro_series", "")])["macro_x"]["alerta"]
+    assert _av([("2026-11-18", "macro_x", "HTTP 500"), ("2026-11-19", "macro_series", "")])["macro_x"]["alerta"]   # falla propia vigente
+    m92 = "macro_92_2_tipo_cambiion_0_0_21_24"
+    assert not _av([("2026-11-05", m92, "HTTP 500"), ("2026-11-19", "macro_series", ""), ("2026-11-19", "fx_bcra", "")])[m92]["alerta"]   # cubierta por fx_bcra
+    e_ = [("2026-11-05", "macro_energia", ""), ("2026-11-18", "macro_energia", "URLError: timed out")]   # error de la Action, ruta que ya no corre
+    assert not _av(e_)["macro_energia"]["alerta"] and not _av([("2026-11-05", "macro_energia", "")])["macro_energia"]["alerta"]
+    assert _av([("2026-09-20", "macro_energia", "")])["macro_energia"]["alerta"]   # bajada de hace 60 días
+    assert _av([("2026-11-05", "macro_energia", ""), ("2026-11-19", "casa", "fallaron: sepa, energia")])["macro_energia"]["alerta"]
+    assert not _av([("2026-11-05", "macro_energia", ""), ("2026-11-19", "casa", "fallaron: sepa")])["macro_energia"]["alerta"]
+    assert not _av([("2026-11-05", "macro_energia", ""), ("2026-11-04", "casa", "fallaron: energia")])["macro_energia"]["alerta"]
+    assert _av([("2026-11-19", "vtex_easy", "HTTP 403")])["vtex_easy"]["alerta"] and _av([("2026-11-16", "vtex_easy", "")])["vtex_easy"]["alerta"]
+    assert not _av([("2026-11-19", "vtex_easy", "")])["vtex_easy"]["alerta"]
 
     d = cargar(raiz)
     c = calcular(d, hoy=date(2026, 11, 3))
