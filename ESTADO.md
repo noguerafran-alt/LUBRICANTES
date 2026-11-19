@@ -3,6 +3,10 @@
 Actualizado 2026-11-19 (share por marca en Mercado; share ampliado con la serie completa desde 2010; gráficos ampliables en Mercado; modelos 3D sin foto atrás y con malla cerrada; export a Power BI; modelos 3D con Blender y modo presentación con GLB; Brasil; antes: mercado: share de la SE y series de datos.gob.ar). Remoto privado `noguerafran-alt/LUBRICANTES`; la Action corre a diario.
 
 
+
+## Tabla de marcas plegada (2026-11-19)
+- A pedido del usuario, «Qué marca está dentro de qué empresa» (Mercado) va dentro de un `<details>` cerrado con ⓘ, no abierta de entrada. Verificado en el navegador: cerrada por defecto, 14 filas al abrir.
+
 ## Share por provincia con mes y comparación elegibles (2026-11-19, rama lub-provmes)
 - Mercado, tabla «Share de YPF por provincia»: selector de **Mes** (todos los meses con dato de la ventana de 36; default el último) y **Comparar con** = Mes anterior | Hace 12 meses (default, igual que antes) | Otro mes (segundo selector). La columna de comparación y el título se rotulan según la elección; Variación = share del mes menos share del mes de comparación, en pp. Provincia sin dato en uno de los dos meses: `...`, nunca 0. Respeta producto, canal y «Ver por».
 - `/api/mercado` (`share`) suma `provincias_meses` `{AAAA-MM: {provincia: {share_ypf, volumen}}}` (36 meses, sin `?mes=`/`?vs=`: el front calcula). `provincias` queda igual. Assert en `server.py test`.
