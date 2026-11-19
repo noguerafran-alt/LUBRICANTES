@@ -52,6 +52,7 @@ MONEDA_DEFECTO = {"AR": "ARS", "BR": "BRL", "CL": "CLP", "UY": "UYU", "PY": "PYG
 MONEDAS = {"ARS", "BRL", "CLP", "UYU", "PYG", "BOB", "USD"}
 NOTAS_FUENTE = {
     "oficial_br_notaparana": "pausada desde 2026-11-18: la API devuelve datos señuelo al acceso automatizado; no se esquiva",
+    "helix_api": "automática: combos Shell de helixturno.com.ar por su API JSON (servicios con mano de obra, no $/L de bidón)",
     "fx_bcb_ptax": "tipo de cambio oficial PTAX (venta) del Banco Central do Brasil: solo para mostrar en USD",
 }
 SITIOS_F = ["fuente", "host", "descripcion"]
@@ -68,7 +69,7 @@ SERVICIOS_F = [c for c in GROK_ALM_F if c not in ("tipo", "producto_id", "match"
 # Un combo con cualquiera de estos ítems en `detalle` no es "aceite + colocación": su precio no se divide por litro.
 # ponytail: lista negra de palabras; un repuesto que no esté acá se dividiría. Sumarlo si aparece.
 RX_EXTRA = re.compile(r"filtro|kit|aditiv|refrigerante|lavado|buj[ií]a|pastilla|l[ií]quido|limpi|alineaci|balanceo|neum[aá]tic|"
-                      r"escobill|l[aá]mpara|bater[ií]a|correa|flushing|repuesto", re.I)
+                      r"escobill|l[aá]mpara|bater[ií]a|correa|flushing|repuesto|sin colocaci", re.I)  # "sin colocación" (helix_api): no es aceite + colocación
 MAX_FILAS, MAX_CARGAS_DIA, MAX_BYTES = 500, 10, 2_000_000
 RX_FUENTE = re.compile(r"grok_[a-z0-9_]{2,30}")
 RX_FECHA = re.compile(r"\d{4}-\d{2}-\d{2}")
@@ -322,7 +323,8 @@ def fuentes_grok(d, hoy):
     """Una fila por grok_*: la 'corrida' es la última carga; días sin datos = hoy - fecha del último dato."""
     por = defaultdict(list)
     for r in d["grok"]:
-        por[r["fuente"]].append(r)
+        if r["fuente"].startswith("grok_"):  # helix_api también escribe en data/grok/, pero su estado ya está en fuentes.csv
+            por[r["fuente"]].append(r)
     out = []
     for f in sorted({s["fuente"] for s in d["grok_sitios"]} | set(por)):
         filas = por.get(f, [])
@@ -2257,6 +2259,9 @@ def demo():
         assert litro_servicio(dict(sv0, precio="239990", litros="4", detalle="FILTRO AIRE;FILTRO ACEITE;COLOCACIÓN")) == ("0", "")
         assert litro_servicio(dict(sv0, precio="303690", litros="5", detalle="Filtro de aire JFA-0285;Mano de obra")) == ("0", "")
         assert litro_servicio(dict(sv0, precio="76990", litros="", detalle="COLOCACIÓN")) == ("0", "")
+        assert litro_servicio(dict(sv0, precio="70000", litros="4", detalle="sin colocación")) == ("0", "")  # helix_api: sin colocación no es aceite + colocación
+        import recolectar
+        assert recolectar.GROK_ALM == GROK_ALM_F and "helix_api" not in {f["fuente"] for f in fuentes_grok({"grok": [dict(sv0, fuente="helix_api")], "grok_sitios": []}, date.today())}
         assert {(r["detalle"], r["solo_aceite"]) for r in calcular(d2)["servicios"] if r["titulo"] == "Combo HX7 X 4L"} ==             {("filtro aire", "0"), ("filtro aire;filtro aceite", "0")}
         # tope de 10 cargas por día
         for i in range(12):

@@ -2,6 +2,16 @@
 
 Actualizado 2026-11-19 (share por marca en Mercado; share ampliado con la serie completa desde 2010; gráficos ampliables en Mercado; modelos 3D sin foto atrás y con malla cerrada; export a Power BI; modelos 3D con Blender y modo presentación con GLB; Brasil; antes: mercado: share de la SE y series de datos.gob.ar). Remoto privado `noguerafran-alt/LUBRICANTES`; la Action corre a diario.
 
+
+## helix_api: combos Shell por la API JSON de helixturno (2026-11-19, rama lub-helix)
+- **Pedido**: leer los combos de cambio de aceite Shell de helixturno.com.ar por su API pública en vez de depender de Grok, dentro de la Action diaria.
+- **Qué hace**: `recolectar.helix_api` (1 request a `GetCombosWeb` con `ml.pedir`) escribe filas `tipo=servicio`, `fuente=helix_api`, `verificado=1` en `data/grok/AAAA-MM.csv` (mismo lugar y reglas que `grok_helix`: `/api/servicios`, `precio_litro` solo con aceite + colocación sin filtros, fuera del comparador y del índice). Corre en el recorrido por defecto (Action incluida), su estado va a `data/fuentes.csv`; si falla queda con `error` y no toca `data/grok/`. Idempotente por fecha+fuente (reemplaza las filas del día); dentro del día la clave es titulo+detalle (flags de filtros/colocación), sin pisar combos del mismo título.
+- **Decisiones**: `provincia` vacía (la API no trae zona; no se deduce). Un combo sin colocación lleva `sin colocación` en `detalle` y `RX_EXTRA` suma ese texto, así no se le calcula $/L. `server.fuentes_grok` ignora fuentes que no empiezan con `grok_` (si no, `/api/fuentes` duplicaba `helix_api`). Visor: etiqueta "Shell Helix combos (API helixturno, automática)" y la columna $/L vacía dice "no es solo aceite + colocación".
+- **Datos**: la primera corrida reescribió `data/grok/2026-11.csv` con el encabezado completo (suma `provincia,pais,moneda`, que las filas viejas dejan vacías) y fin de línea `
+`: el diff muestra todo el archivo.
+- **Verificado**: `recolectar.py test` y `server.py test` OK (fixture con el JSON de ejemplo: HX8 con filtros, mismo título con distinto contenido, sin precio, idempotencia, `grok_helix` intacta). Corrida real desde la PC: HTTP 200, 8 combos (HX5, HX7, HX8, Ultra; 239.990 el HX8 con filtros), todos con `producto_id`.
+- **No verificado**: la corrida en la Action (hoy no hay forma de probar si Azure responde desde IP de GitHub); el visor en navegador.
+
 ## Market share por marca en Mercado (2026-11-19, rama lub-marca)
 - **Pedido**: ver el share «por marca» con un filtro. La SE publica por empresa, así que «Marca» es solo un rótulo + una precisión (`exacto` | `agrupado`); los números (volumen y share) son idénticos.
 - **Server**: `ROTULOS`/`rotulos(d, emp)`/`rotulo_en`/`etiquetar` en `server.py`. `/api/mercado` y `/api/mercado/share` aceptan `?por=empresa|marca` (otro valor = 400) y con `marca` suman `marca` y `precision` por empresa (los del último mes); `?completo=1` suma `marca_mes` si el rótulo cambia. PAE/Axion: antes de 2019-01 «Axion/Esso (incluía Mobil hasta 2018, inferida)», desde ahí «Castrol + Axion (no separable)» (corte = `desde` de Castrol en el seed). `origen` ahora trae `rotulos` siempre (así el visor cambia sin pedir de nuevo y `/api/mercado/perdidas` los lleva en `origenes`). Una empresa fuera de la tabla (p. ej. Interlub) y `Otras` conservan su nombre y `precision` null. CSV y `/api/bi` no cambian.

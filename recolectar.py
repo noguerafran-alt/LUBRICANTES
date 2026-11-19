@@ -408,10 +408,55 @@ def guardar_imagenes(ruta, nuevas, fecha):
     return cambios
 
 
+# ---------- helix_api: combos de cambio de aceite Shell de helixturno.com.ar (API JSON anónima del propio sitio) ----------
+HELIX_URL = "https://api-core-turnos-prod.azurewebsites.net/api/v1/combos/GetCombosWeb"
+HELIX_PAGINA = "https://www.helixturno.com.ar/combos"  # misma URL que usa grok_helix: la `url` de cada fila
+GROK_ALM = "fecha,fuente,url,titulo,marca,precio,precio_lista,litros,unidades,tipo,detalle,verificado,producto_id,match,cargado,provincia,pais,moneda".split(",")  # = server.GROK_ALM_F (assert en server.py test)
+
+
+def filas_helix(resultado, fecha, cargado):
+    """result[] de GetCombosWeb → (filas para data/grok/, n sin precio). Son servicios (aceite + mano de obra), nunca $/L de bidón:
+    `tipo=servicio`, así que server.py los manda a /api/servicios y no a obs. `imagenWeb` (URL firmada que vence) se ignora.
+    Los ítems incluidos van a `detalle` (lo que lee server.RX_EXTRA); la clave del día es titulo+detalle, no el título solo."""
+    por_clave, sin_precio = {}, 0
+    for c in resultado:
+        precio = c.get("precio")
+        if not isinstance(precio, (int, float)) or isinstance(precio, bool) or precio <= 0:
+            sin_precio += 1
+            continue
+        titulo = f"{c.get('titulo', '')} {c.get('descripcion', '')}".strip()
+        n = normalizar(titulo, "", "", url=HELIX_PAGINA)
+        detalle = ";".join(t for t, k in (("FILTRO AIRE", "filtroAire"), ("FILTRO ACEITE", "filtroAceite")) if c.get(k)
+                           ) + (";COLOCACIÓN Y CONTROLES" if c.get("colocacion") else ";sin colocación")
+        f = dict(fecha=fecha, fuente="helix_api", url=HELIX_PAGINA, titulo=titulo, marca=n["marca"] or "", precio=num(precio), precio_lista="",
+                 litros=num(n["litros"]), unidades=n["unidades"] or "", tipo="servicio", detalle=detalle.lstrip(";"), verificado="1",
+                 producto_id=n["producto_id"], match=n["match"], cargado=cargado, provincia="", pais="AR", moneda="ARS")
+        por_clave[(f["titulo"], f["detalle"])] = f  # mismo combo dos veces el mismo día: una fila
+    return list(por_clave.values()), sin_precio
+
+
+def helix_api(fecha):
+    """→ (http, n_items, n_sin_precio, error). Una request; ml.pedir ya pone User-Agent honesto, timeout 30 s y un reintento.
+    Escribe data/grok/AAAA-MM.csv reemplazando las filas helix_api de esa fecha. Si falla no toca nada."""
+    http, d = ml.pedir(HELIX_URL)
+    res = d.get("result") if isinstance(d, dict) else None
+    if not isinstance(res, list):
+        return http, 0, 0, f"HTTP {http}" if d is None else "respuesta sin result[]"
+    if not res:
+        return http, 0, 0, "API sin combos (result vacío)"
+    filas, sin_precio = filas_helix([c for c in res if isinstance(c, dict)], fecha, ahora_utc())
+    reemplazar(os.path.join(DATA, "grok", fecha[:7] + ".csv"), GROK_ALM, filas, lambda f: (f["fuente"], f["fecha"]))
+    return http, len(res), sin_precio, ""
+
+
 def correr(fuente, fecha, rel=None, imgs=None):
     """→ (fila fuentes, filas obs o None). None = no tocar obs de esa fuente (falló)."""
     fila = dict(fecha=fecha, fuente=fuente, http="", n_items=0, n_con_precio=0, n_sin_stock=0, n_sin_match=0, error="",
                 n_descartados=0)
+    if fuente == "helix_api":
+        fila["http"], fila["n_items"], fila["n_sin_stock"], fila["error"] = helix_api(fecha)
+        fila["n_con_precio"] = 0 if fila["error"] else fila["n_items"] - fila["n_sin_stock"]
+        return fila, None
     if fuente == "ypf_gql":
         fila["http"], fila["n_items"], fila["error"] = ypf_gql(imgs)
         obs = None
@@ -452,7 +497,7 @@ PAUSADAS = {"oficial_br_notaparana"}  # desde 2026-11-18: la API devuelve datos 
 
 
 def fuentes_por_defecto(env=os.environ):
-    todas = ["ypf_gql", *VTEX, *tiendas.SHOPIFY, *tiendas.TIENDANUBE, "oficial_br_notaparana", "ml_cat", "ml"]
+    todas = ["ypf_gql", *VTEX, *tiendas.SHOPIFY, *tiendas.TIENDANUBE, "oficial_br_notaparana", "helix_api", "ml_cat", "ml"]
     return [f for f in todas if f not in PAUSADAS and not (env.get("GITHUB_ACTIONS") == "true" and f in FUENTES_PC)]
 
 
@@ -498,7 +543,25 @@ def demo():
               dict(url="u", ean="", titulo="Aceite Gulf max 20w-50 x 1l", marca_cruda="Gulf", precio=10560.0, precio_lista=10560.0, stock=None, vendedor="C")]
     assert "oficial_br_notaparana" not in fuentes_por_defecto({}) and "oficial_br_notaparana" not in fuentes_por_defecto({"GITHUB_ACTIONS": "true"})
     assert es_senuelo([dict(ncm="320096897", desc="ELAION", gtin="0")] * 3) and not es_senuelo([dict(ncm="27101932"), dict(ncm="34011190")]) and not es_senuelo([])
-    assert "ml" in fuentes_por_defecto({"GITHUB_ACTIONS": "true"})
+    assert "ml" in fuentes_por_defecto({"GITHUB_ACTIONS": "true"}) and "helix_api" in fuentes_por_defecto({"GITHUB_ACTIONS": "true"})
+    # helix_api: JSON de ejemplo de GetCombosWeb (sin red). Servicio, no bidón; HX8 con filtros; clave titulo+detalle; sin precio no entra.
+    hx = [dict(titulo="Combo Sintetico", descripcion="Shell Helix HX8 Professional AV 5W40 (4 Litros)", imagenWeb="https://x/firmada?sig=1",
+               filtroAire=True, filtroAceite=True, colocacion=True, precio=239990),
+          dict(titulo="Combo Semisintetico", descripcion="Shell Helix HX7 10W-40 (4 Litros)", filtroAire=False, filtroAceite=False, colocacion=True, precio=96990),
+          dict(titulo="Combo Semisintetico", descripcion="Shell Helix HX7 10W-40 (4 Litros)", filtroAire=False, filtroAceite=True, colocacion=True, precio=99990),
+          dict(titulo="Combo Mineral", descripcion="Shell Helix HX5 15W-40 (4 Litros)", filtroAire=False, filtroAceite=False, colocacion=False, precio=70000),
+          dict(titulo="Combo roto", descripcion="Shell Helix HX7 10W-40 (4 Litros)", colocacion=True, precio=0)]
+    fh, sp = filas_helix(hx, "2026-11-19", "2026-11-19T12:00:00Z")
+    assert sp == 1 and len(fh) == 4 and all(f["fuente"] == "helix_api" and f["tipo"] == "servicio" and f["verificado"] == "1" and (f["pais"], f["moneda"], f["provincia"]) == ("AR", "ARS", "") for f in fh)
+    assert [f for f in fh if f["precio"] == "239990"][0]["producto_id"] == "shell-helix-hx8-professional-av-5w40" and fh[0]["litros"] == "4" and fh[0]["marca"] == "Shell"
+    assert fh[0]["detalle"] == "FILTRO AIRE;FILTRO ACEITE;COLOCACIÓN Y CONTROLES" and fh[1]["detalle"] == "COLOCACIÓN Y CONTROLES" and fh[3]["detalle"] == "sin colocación"
+    assert len({(f["titulo"], f["detalle"]) for f in fh}) == 4 and "imagenWeb" not in str(fh) and set(fh[0]) == set(GROK_ALM)  # mismo título, otro contenido: no se pisan
+    rh = os.path.join(__import__("tempfile").mkdtemp(), "g.csv")
+    viejo = dict(fh[0], fuente="grok_helix", precio="1")
+    reemplazar(rh, GROK_ALM, [viejo], lambda f: (f["fuente"], f["fecha"]))
+    for _ in (1, 2):  # idempotente: la segunda corrida del día no duplica y no toca a grok_helix
+        reemplazar(rh, GROK_ALM, fh, lambda f: (f["fuente"], f["fecha"]), {("helix_api", "2026-11-19")})
+    assert [f["fuente"] for f in leer(rh)].count("helix_api") == 4 and [f["fuente"] for f in leer(rh)].count("grok_helix") == 1
     filas, sin_stock, _, desc = a_obs("vtex_x", "2026-11-03", avisos)
     assert sin_stock == 2 and len(filas) == 2 and desc == 0, (sin_stock, filas)
     assert filas[0]["precio"] == "159999" and filas[0]["litros"] == "4" and filas[0]["stock"] == 1

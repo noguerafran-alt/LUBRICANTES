@@ -121,3 +121,10 @@ URL de ejemplo por host:
 - `surtidores.com.ar`: https://surtidores.com.ar/wp-json/wp/v2/posts?search=lubricantes&per_page=10
 - `tecnomoto.com.ar`: https://www.tecnomoto.com.ar/aceites-y-lubricantes/elaion
 - `vea.com.ar`: https://www.vea.com.ar/api/catalog_system/pub/products/search?ft=elaion
+
+## Relevamiento 2026-11-19 (a pedido del usuario)
+
+- `helixturno.com.ar` pasa de candidata a **automática en uso** (`helix_api`): `GET https://api-core-turnos-prod.azurewebsites.net/api/v1/combos/GetCombosWeb`, anónima, 200 JSON; robots.txt de `www.helixturno.com.ar` es `Allow: /` y el host de la API no tiene robots (404). Son combos de servicio (aceite + mano de obra), van a `/api/servicios`, no al comparador. `grok_helix` sigue válida.
+- `axionenergy.com/castrol`: sin precios en pesos.
+- `ar.pli-petronas.com/es-ar/brands/petronas-syntium`: sin precios en pesos.
+- `totalenergies.com.ar/es`: sin precios en pesos; solo deriva a `cambiodeaceite.com.ar`, ya descartada (robots bloquea todo bot salvo Google).

@@ -207,3 +207,4 @@ fecha,fuente,http,n_items,n_con_precio,n_sin_stock,n_sin_match,error,n_descartad
 2026-11-18,macro_energia,,0,0,0,0,URLError: <urlopen error timed out>,0
 2026-11-18,oficial_br_notaparana,200,0,0,0,0,API devolvió 0 productos (¿bloqueo de IP?),0
 2026-11-18,sepa,200,1186,879,0,0,,307
+2026-11-19,helix_api,200,8,8,0,0,,0

@@ -38,7 +38,7 @@ El relevamiento que fundamenta todo esto está en `docs/relevamiento/`
 ## Archivos
 
 ```
-recolectar.py      # (--renormalizar: recalcula el matcheo de data/obs/ y data/grok/ sin tocar precios; --podar: deja en data/obs/ solo lo relacionado con YPF) una corrida: YPF GraphQL + VTEX + Shopify + Tiendanube + ML categorías (+ ML con token si hay secrets)
+recolectar.py      # (--renormalizar: recalcula el matcheo de data/obs/ y data/grok/ sin tocar precios; --podar: deja en data/obs/ solo lo relacionado con YPF) una corrida: YPF GraphQL + VTEX + Shopify + Tiendanube + `helix_api` (combos Shell → data/grok/) + ML categorías (+ ML con token si hay secrets)
 tiendas.py         # lectores Shopify (D'Atri) y Tiendanube (LS Palermo, Casa González), litros de caja/tambor, robots.txt
 ml.py              # cliente ML: categorías sin token, OAuth refresh, products/items con token
 sepa.py            # Precios Claros (SEPA): zip diario en streaming, filtra lubricantes
@@ -200,6 +200,7 @@ Reinstalar la tarea: `schtasks /Create /TN LUBRICANTES-SEPA /SC DAILY /ST 11:00 
 | `vtex_br_pitstop`, `vtex_br_altese` | **Brasil** (BRL, `pais=BR`, `provincia=online`). `https://www.pitstop.com.br/…` y `https://www.altese.com.br/api/catalog_system/pub/products/search?ft=<término>&_from=&_to=`: la categoría da `[]`, se barre por texto con `oleo elaion`, `elaion` y `oleo <marca>` de las marcas BR del seed (`recolectar.terminos_br`); espacios como `%20`, nunca `+` (da 400 "Scripts are not allowed"). Dedupe por `itemId` entre términos; stock 0 fuera; `AvailableQuantity` 100 y 99999 son relleno (stock vacío); lotes y kits (`kit|combo|revisão`, "12 ÓLEO…", "(24 Un)") no entran y `24X1L` = 1 L × 24 (`tiendas.envase`); si el nombre no trae litros, `litros` queda vacío (sin $/L). robots.txt chequeado (`tiendas.permitido`) |
 | `oficial_br_notaparana` | **PAUSADA desde 2026-11-18** (la API devuelve datos señuelo al acceso automatizado; no se esquiva). Antes corría desde la PC (`tools/sepa_pc.py`; la Action la saltea: desde GitHub da 0 productos). **Brasil, Nota Paraná / Menor Preço (Sefaz-PR)**, precio de nota fiscal por establecimiento (se trata como SEPA, no online). `GET https://menorpreco.notaparana.pr.gov.br/api/v1/produtos?termo=<t>&offset=<n>&raio=100&data=-1&ordem=0&gtin=0&local=6gkzmg1v4` (`local` = geohash de Curitiba; sin él da 500). Pagina sumando lo devuelto (las páginas se solapan y `total` cuenta repetidas), dedupe por `id`, tope de 25 páginas por término. Solo NCM `27101932` y GTIN no vacío (sin GTIN son cajas de distribuidor 12X1); GTIN a 13 dígitos (los de caja con indicador 1 quedan como vienen). `fecha` = fecha de la nota (UTC → hora argentina), cada fila al archivo de su mes, idempotente por fila (`clave_fila`), nunca por fecha de corrida; `vendedor` = nombre fantasía → razón social → dirección, `sucursal` = dirección, `provincia` = `BR-<uf>` de la fila. **Con cautela: API interna no documentada, sin términos publicados** (sin robots.txt, 404: se tomó como permitido). Solo Paraná |
 | `fx_bcb_ptax` (`macro.py fx`) | `https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarPeriodo(…)?@dataInicial='MM-DD-AAAA'&@dataFinalCotacao='MM-DD-AAAA'&$format=json` → `data/fx.csv`; `cotacaoVenda`, una fila por fecha de `dataHoraCotacao`, ventana de 10 días, idempotente por fecha+moneda. Día sin cotización = sin fila, nunca se arrastra. La Action corre a las 06:00 ART y la PTAX del día sale después de las 13 h |
+| `helix_api` | `GET https://api-core-turnos-prod.azurewebsites.net/api/v1/combos/GetCombosWeb` (anónima, JSON `{message, result:[{titulo, descripcion, imagenWeb, filtroAire, filtroAceite, colocacion, precio}]}`; `imagenWeb` es una URL firmada que vence y se ignora). **No va a `data/obs/`**: son combos de servicio con mano de obra, así que escribe filas `tipo=servicio` con `fuente=helix_api`, `verificado=1` (viene de la API, no de un scraping de texto) y `provincia` vacía (la API no trae zona) en `data/grok/AAAA-MM.csv` (esquema de Grok, ver abajo): `titulo` = `titulo + descripcion`, `detalle` = `FILTRO AIRE;FILTRO ACEITE;COLOCACIÓN Y CONTROLES` según los flags (sin colocación → `sin colocación`), `producto_id`/litros por `normalizar`. Idempotente: la corrida reemplaza todas las filas `helix_api` de esa fecha; dentro del día la clave es titulo+detalle (dos combos con el mismo título y distinto contenido no se pisan). Por eso va a `/api/servicios` con las mismas reglas que `grok_helix` (`precio_litro` solo si aceite + colocación sin filtros, `RX_EXTRA`) y nunca al comparador ni al índice. Su estado va a `data/fuentes.csv` como cualquier fuente (1 request vía `ml.pedir`: User-Agent honesto, timeout 30 s, un reintento; si falla, `error` y no toca `data/grok/`); `server.fuentes_grok` no la cuenta de nuevo. `grok_helix` sigue siendo válida (carga manual) |
 | `ml_cat` | `https://api.mercadolibre.com/categories/{id}` sin token (MLA375007 y hermanas) |
 | `ml` | con token: `/products/search` + `/products/{id}/items` (un aviso por publicación nueva; atributos del producto: BRAND, GTIN, VISCOSITY_GRADE, NET_VOLUME, UNITS_PER_PACK). `/items/bulk` da `[{}]`, `/items?ids=` 403, `/sites/MLA/search` 403: no se usan. `/highlights` (top 20 por categoría, ids de producto) queda fuera: no hay forma de unirlos a `obs` |
 
@@ -212,17 +213,18 @@ VTEX pagina de a 50 (`_from`/`_to`, máximo 2500). 1 request/s por host,
 
 **En uso** (todas las de la tabla de arriba, más Grok; Brasil: Pitstop, Altese y Nota Paraná, la última **con cautela**): Mercado Libre (API con token) · SEPA/Precios Claros · Carrefour,
 Más Online, Easy, Jumbo, Norauto (VTEX) · D'Atri (Shopify, mayorista) · LS Palermo y Casa González (Tiendanube) ·
-catálogo YPF (GraphQL, sin precios) · categorías ML · helixturno.com.ar vía Grok (`grok_helix`, combos).
+catálogo YPF (GraphQL, sin precios) · categorías ML · helixturno.com.ar: API JSON automática (`helix_api`, combos como servicios) y, aparte, vía Grok (`grok_helix`).
 
 **Candidatas, NO en uso:** relevamiento del 2026-11-04 en `docs/relevamiento/fuentes-candidatas.md` (61 sitios, 37 con
 precio visto; estado, ejemplo de precio, forma de lectura, robots/términos y notas de cada uno). Resumen:
-- `automatica` (API JSON, se suman al recolector como las actuales): API JSON de helixturno (reemplaza a Grok para Shell),
+- `automatica` (API JSON, se suman al recolector como las actuales; la de helixturno ya está en uso como `helix_api`):
   neumaticoslarutaok, repuestosrano, allenderepuestos, lubritodo, olafil, autodo, daytona, tiendaneumaticos, fiatturin, ceridono.
 - `automatica_o_grok`: performance-lube (YPF, Puma, Mobil, Shell, Castrol y Total juntos), lubrimaster, lubricentrodg,
   exporepuestos, laestacionsrl, enausa (mayorista YPF con IVA), mejorescompras (historial de ML).
 - `grok`: motoracing, norfren, lubricentromaximo (robots pide ir lento), netrenault, gramagliarepuestos, maxkar,
   comprarmarket, hermanrepuestos, lubricentrotorooils, donagro, sodimac.
 - No usar: cambiodeaceite.com.ar (robots bloquea todo bot salvo Google), precialo (bloquea bots de IA), Coto.
+- Revisadas el 2026-11-19, sin precios en pesos: axionenergy.com/castrol, ar.pli-petronas.com/es-ar/brands/petronas-syntium, totalenergies.com.ar/es (solo deriva a cambiodeaceite.com.ar, descartada por robots).
 - Hallazgo: **YPF no publica precio en ningún canal propio** (YPF Boxes solo en la app con login); Axion/Castrol, Bardahl,
   Motul y Liqui Moly tampoco. El precio de las marcas siempre sale de terceros.
 
