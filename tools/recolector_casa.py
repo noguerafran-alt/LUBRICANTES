@@ -7,6 +7,7 @@ NUNCA toca Mercado Libre: el token de ML vive solo en GitHub (no se lee .ml_loca
 
 python tools/recolector_casa.py              # una corrida; log en recolector_casa.log; salida != 0 si falla algún paso
 python tools/recolector_casa.py --sin-push   # prueba: hace todo menos publicar
+python tools/recolector_casa.py --solo-pull  # liviano (cron horario): fetch + reset --hard origin/main, sin recolectar; log en pull.log
 python tools/recolector_casa.py test         # asserts sin red
 """
 import json
@@ -88,6 +89,44 @@ def actualizar(raiz):
         if rc:
             return rc, s
     return 0, ""
+
+
+LOCK = ".casa.lock"
+LOCK_VENCE = 4 * 3600  # una corrida entera no tarda tanto: un candado más viejo es de un proceso muerto
+
+
+def tomar_lock(raiz):
+    """Una corrida y un pull no pueden convivir en el clon (el pull hace reset --hard). True si lo tomó."""
+    p = Path(raiz) / LOCK
+    try:
+        if p.exists() and datetime.now().timestamp() - p.stat().st_mtime > LOCK_VENCE:
+            p.unlink()
+        os.close(os.open(p, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+        return True
+    except OSError:
+        return False
+
+
+def soltar_lock(raiz):
+    try:
+        (Path(raiz) / LOCK).unlink()
+    except OSError:
+        pass
+
+
+def solo_pull(raiz):
+    """Modo liviano: trae lo que subió GitHub (ML) o la PC, sin recolectar. Si hay una corrida en curso, no hace nada."""
+    raiz = Path(raiz)
+    if not hay_marcador(raiz):
+        return 2, f"aborta: falta {raiz / MARCADORES[0]} (no es el clon dedicado); no se tocó nada"
+    if not tomar_lock(raiz):
+        return 0, "hay una corrida en curso, no se hace pull"
+    try:
+        rc, s = actualizar(raiz)
+        rc2, h = git(raiz, "log", "-1", "--format=%h %s")
+        return rc, f"pull rc={rc} {s}\nHEAD {h}"
+    finally:
+        soltar_lock(raiz)
 
 
 def entorno():
@@ -228,6 +267,27 @@ def demo():
         (c / ".recolector_casa").write_text("")
         rc, s = correr(c, lambda r: [("c", bueno)], publicar=False)
         assert g("rev-parse", "main", cwd=o).stdout == n0 and "no se publicó" in s, s
+    # --solo-pull: trae lo nuevo del remoto (y pisa lo local), respeta el marcador y el candado
+    with tempfile.TemporaryDirectory() as d:
+        o, c, otro = Path(d) / "origin.git", Path(d) / "clon", Path(d) / "otro"
+        g = lambda *a, cwd=d: subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *a], cwd=cwd, capture_output=True, text=True, check=True)
+        g("init", "-q", "--bare", "-b", "main", str(o))
+        g("clone", "-q", str(o), str(otro))
+        (otro / "x.txt").write_text("1")
+        g("add", ".", cwd=otro), g("commit", "-qm", "uno", cwd=otro), g("push", "-q", "origin", "HEAD:main", cwd=otro)
+        g("clone", "-q", str(o), str(c))
+        rc, s = solo_pull(c)
+        assert rc == 2 and "falta" in s, s  # sin marcador no toca nada
+        (c / ".recolector_casa").write_text("")
+        (otro / "x.txt").write_text("2")
+        g("commit", "-qam", "dos", cwd=otro), g("push", "-q", "origin", "HEAD:main", cwd=otro)
+        (c / "x.txt").write_text("sucio")
+        assert tomar_lock(c) and not tomar_lock(c)
+        rc, s = solo_pull(c)
+        assert rc == 0 and "en curso" in s and (c / "x.txt").read_text() == "sucio", s  # con candado tomado no pisa
+        soltar_lock(c)
+        rc, s = solo_pull(c)
+        assert rc == 0 and (c / "x.txt").read_text() == "2" and "dos" in s and not (c / LOCK).exists(), s
     assert push_rechazado(1, "! [rejected] main -> main (fetch first)")
     assert push_rechazado(1, "Updates were rejected because the tip is behind (non-fast-forward)")
     assert not push_rechazado(1, "fatal: unable to access: Could not resolve host")
@@ -247,9 +307,18 @@ if __name__ == "__main__":
         demo()
         print("¿á�")  # no debe romper con stdout redirigido
         sys.exit(0)
-    rc, texto = correr(RAIZ, publicar="--sin-push" not in sys.argv[1:])
+    pull = "--solo-pull" in sys.argv[1:]
+    if pull:
+        rc, texto = solo_pull(RAIZ)
+    elif not tomar_lock(RAIZ):
+        rc, texto = 0, "hay otra corrida o un pull en curso, no se corre"
+    else:
+        try:
+            rc, texto = correr(RAIZ, publicar="--sin-push" not in sys.argv[1:])
+        finally:
+            soltar_lock(RAIZ)
     if hay_marcador(RAIZ):
-        with open(RAIZ / "recolector_casa.log", "a", encoding="utf-8") as f:
+        with open(RAIZ / ("pull.log" if pull else "recolector_casa.log"), "a", encoding="utf-8") as f:
             f.write(f"=== {datetime.now():%Y-%m-%d %H:%M:%S} rc={rc}\n{texto}\n")
     print(texto)
     sys.exit(rc)

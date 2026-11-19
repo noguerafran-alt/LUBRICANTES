@@ -5,6 +5,14 @@ Actualizado 2026-11-19 (Visualizador, página de producto y `/api/producto`; sha
 
 
 
+## El celular también es el servidor principal (2026-11-19, rama lub-celuserver)
+- Decisión del usuario: el celu (Termux) sirve la página en `https://lubricantes.fln-data-analysis.com` con Cloudflare Tunnel; Cloudera consume de ahí; Render queda de respaldo (`render.yaml` sin tocar) y GitHub hace ML y respaldo.
+- `server.py`: recarga de datos sin reiniciar (`firma_datos`: commit de HEAD, o mtime de `fuentes.csv` sin git; `recargar`: construye el estado entero y reemplaza la referencia, si falla sigue con lo anterior y loguea; hilo `vigilar` cada `LUB_RECARGA_MIN`, 5 por defecto, apagado en Render). `/salud` ahora devuelve `{ok, commit, ultimo_dato}` (sin secretos). Siempre 127.0.0.1 fuera de Render (ya era así).
+- `tools/recolector_casa.py`: modo `--solo-pull` (fetch + reset --hard, log `pull.log`) y candado `.casa.lock` para que pull y corrida no se pisen.
+- `tools/termux_setup.sh`: instala `cloudflared` y `curl`, crea los servicios sv `lub-server` y `lub-tunel` (token solo por `~/.lub-tunel-token` o login de cloudflared; nunca lo pide), cron del pull en el minuto 20, arranque con Termux:Boot, subcomando `estado`. `docs/celular.md`: servidor y túnel paso a paso, Cloudera y alternativa por ADB. `.gitignore`: `.casa.lock`, `pull.log`, `logs/`.
+- Verificado: `server.py test` y `recolector_casa.py test` dan OK (recarga con clon git temporal: cambia HEAD recarga, igual no, datos rotos sigue con lo anterior; `--solo-pull` contra remoto git local, marcador y candado). Server real en 127.0.0.1:8791 sobre un clon temporal: tras un commit nuevo `/salud` cambió de commit a los pocos segundos. `bash -n` de los .sh OK.
+- No verificado: nada en Termux real (termux-services, `sv`, `cloudflared` de Termux y su DNS, Termux:Boot, runsvdir tras reinicio), el túnel con Cloudflare, el dominio, la categoría del proxy de YPF, ni la instalación por ADB (`run-as` solo con APK debug; no se conectó el celu en esta sesión). Una recarga y una escritura de `POST /api/cargar` a la vez pueden pisarse (con clave configurada).
+
 ## Visor a todo el ancho y scroll de página (2026-11-19)
 - `site/index.html`: `main` y `.cab` sin ancho máximo (margen lateral 12-24 px, `clamp`), en todas las pestañas; las notas siguen con `max-width: 70ch`. Se sacó el modo escritorio «el Visualizador ocupa la ventana» (body 100dvh, `.vt-datos` con overflow-y): la ficha crece con su contenido y scrollea la página. La foto del escritorio queda de 280 px de alto (no se estira). El modo presentación (`.pz-panel`) no cambia.
 - Sin verificar en navegador: lo hace lub-test (1920/1680/1280/375, claro y oscuro; `.vt-datos` scrollHeight == clientHeight, sin desborde horizontal).

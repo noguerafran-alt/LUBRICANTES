@@ -41,7 +41,44 @@ Si no tenés celular a mano, la PC con Windows hace lo mismo con la tarea progra
    ```
    Hace todos los pasos y deja un commit local, sin subir nada. Tarda unos minutos (la SE, ~770 MB, solo se baja cuando publicó algo nuevo). Para publicar de verdad: `python tools/recolector_casa.py`.
 7. **Ver el log**: `tail -50 ~/lub-casa/recolector_casa.log` (lo que hizo cada paso) y `tail ~/lub-casa/cron.log` (si el cron llegó a arrancarlo). Con el cron corriendo, `crontab -l` muestra la agenda.
-8. **Reiniciar el celular una vez** para confirmar que Termux:Boot levanta `crond` solo (`pgrep crond` tiene que devolver un número).
+8. **Reiniciar el celular una vez** para confirmar que Termux:Boot levanta `crond` y los servicios solos (`bash ~/lub-casa/tools/termux_setup.sh estado`).
+
+## Servidor y túnel (el celu también sirve la página)
+
+El mismo celular corre `python server.py` (servicio `lub-server`, solo en `127.0.0.1:8090`) y `cloudflared` (servicio `lub-tunel`) lo publica en **https://lubricantes.fln-data-analysis.com**. Render queda de respaldo. El instalador (`tools/termux_setup.sh`) ya instala `cloudflared`, crea los dos servicios y el cron del pull horario (minuto 20). Lo que falta lo hacés vos, una vez:
+
+1. **Login de Cloudflare** (recomendado). En Termux:
+   ```
+   cloudflared tunnel login
+   ```
+   Imprime un link: abrilo en el navegador del celular, entrá a tu cuenta de Cloudflare y autorizá el dominio `fln-data-analysis.com`. Queda `~/.cloudflared/cert.pem`.
+2. **Crear el túnel y la ruta DNS**:
+   ```
+   cloudflared tunnel create lubricantes
+   cloudflared tunnel route dns lubricantes lubricantes.fln-data-analysis.com
+   ```
+3. Dentro de unos segundos `lub-tunel` arranca solo (el servicio reintenta cada 5 minutos si todavía no había credenciales; para apurarlo: `sv restart lub-tunel`).
+4. **Probar**: `bash ~/lub-casa/tools/termux_setup.sh estado` y, desde cualquier lado, `https://lubricantes.fln-data-analysis.com/salud`. Devuelve `{"ok": true, "commit": "...", "ultimo_dato": "AAAA-MM-DD"}`: el commit de datos que se sirve y la fecha de la última observación. Si `ultimo_dato` queda viejo, mirá `~/lub-casa/pull.log`.
+5. Si el proxy de YPF marca el dominio como «sin categoría», pedir que lo categoricen, igual que se hizo con A4D.
+
+**Variante con token** (si preferís no hacer el login en el celular): en el panel de Cloudflare (Zero Trust > Networks > Tunnels) creá un túnel, apuntá el hostname `lubricantes.fln-data-analysis.com` a `http://127.0.0.1:8090` y guardá el token en `~/.lub-tunel-token` (`chmod 600`). El servicio lo lee de ahí; el instalador nunca lo pide ni lo guarda. **Nunca pegues el token en un chat ni en el repo.**
+
+**Qué hace cada cosa**: el server recarga los datos solo (cada 5 minutos mira si cambió el commit del clon; no hace falta reiniciarlo). El pull horario trae lo que sube GitHub (Mercado Libre a las 10:00) y la PC. Un cambio de **código** (no de datos) requiere `sv restart lub-server`. Logs en `~/lub-casa/logs/` (`server.log`, `tunel.log`, `pull-cron.log`).
+
+**Cloudera**: apuntarlo a `https://lubricantes.fln-data-analysis.com` como URL principal y a `https://lubricantes-ypf.onrender.com` como respaldo. Para saber si el celu está al día comparar `ultimo_dato` de `/salud` en ambas.
+
+Sin clave configurada la lectura es abierta y la carga POST (`/api/cargar`) queda cerrada. No cargues claves en el celu salvo que quieras habilitar esa carga.
+
+## Alternativa: instalar por ADB desde la PC
+
+Con el celular conectado por USB y la **depuración USB** activada (Ajustes > Opciones de desarrollador), desde la PC:
+```
+adb devices                              # tiene que aparecer el celu (aceptá el cartel de autorización en el celular)
+adb install termux.apk                   # los APK de F-Droid o de GitHub (termux-app, termux-boot)
+adb install termux-boot.apk
+adb shell am start -n com.termux/.app.TermuxActivity   # abrir Termux una vez
+```
+Los comandos de Termux se pueden correr desde la PC con `adb shell run-as com.termux ...`, **solo si el APK es debug** (los de GitHub lo son; los de F-Droid, no). Ejemplo: `adb shell run-as com.termux files/usr/bin/bash -lc "bash ~/lub-casa/tools/termux_setup.sh estado"`. El `cloudflared tunnel login` y el token de GitHub los seguís haciendo vos en el celular.
 
 ## Cómo sé que anda
 

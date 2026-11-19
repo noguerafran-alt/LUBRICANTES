@@ -4,7 +4,7 @@ Centraliza los lubricantes que se venden en Argentina (YPF y competencia), sus
 precios en el tiempo y las equivalencias YPF ↔ competidor, y los expone en un
 visor y una API (lectura abierta, sin clave; solo la carga de Grok la pide) para que YPF los analice internamente.
 
-**Arquitectura:** Un **recolector de casa** (celular Android con Termux o PC; `tools/recolector_casa.py`) recolecta por día lo que las IP de datacenter no alcanzan (SEPA, la SE) y el resto de las fuentes; GitHub Actions corre Mercado Libre y hace de respaldo del resto. Ambos comitean CSV en
+**Arquitectura:** el **celular Android con Termux** es recolector de casa **y servidor principal** de la página (Cloudflare Tunnel en `lubricantes.fln-data-analysis.com`; ver «Recolector de casa»); Render queda de respaldo y GitHub hace ML y respaldo. Un **recolector de casa** (celular o PC; `tools/recolector_casa.py`) recolecta por día lo que las IP de datacenter no alcanzan (SEPA, la SE) y el resto de las fuentes; GitHub Actions corre Mercado Libre y hace de respaldo del resto. Ambos comitean CSV en
 `data/`. El push redeploya el Render Web Service free, que sirve visor y API
 leyendo esos archivos. No hay base de datos: git es el almacenamiento y el
 historial. Render free tiene disco efímero y su Postgres vence a los 30 días;
@@ -51,7 +51,7 @@ seed/alias.csv         # EAN / regex de título → producto_id
 seed/equivalencias.csv # pares YPF ↔ competidor (a mano)
 tools/recolector_casa.py # recolector de casa (celular con Termux o PC con Windows): recolectar sin ml, sepa, series, fx y (si la SE publicó algo nuevo) energia en un clon dedicado; fila fuente=casa; pushea data/ a main
 tools/sepa_pc.py   # envoltorio de una línea: la tarea LUBRICANTES-SEPA de Windows lo sigue llamando
-tools/termux_setup.sh # instala el recolector de casa en Termux (sin token); guía en docs/celular.md
+tools/termux_setup.sh # instala en Termux el recolector, el servidor (lub-server), el túnel (lub-tunel), el cron y el arranque (sin token); `estado` = diagnóstico; guía en docs/celular.md
 tools/geo_provincias.py # regenera site/vendor/ar-provincias.js desde Natural Earth (solo a mano; ver Geometría)
 seed/grok_sitios.csv   # lista blanca de sitios que puede cargar Grok: fuente,host,descripcion
 data/obs/AAAA-MM.csv   # observaciones de precio, append-only
@@ -175,7 +175,12 @@ data/macro/energia.csv # ventas de lubricantes y gasoil de la Secretaría de Ene
 Decisión del usuario, 2026-11-19: la recolección corre en un **celular Android con Termux** en su casa (IP residencial; guía en `docs/celular.md`), con la **PC Windows como alternativa equivalente**.
 GitHub Actions queda **solo para Mercado Libre y como respaldo**. Motivo: desde 2026-11-16 `datos.produccion.gob.ar` (SEPA) da **HTTP 403 a toda IP de datacenter** (GitHub y Oracle: CKAN, zip y home;
 el User-Agent no cambia nada) y `datos.energia.gob.ar` da timeout desde GitHub; desde una IP residencial responden. No se esquiva ningún bloqueo (ni proxies ni rotación de IP).
-Más adelante la página se mueve a Oracle (fuera de este cambio).
+**Servidor principal = el mismo celular (decisión del usuario, 2026-11-19).** En el mismo clon `~/lub-casa` corre `python server.py` como servicio `lub-server` (termux-services/runit) en `127.0.0.1:8090` (`PORT`; nunca 0.0.0.0, solo Render usa 0.0.0.0) y un servicio `lub-tunel` (`cloudflared tunnel run`) lo publica en `https://lubricantes.fln-data-analysis.com` (Cloudflare Tunnel, DNS del usuario). Cloudera consume de ahí; **Render queda de respaldo** (`lubricantes-ypf.onrender.com`, sigue publicando el repo igual) y GitHub hace Mercado Libre y de respaldo de la recolección. Reparto: celu = recolector + servidor principal; Render = respaldo; GitHub = ML + respaldo.
+- Lectura abierta sin clave; la carga `POST /api/cargar` queda cerrada si no hay `LUB_CLAVE`/`LUB_CARGA_CLAVE` (en el celu no se cargan claves salvo que el usuario lo pida).
+- **Datos frescos sin reiniciar**: fuera de Render el server vigila el commit de HEAD del clon (`server.firma_datos`; sin git, el mtime de `data/fuentes.csv`) cada `LUB_RECARGA_MIN` minutos (5; 0 = sin hilo). Si cambió, arma el estado nuevo entero y recién ahí reemplaza `Handler.datos/calc` (`server.recargar`); si la recarga falla, sigue con lo anterior y lo loguea. Cambios de **código** (server.py, site/) llegan al disco con el pull pero requieren `sv restart lub-server`.
+- **Pull horario**: `tools/recolector_casa.py --solo-pull` (fetch + `reset --hard origin/main`, con marcador, sin recolectar; log `pull.log`), cron cada hora en el minuto 20. Un candado `.casa.lock` evita que el pull pise una corrida en curso (y al revés; vence a las 4 h).
+- Servicios y cron los deja `tools/termux_setup.sh` (idempotente; `bash tools/termux_setup.sh estado` muestra crond, `/salud`, túnel, última corrida y último pull). Logs en `~/lub-casa/logs/` (`server.log`, `tunel.log`, `pull-cron.log`). El túnel usa las credenciales de `cloudflared tunnel login` (`~/.cloudflared/`) o un token que el usuario guarda en `~/.lub-tunel-token`; **el script nunca pide ni guarda el token**.
+- Límite: si el celu se apaga o pierde red, la página principal cae (Render la sigue sirviendo, con los datos del último push).
 
 `tools/recolector_casa.py` corre en un **clon dedicado** (`~/lub-casa` en Termux; `%USERPROFILE%\lub-sepa` en Windows, fuera de OneDrive) con el marcador `.recolector_casa` en la raíz
 (también vale `.sepa_pc`, el de la tarea de Windows; el script aborta sin marcador porque hace `reset --hard`). Ciclo: fetch + `reset --hard origin/main`, pasos, fila `casa`, un commit
@@ -289,7 +294,7 @@ Sin autenticación para leer (ver «Lectura abierta»). Respuestas JSON; `?forma
 | `/api/cobertura` | por producto YPF del seed: equivalencias, fuentes y provincias con precio en 7 días, última fecha; ver abajo |
 | `/api/bi/precios[?desde=AAAA-MM-DD]` | **Power BI, tabla de hechos** (CSV UTF-8 con BOM): una fila por observación con `producto_id` (`fecha,capturado,producto_id,fuente,canal,vendedor,sucursal,provincia,pais,moneda,precio,litros,unidades,precio_litro,precio_usd_litro,url,match,verificado`). Incluye Grok como `/api/reventa`: `verificado` `0`/`1` solo en Grok y vacío en el resto, el modelo decide si filtra `0`. `precio_usd_litro` con la cotización de ese día exacto (vacío si no hay). `desde` = `fecha >=`, para carga incremental; mal formado = 400 |
 | `/api/bi/productos` · `/api/bi/equivalencias` · `/api/bi/fuentes` · `/api/bi/provincias` | dimensiones del modelo estrella, CSV con BOM: `seed/productos.csv` + `es_ypf` (1/0); `ypf_id,comp_id,tipo,criterio,evidencia,fuente`; `fuente,canal,pais,tipo,ultima_fecha` (`tipo` = tienda\|mayorista\|grok\|sepa\|ml; las `oficial_*` de Brasil cuentan como `sepa`; solo fuentes con observaciones); `codigo,nombre,region,pais,online` (AR, BR y la fila `online`, con `online=1`). Guía en `docs/powerbi.md` |
-| `/salud` | `{"ok":true}` para el health check de Render |
+| `/salud` | `{"ok":true,"commit":"<12 hex del HEAD servido o vacío>","ultimo_dato":"AAAA-MM-DD"}`: health check de Render y, para Cloudera y el usuario, si el celu está al día. Sin secretos (nunca env, rutas ni claves) |
 | `/robots.txt` | `Disallow: /` (con el header `X-Robots-Tag: noindex, nofollow` en todo) |
 
 **País y USD** (`pais`, `usd`): `indice`, `vitrina`, `ultimo`, `serie`, `provincias`, `reventa` y `cobertura` filtran `?pais=AR` por defecto; `?pais=BR` muestra Brasil en BRL; cualquier otro valor da 400. Cada respuesta lleva `pais` y `moneda`
