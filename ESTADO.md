@@ -5,6 +5,9 @@ Actualizado 2026-11-19 (share por marca en Mercado; share ampliado con la serie 
 
 
 
+## Gráfico ampliado: rango de mes a mes (2026-11-19, rama lub-rango)
+Junto a 1A/3A/5A/10A/Todo hay dos selectores «Desde» y «Hasta» con todos los meses de la serie completa (en las diarias, del primer al último día de esos meses). Elegir uno deselecciona los botones; tocar un botón actualiza los selectores al rango que representa. Si «Desde» es posterior a «Hasta» se intercambian y se avisa. Ejes, texto «Eje X», estadísticas (CAGR solo con 2 años o más), escala log, tooltip y `Descargar CSV` usan el rango visible; el CSV exporta solo ese rango y lo dice en el nombre del archivo (`<id>_AAAA-MM_a_AAAA-MM.csv`); con la serie entera y archivo del servidor se baja ese. La media móvil de 12 meses se calcula sobre la serie completa. Solo `site/index.html`. Sin probar en navegador real (ni a 375 px).
+
 ## Dónde perdemos share: períodos editables (2026-11-19, rama lub-periodos)
 - API: `/api/mercado/perdidas` acepta `?desde=&hasta=&vs=anterior|12m|AAAA-MM:AAAA-MM` además de `ventana` (los atajos siguen igual). Validaciones con 400 y mensaje (formato, orden, largo igual, meses dentro de los datos, mezcla con `ventana`). El piso por defecto escala con el largo (`server.piso`, lineal 5 → 50 de 1 a 12 meses; reemplaza a `MIN_DEFECTO`). Asserts en `demo()`; `python server.py test` da OK.
 - Visor: Desde / Hasta / Comparar con (período anterior, mismo período del año anterior, otro período con dos selects que mantienen el largo) y tres atajos de un clic. Resumen, filtro exacto, títulos de columnas antes → después y notas muestran los meses reales elegidos. Cambiar de producto vuelve al atajo de 12 meses.
