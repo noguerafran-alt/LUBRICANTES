@@ -1,7 +1,8 @@
 """Visor y API de LUBRICANTES: sirve site/index.html y calcula /api/* desde seed/ y data/.
 
-Los datos se leen al arrancar: cambian con un push (redeploy) o con POST /api/cargar (relevamientos de Grok).
-Uso: python server.py         (PORT, LUB_CLAVE, LUB_DATOS opcionales)
+Los datos se leen al arrancar y, fuera de Render, se recargan solos (hilo cada LUB_RECARGA_MIN minutos, 5 por defecto, 0 = no)
+cuando cambia el commit de HEAD del clon; también cambian con POST /api/cargar (relevamientos de Grok).
+Uso: python server.py         (PORT, LUB_CLAVE, LUB_DATOS, LUB_RECARGA_MIN opcionales; siempre 127.0.0.1 salvo en Render)
      python server.py test    (asserts, tiene que dar OK)
 """
 import base64
@@ -13,6 +14,7 @@ import json
 import math
 import os
 import re
+import subprocess
 import sys
 import tempfile
 import threading
@@ -233,6 +235,52 @@ def cargar(raiz):
     d["macro_meta"], d["macro_series"] = series_macro(d)
     d["fx_tabla"] = tabla_fx(d)
     return d
+
+
+def firma_datos(raiz):
+    """Qué versión de data/ hay en disco: el commit de HEAD del clon; sin git (o sin repo), el mtime de data/fuentes.csv.
+    Con git no se mira el mtime: mientras el recolector escribe a medias no cambia el commit, así no se recarga un estado a medio escribir."""
+    try:
+        p = subprocess.run(["git", "rev-parse", "HEAD"], cwd=raiz, capture_output=True, text=True, timeout=10)
+        if p.returncode == 0 and p.stdout.strip():
+            return p.stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        pass
+    try:
+        return "mtime:" + str(int((Path(raiz) / "data" / "fuentes.csv").stat().st_mtime))
+    except OSError:
+        return ""
+
+
+def recargar(raiz):
+    """Construye el estado nuevo completo y recién ahí reemplaza las referencias; si algo falla sigue sirviendo lo anterior.
+    Devuelve True si recargó. ponytail: datos y calc se asignan en dos pasos; un pedido en ese instante puede ver datos nuevos con calc viejo (una vez, sin daño)."""
+    firma = firma_datos(raiz)
+    if firma == Handler.firma:
+        return False
+    try:
+        d = cargar(raiz)
+        c = calcular(d)
+    except Exception as e:
+        print(f"recarga fallida, sigo con los datos anteriores: {e!r}", file=sys.stderr, flush=True)
+        return False
+    Handler.datos, Handler.calc, Handler.firma = d, c, firma
+    print(f"datos recargados ({firma[:12]}): {len(d['obs'])} observaciones", flush=True)
+    return True
+
+
+def vigilar(raiz, minutos):
+    while True:
+        time.sleep(minutos * 60)
+        recargar(raiz)
+
+
+def salud():
+    """Sin secretos: solo qué versión de datos se sirve y la fecha de la última observación (Cloudera y el usuario ven si el celu está al día)."""
+    obs = (Handler.datos or {}).get("obs") or []
+    f = Handler.firma or ""
+    return {"ok": True, "commit": "" if f.startswith("mtime:") else f[:12],
+            "ultimo_dato": max((r["fecha"] for r in obs), default="")}
 
 
 def integrar_grok(d):
@@ -1658,6 +1706,7 @@ class Handler(BaseHTTPRequestHandler):
     calc = None   # calcular()
     clave = None
     clave_carga = ""
+    firma = ""    # firma_datos() de lo cargado
     raiz = RAIZ
     candado = threading.Lock()
     pais, usd, fx_fecha = "AR", False, ""  # por pedido (do_GET los fija; los handlers son por conexión)
@@ -1686,7 +1735,7 @@ class Handler(BaseHTTPRequestHandler):
         u = urlsplit(self.path)
         q = {k: v[0] for k, v in parse_qs(u.query).items()}
         if u.path == "/salud":
-            return self.json(200, {"ok": True})
+            return self.json(200, salud())
         if u.path == "/robots.txt":  # lectura abierta (decisión 2026-11-19): que al menos no la indexen
             return self.enviar(200, b"User-agent: *\nDisallow: /\n", "text/plain; charset=utf-8")
         if u.path in ("/", "/index.html"):  # solo se sirve este archivo: no hay path traversal posible
@@ -2389,7 +2438,7 @@ def demo():
                 return r.status, r.read()
         except urllib.error.HTTPError as e:
             return e.code, e.read()
-    assert get("/salud") == (200, b'{"ok": true}')
+    assert get("/salud")[0] == 200 and json.loads(get("/salud")[1])["ok"] is True
     assert get("/api/ultimo")[0] == 200 and get("/robots.txt")[1] == b"User-agent: *\nDisallow: /\n"
     assert urllib.request.urlopen(base + "/api/ultimo").headers["X-Robots-Tag"] == "noindex, nofollow" and get("/api/ultimo", {"X-API-Key": "mala"})[0] == 200   # la clave vieja o errónea se ignora
     assert get("/")[0] == 200
@@ -2685,6 +2734,35 @@ def demo():
             os.environ["GH_CARGA_TOKEN"] = token_ant
     shutil.rmtree(raiz / "data" / "grok")
 
+    # recarga sin reiniciar: un clon git temporal; cambia HEAD -> recarga; igual -> no; datos rotos -> sigue con lo anterior
+    with tempfile.TemporaryDirectory() as td:
+        clon = Path(td) / "clon"
+        shutil.copytree(raiz, clon)
+        gg = lambda *a: subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *a], cwd=clon, capture_output=True, text=True, check=True)
+        gg("init", "-q"), gg("add", "."), gg("commit", "-qm", "uno")
+        previo = (Handler.datos, Handler.calc, Handler.firma)
+        try:
+            Handler.firma = ""
+            assert recargar(clon) and not recargar(clon)   # primera vez carga; sin cambios no recarga
+            s = salud()
+            assert s["ok"] is True and s["ultimo_dato"] == "2026-11-03" and s["commit"] == Handler.firma[:12] and len(s["commit"]) == 12, s
+            assert "token" not in json.dumps(s).lower()
+            arch = clon / "data" / "obs" / "2026-11.csv"
+            filas = arch.read_text(encoding="utf-8").splitlines()
+            nueva = filas[-1].split(",")
+            nueva[0] = "2026-11-09"
+            arch.write_text("\n".join(filas + [",".join(nueva)]) + "\n", encoding="utf-8")
+            assert not recargar(clon)   # sin commit nuevo no se mira el archivo (el recolector puede estar escribiendo)
+            gg("add", "."), gg("commit", "-qm", "dos")
+            assert recargar(clon) and salud()["ultimo_dato"] == "2026-11-09"
+            ok = Handler.datos
+            (clon / "seed" / "productos.csv").write_bytes(b"\xff\xfe\xff")
+            gg("add", "."), gg("commit", "-qm", "roto")
+            assert not recargar(clon) and Handler.datos is ok   # falla: sigue sirviendo lo anterior
+        finally:
+            Handler.datos, Handler.calc, Handler.firma = previo
+    assert firma_datos(raiz).startswith("mtime:") or firma_datos(raiz) == ""   # sin repo: cae al mtime, nunca revienta
+
     # auth y POST por HTTP: la clave de carga carga pero no lee
     assert autorizado_carga({"X-Carga-Clave": "c4rga"}, "s3cr3t", "c4rga") and autorizado_carga({"X-API-Key": "s3cr3t"}, "s3cr3t", "c4rga")
     assert not autorizado_carga({"X-Carga-Clave": "c4rga"}, "s3cr3t", "") and not autorizado_carga({"X-Carga-Clave": "mala"}, "s3cr3t", "c4rga")
@@ -2762,9 +2840,13 @@ def main():
     if not clave and not os.environ.get("LUB_CARGA_CLAVE"):
         print("AVISO: sin LUB_CLAVE ni LUB_CARGA_CLAVE, la lectura es abierta y la carga (POST) queda cerrada.", flush=True)
     raiz = os.environ.get("LUB_DATOS") or RAIZ
+    Handler.firma = firma_datos(raiz)
     Handler.datos = cargar(raiz)
     Handler.calc = calcular(Handler.datos)
     Handler.clave, Handler.raiz = clave, Path(raiz)
+    minutos = float(os.environ.get("LUB_RECARGA_MIN", "5"))  # en Render los datos cambian con el redeploy: sin hilo
+    if minutos > 0 and not os.environ.get("RENDER"):
+        threading.Thread(target=vigilar, args=(raiz, minutos), daemon=True).start()
     Handler.clave_carga = os.environ.get("LUB_CARGA_CLAVE", "")
     port = int(os.environ.get("PORT", "8000"))
     # En la PC solo loopback: 0.0.0.0 expone el server a la red y dispara el firewall de Windows.
