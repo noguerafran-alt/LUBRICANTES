@@ -6,3 +6,6 @@ tmp/
 .ml_local
 .sepa_pc
 sepa_pc.log
+.recolector_casa
+recolector_casa.log
+cron.log

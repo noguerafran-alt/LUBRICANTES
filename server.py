@@ -53,6 +53,7 @@ MONEDAS = {"ARS", "BRL", "CLP", "UYU", "PYG", "BOB", "USD"}
 NOTAS_FUENTE = {
     "oficial_br_notaparana": "pausada desde 2026-11-18: la API devuelve datos señuelo al acceso automatizado; no se esquiva",
     "helix_api": "automática: combos Shell de helixturno.com.ar por su API JSON (servicios con mano de obra, no $/L de bidón)",
+    "casa": "recolector de casa (celular o PC): SEPA, la SE y el resto; GitHub corre Mercado Libre y hace de respaldo",
     "fx_bcb_ptax": "tipo de cambio oficial PTAX (venta) del Banco Central do Brasil: solo para mostrar en USD",
 }
 SITIOS_F = ["fuente", "host", "descripcion"]
@@ -84,7 +85,7 @@ CAMPOS = {
     "obs": OBS_F,
     "serie": ["fecha", "fuente", "precio_litro", "n", "pais", "moneda"],
     "indice": ["fecha", "segmento", "sae", "marca", "mediana_litro", "n", "indice", "pais", "moneda"],
-    "fuentes": FUENTES_F + ["ultimo_ok", "dias_sin_datos", "pais", "nota"],
+    "fuentes": FUENTES_F + ["ultimo_ok", "dias_sin_datos", "dias_sin_correr", "pais", "nota"],
     "sin_match": ["fuente", "titulo", "ean", "marca", "precio", "litros", "unidades", "url", "primera", "ultima", "veces"],
     "oferta_ml": OFERTA_F,
     "vitrina": VITRINA_F,
@@ -315,6 +316,7 @@ def fuentes(d, hoy):
         ultimo_ok = oks[-1] if oks else None
         dias = (hoy - date.fromisoformat(ultimo_ok)).days if ultimo_ok else None
         out.append({**{k: filas[-1].get(k, "") for k in FUENTES_F}, "ultimo_ok": ultimo_ok, "dias_sin_datos": dias,
+                    "dias_sin_correr": (hoy - date.fromisoformat(filas[-1]["fecha"])).days,  # contra la última fila, con o sin error (aviso de la fila `casa`)
                     "pais": pais_de_fuente(fuente), "nota": NOTAS_FUENTE.get(fuente, "")})
     return sorted(out + fuentes_grok(d, hoy), key=lambda r: r["fuente"])
 
@@ -329,7 +331,7 @@ def fuentes_grok(d, hoy):
     for f in sorted({s["fuente"] for s in d["grok_sitios"]} | set(por)):
         filas = por.get(f, [])
         base = {"fecha": "", "fuente": f, "http": "", "n_items": 0, "n_con_precio": 0, "n_sin_stock": 0, "n_sin_match": 0,
-                "n_descartados": 0, "error": "sin cargas todavía", "ultimo_ok": None, "dias_sin_datos": None, "pais": "AR", "nota": ""}
+                "n_descartados": 0, "error": "sin cargas todavía", "ultimo_ok": None, "dias_sin_datos": None, "dias_sin_correr": None, "pais": "AR", "nota": ""}
         if filas:
             ult = max(r["fecha"] for r in filas)
             n = [r for r in filas if r["fecha"] == ult]
@@ -1006,7 +1008,7 @@ FUENTE_PERDIDAS = {
     "csv": "https://datos.energia.gob.ar/dataset/5bdc436c-60d4-4c86-98ab-59834d047700/resource/f0e4e10a-e4b8-44e6-bd16-763a43742107/download/ventas-excluye-ventas-a-empresas-del-sector-.csv",
     "dataset_nombre": "Refinación y Comercialización de petróleo, gas y derivados (Tablas Dinámicas)",
     "recurso_nombre": "Ventas, excluye ventas a empresas del sector", "licencia": "CC-BY 4.0", "tablas": "SESCO Downstream",
-    "actualizacion": "se baja desde la PC (tools/sepa_pc.py) cuando pasan 28 días de la última bajada OK"}
+    "actualizacion": "se baja desde el recolector de casa (tools/recolector_casa.py) cuando la SE publica algo nuevo (last_modified del recurso en CKAN)"}
 NOTA_PERDIDAS = {
     "declarantes": "Share solo entre las empresas que declaran a la Secretaría de Energía (SESCO): Mobil, Castrol, Motul, Liqui Moly y los importadores chicos no figuran, "
                    "así que una pérdida contra importadores aparece como un mercado que se achica o como ganancia de nadie.",
@@ -1959,7 +1961,7 @@ def demo():
     (raiz / "seed" / "macro_series.csv").write_text(
         "id,nombre,grupo,frec,unidad,fuente\nA,Serie A,liviano,M,u,INDEC\nB,Serie B,precios,M,u,BCRA\nC,Serie C,agro,M,u,INDEC\n", encoding="utf-8")
     with open(raiz / "data" / "fuentes.csv", "a", encoding="utf-8") as f:
-        f.write("2026-11-02,macro_series,200,3,3,0,0,,0\n2026-11-03,macro_series,200,3,0,0,0,sin datos,0\n")
+        f.write("2026-11-02,macro_series,200,3,3,0,0,,0\n2026-11-03,macro_series,200,3,0,0,0,sin datos,0\n2026-10-29,casa,,5,5,0,0,,0\n2026-10-30,casa,,5,4,0,0,fallaron: sepa,0\n")
 
     d = cargar(raiz)
     c = calcular(d, hoy=date(2026, 11, 3))
@@ -1987,6 +1989,7 @@ def demo():
     assert f["vtex_carrefour"]["error"] == "HTTP 403" and f["vtex_carrefour"]["ultimo_ok"] == "2026-11-02"
     assert f["vtex_carrefour"]["dias_sin_datos"] == 1
     assert f["ml"]["ultimo_ok"] is None and f["ml"]["dias_sin_datos"] is None
+    assert f["casa"]["dias_sin_correr"] == 4 and f["casa"]["dias_sin_datos"] == 5 and f["vtex_carrefour"]["dias_sin_correr"] == 0  # casa: contra la última fila, con o sin error
 
     assert len(c["sin_match"]) == 1 and c["sin_match"][0]["veces"] == 2 and c["sin_match"][0]["ultima"] == "2026-11-03"
     assert c["equivalencias"][0]["comp_nombre"] == "HX7"
@@ -2652,7 +2655,7 @@ def demo():
     assert all(r["pais"] == "AR" and r["moneda"] == "ARS" for r in json.loads(get("/api/ultimo", k)[1]))
     assert all(r["pais"] == "BR" and r["moneda"] == "BRL" for r in json.loads(get("/api/indice?pais=BR", k)[1])) and json.loads(get("/api/provincias?pais=BR", k)[1])["pais"] == "BR"
     assert "precio_litro_usd" in json.loads(get("/api/ultimo?usd=1", k)[1])[0] and "precio_litro_usd" not in json.loads(get("/api/ultimo", k)[1])[0]
-    assert all("pais" in f and "nota" in f for f in json.loads(get("/api/fuentes", k)[1]))
+    assert all("pais" in f and "nota" in f and "dias_sin_correr" in f for f in json.loads(get("/api/fuentes", k)[1]))
     shutil.rmtree(raiz / "data" / "grok")
     BAJAR, GH, normalizar.normalizar = bajar, gh_api, norm_real
     srv.shutdown()

@@ -4,7 +4,7 @@ Centraliza los lubricantes que se venden en Argentina (YPF y competencia), sus
 precios en el tiempo y las equivalencias YPF ↔ competidor, y los expone en un
 visor y una API (lectura abierta, sin clave; solo la carga de Grok la pide) para que YPF los analice internamente.
 
-**Arquitectura:** GitHub Actions recolecta una vez por día y comitea CSV en
+**Arquitectura:** Un **recolector de casa** (celular Android con Termux o PC; `tools/recolector_casa.py`) recolecta por día lo que las IP de datacenter no alcanzan (SEPA, la SE) y el resto de las fuentes; GitHub Actions corre Mercado Libre y hace de respaldo del resto. Ambos comitean CSV en
 `data/`. El push redeploya el Render Web Service free, que sirve visor y API
 leyendo esos archivos. No hay base de datos: git es el almacenamiento y el
 historial. Render free tiene disco efímero y su Postgres vence a los 30 días;
@@ -49,7 +49,9 @@ site/index.html    # visor: Visualizador (ex Vitrina; `#producto/<id>` = página
 seed/productos.csv     # catálogo normalizado YPF + competencia (a mano)
 seed/alias.csv         # EAN / regex de título → producto_id
 seed/equivalencias.csv # pares YPF ↔ competidor (a mano)
-tools/sepa_pc.py   # fuentes desde la PC (tarea programada de Windows): sepa.py, Nota Paraná y (cada 28 días) macro.py energia en un clon dedicado; pushea data/ a main
+tools/recolector_casa.py # recolector de casa (celular con Termux o PC con Windows): recolectar sin ml, sepa, series, fx y (si la SE publicó algo nuevo) energia en un clon dedicado; fila fuente=casa; pushea data/ a main
+tools/sepa_pc.py   # envoltorio de una línea: la tarea LUBRICANTES-SEPA de Windows lo sigue llamando
+tools/termux_setup.sh # instala el recolector de casa en Termux (sin token); guía en docs/celular.md
 tools/geo_provincias.py # regenera site/vendor/ar-provincias.js desde Natural Earth (solo a mano; ver Geometría)
 seed/grok_sitios.csv   # lista blanca de sitios que puede cargar Grok: fuente,host,descripcion
 data/obs/AAAA-MM.csv   # observaciones de precio, append-only
@@ -168,20 +170,35 @@ data/macro/energia.csv # ventas de lubricantes y gasoil de la Secretaría de Ene
   El ítem del catálogo oficial se une al producto del seed por título (sin espacios ni signos) contra `nombre`, `nombre+sae` o
   `linea+nombre`; si hay 0 o más de un candidato, no se une (no se adivina).
 
-## Fuentes desde la PC (no corren en la Action)
+## Recolector de casa (celular o PC)
 
-Desde 2026-11-16 `datos.produccion.gob.ar` (portal de SEPA) responde **HTTP 403 a toda IP de datacenter** (probado desde GitHub Actions y desde VMs de Oracle:
-API CKAN, zip y home; el User-Agent no cambia nada). Desde una IP residencial responde 200. No se esquiva el bloqueo (ni proxies ni rotación de IP), así que el
-job `sepa` salió de `recolectar.yml` y SEPA se baja **desde la PC del usuario**. Desde 2026-11-18 también van por la PC **Nota Paraná** (desde GitHub devuelve 200 con 0 productos) y las **ventas de la SE** (`macro.py energia`: `datos.energia.gob.ar` da timeout desde GitHub): tarea programada diaria de Windows `LUBRICANTES-SEPA` (11:00) que corre
-`tools/sepa_pc.py` en un **clon dedicado** `%USERPROFILE%\lub-sepa` (fuera de OneDrive, con el marcador `.sepa_pc` en la raíz; el script aborta sin él porque hace `reset --hard`).
-El script hace fetch + `reset --hard origin/main`, corre los pasos (a) `sepa.py`, (b) `macro.py energia` **solo si no hay** en `data/fuentes.csv` una fila `macro_energia` sin error de los últimos 28 días (el CSV pesa ~770 MB), comitea `data/` en un solo commit (`datos AAAA-MM-DD: pc (sepa[, energia])`; los pasos corren con `PYTHONUTF8=1` y el script reconfigura stdout a utf-8) y pushea; si la Action pushea en el medio reintenta hasta 3 veces (cada reintento re-corre los pasos tras el reset).
-Un paso que falla no frena a los demás; su fila de error igual se pushea, para que el visor muestre la caída. Log en `sepa_pc.log` del clon.
+Decisión del usuario, 2026-11-19: la recolección corre en un **celular Android con Termux** en su casa (IP residencial; guía en `docs/celular.md`), con la **PC Windows como alternativa equivalente**.
+GitHub Actions queda **solo para Mercado Libre y como respaldo**. Motivo: desde 2026-11-16 `datos.produccion.gob.ar` (SEPA) da **HTTP 403 a toda IP de datacenter** (GitHub y Oracle: CKAN, zip y home;
+el User-Agent no cambia nada) y `datos.energia.gob.ar` da timeout desde GitHub; desde una IP residencial responden. No se esquiva ningún bloqueo (ni proxies ni rotación de IP).
+Más adelante la página se mueve a Oracle (fuera de este cambio).
+
+`tools/recolector_casa.py` corre en un **clon dedicado** (`~/lub-casa` en Termux; `%USERPROFILE%\lub-sepa` en Windows, fuera de OneDrive) con el marcador `.recolector_casa` en la raíz
+(también vale `.sepa_pc`, el de la tarea de Windows; el script aborta sin marcador porque hace `reset --hard`). Ciclo: fetch + `reset --hard origin/main`, pasos, fila `casa`, un commit
+`datos AAAA-MM-DD: casa (<pasos>)` y push (3 intentos; cada reintento re-corre los pasos tras el reset). Pasos en orden, cada uno aislado (si uno falla, siguen los demás y su fila de error se pushea):
+1. `recolectar.py --sin ml` (**nunca Mercado Libre**: `--sin <fuente>` saca la fuente del recorrido y el entorno del subproceso se limpia de `ML_*`; no se lee `.ml_local` ni ningún secreto de ML en casa, el token vive solo en GitHub),
+2. `sepa.py`, 3. `macro.py series`, 4. `macro.py fx`,
+5. `macro.py energia` **solo si la SE publicó algo nuevo**: consulta CKAN `package_show` del dataset `5bdc436c-…` y compara el `last_modified` del recurso `f0e4e10a-…` con el de la última bajada buena,
+   guardado en `data/macro/energia_origen.json` (`{"last_modified", "bajada"}`, se escribe solo si `macro_energia` quedó sin error ese día). Baja si el `last_modified` es más nuevo o si nunca hubo bajada buena;
+   si CKAN no responde o no trae fecha, no se adivina (paso fallido / sin bajada). Reemplaza la vieja regla de 28 días.
+Al final escribe en `data/fuentes.csv` una fila `fuente=casa` (fecha ART de hoy; `n_items` = pasos corridos, `n_con_precio` = pasos OK, `error` = `fallaron: <pasos>` o vacío). Usa hora argentina fija: no depende de la zona del celular.
+`--sin-push` hace todo menos publicar (deja el commit local). Log en `recolector_casa.log` del clon.
+
+**Action (`recolectar.yml`, 10:00 ART = cron 13:00 UTC)**: primer paso: si `data/fuentes.csv` ya tiene fila `casa` con la fecha de hoy (hora ART), corre **solo** `python recolectar.py --solo ml` (con el chequeo de `GH_PAT` y la rotación del refresh idénticos a siempre)
+y comitea; si no la tiene (el celular no corrió), corre todo (recolectar completo, `macro series`, `macro fx`) como respaldo. Push con `pull --rebase` y 3 reintentos por si el celular pushea en el medio.
+En GitHub, `recolectar.py` saltea las `FUENTES_PC` (hoy Nota Paraná) con `GITHUB_ACTIONS=true`. SEPA y la SE no corren en la Action ni de respaldo (siguen bloqueadas): sin celular ni PC, esos datos no se actualizan.
+
+**Aviso en el visor**: `/api/fuentes` trae la fila `casa` con `dias_sin_correr` (días desde su última fila, con o sin error; todas las fuentes llevan ese campo). Si pasan más de 2, la pestaña Fuentes y el banner de avisos
+de las pestañas de precios (no Mercado) dicen «El recolector de casa (celular o PC) no corre desde <fecha>: SEPA y la SE no se actualizan; el resto lo cubre GitHub».
+
 Nota Paraná está **pausada desde 2026-11-18**: la API devuelve datos señuelo al acceso automatizado (ncm de 9 dígitos, gtin '0', `local` vacío); no se esquiva. `recolectar.PAUSADAS` la saca del recorrido por defecto en todos lados; `--solo` la corre y, si detecta el señuelo, corta en la primera página con error `respuesta señuelo: la API bloquea el acceso automatizado`. El histórico real ya cargado se queda.
-
-En GitHub, `recolectar.py` saltea por defecto las `FUENTES_PC` (hoy Nota Paraná) cuando `GITHUB_ACTIONS=true`, así la Action no escribe una fila de error que contradiga a la de la PC; `--solo` la corre igual.
-**Límite:** PC apagada o sin red = sin esas fuentes ese día (sin fila, no se arrastran precios; el visor lo dice con `/api/fuentes`). La SE se actualiza cuando la PC esté prendida a las 11:00 después de pasados 28 días de la última corrida buena.
-Reinstalar la tarea: `schtasks /Create /TN LUBRICANTES-SEPA /SC DAILY /ST 11:00 /TR "<python> <clon>\tools\sepa_pc.py" /F`
-(clon: `git clone` del repo en `%USERPROFILE%\lub-sepa`, crear el archivo vacío `.sepa_pc`; `<python>` = ruta completa a python 3.12).
+**Reglas del tráfico de casa**: sale de la IP residencial del usuario, con el mismo volumen bajo y `robots.txt` respetado de siempre; no se usa para saltear bloqueos anti-bot (Nota Paraná sigue pausada; Coto sigue diferido por sus términos).
+**Límite:** celular (o PC) apagado o sin red = sin SEPA ni SE ese día (sin fila, no se arrastran precios; el visor lo dice).
+Tarea de Windows (alternativa): `schtasks /Create /TN LUBRICANTES-SEPA /SC DAILY /ST 06:00 /TR "<python> <clon>\tools\recolector_casa.py" /F` (la existente, 11:00 con `sepa_pc.py`, sigue andando sin tocarla; clon: `git clone` en `%USERPROFILE%\lub-sepa` y el archivo vacío `.recolector_casa`; `<python>` = ruta completa a python 3.12). No conviene correr a la vez celular y PC.
 
 ## Fuentes v1 (probadas el 2026-11-03)
 
@@ -360,7 +377,7 @@ Relevamiento y fuentes en `docs/relevamiento/mercado.md`. Dos fuentes, dos corri
   120 (diarias) / 150 (mensuales) / 300 (trimestrales) días: una serie vacía o cortada **no se escribe** (conserva lo que ya tenía) y queda en
   `data/fuentes.csv` como `macro_<id con _>` con el error; además una fila `macro_series` por corrida (`n_items` = series pedidas, `n_con_precio` = con datos).
   Cuando una serie se recupera, `macro.py` escribe una fila buena de esa fuente que limpia el error.
-- **`python macro.py energia`** (mensual, **desde la PC**: `tools/sepa_pc.py` la corre si pasaron 28 días de la última corrida buena; ya no hay job `mercado` ni cron en la Action; ~12 min desde la PC, medido 2026-11-18): resuelve la URL por CKAN `package_show`
+- **`python macro.py energia`** (mensual, **desde casa**: `tools/recolector_casa.py` la corre cuando el `last_modified` del recurso en CKAN es más nuevo que el de la última bajada buena (`data/macro/energia_origen.json`); ya no hay job `mercado` ni cron propio; ~12 min desde la PC, medido 2026-11-18): resuelve la URL por CKAN `package_show`
   (dataset `5bdc436c-…`, recurso `f0e4e10a-…`; si falla, la URL directa), lee el CSV de ~770 MB **en streaming** (sin guardarlo), valida el encabezado,
   se queda con `ubric`/`Grasas`/`Gasoil*` (no `Bases Lubricantes`: es insumo entre empresas) y escribe **`data/macro/energia.csv`**
   `mes,empresa,producto,canal,provincia,cantidad` (`mes` AAAA-MM; `canal` = `subtipodecomercializacion`; ~130 mil filas, 9 MB).
