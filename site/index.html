@@ -2305,6 +2305,7 @@ function ir(tab) {
   document.querySelectorAll("nav button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === tab));
   document.querySelectorAll("main section").forEach(s => s.hidden = s.id !== tab);
   notaPais(tab);
+  for (const id of ["#banner", "#pais-barra"]) $(id).style.display = tab === "mercado" ? "none" : "";  // Mercado es solo SE/INDEC: ni avisos de precios ni país/USD
   if (location.hash !== "#" + tab) history.replaceState(null, "", "#" + tab);
   if (tab === "vitrina" || tab === "mercado") vistas[tab]();  // tienen su propia ruta: no esperan al resto
   else if (D.productos) vistas[tab]();
