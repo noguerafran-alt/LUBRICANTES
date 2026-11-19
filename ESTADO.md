@@ -9,6 +9,9 @@ Actualizado 2026-11-19 (share por marca en Mercado; share ampliado con la serie 
 - El dataset de ventas (datos.energia.gob.ar, id 5bdc436c-60d4-4c86-98ab-59834d047700) es «Refinación y Comercialización de petróleo, gas y derivados (Tablas Dinámicas)», descripción «Tablas Dinámicas SESCO Downstream»; su ficha NO cita la Res. 1104. La Res. SE 1104/2004 trata de precios mayoristas de combustibles y no menciona lubricantes. No se encontró qué norma obliga a declarar: no se cita ninguna.
 - Ahora la fuente dice «Secretaría de Energía, SESCO Downstream (datos.energia.gob.ar)» y los declarantes son «las empresas que declaran a la Secretaría de Energía (SESCO)». En `/api` la fuente pierde `norma` y gana `tablas`; el visor muestra «Tablas». Ningún número ni cálculo cambió.
 
+## Glosario de productos y canales en Mercado (2026-11-19)
+- A pedido del usuario: `<details class="mk-agg">` ⓘ cerrado bajo los selectores de «Market share oficial» (y enlace ⓘ desde «¿Dónde perdemos share?») con dos tablas: productos (nombre SE, unidad, lectura habitual) y los 12 canales con sus nombres exactos, ordenados por volumen de lubricantes 2010-2026 (calculado de `energia.csv`; sin cifras en pantalla). La SE no define las categorías: lo no seguro dice «lectura habitual». Sin verificar en navegador ni a 375 px (la tabla scrollea en `.tabla`); solo estático.
+
 ## Mercado sin banner ni barra de país (2026-11-19)
 - A pedido del usuario, en la pestaña Mercado no se muestran el aviso de fuentes ni la barra País/USD (`ir()` les pone `display:none`, porque `.filtros` es flex y pisa a `hidden`; vuelven en las demás pestañas).
 
