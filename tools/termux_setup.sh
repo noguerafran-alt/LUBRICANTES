@@ -27,8 +27,14 @@ estado() {
 
 if [ "${1:-}" = "estado" ]; then estado; exit 0; fi
 
-pkg update -y
-pkg install -y python git cronie termux-services tzdata cloudflared curl
+# el mirror al azar puede dejar índices sin bajar ("Some index files failed to download"): se fija el de por defecto
+if [ ! -e "$PREFIJO/etc/termux/chosen_mirrors" ]; then
+  ln -s "$PREFIJO/etc/termux/mirrors/default" "$PREFIJO/etc/termux/chosen_mirrors"
+fi
+# upgrade completo y no solo update: con libcurl nuevo y openssl viejo git https no linkea (SSL_set_quic_tls_early_data_enabled)
+# sin tzdata: no existe en Termux; el código usa UTC-3 fijo y CRON_TZ funciona con las zonas de Android
+yes | pkg upgrade -y
+pkg install -y python git cronie termux-services cloudflared curl
 
 if [ ! -d "$CLON/.git" ]; then
   git clone "$REPO" "$CLON"
