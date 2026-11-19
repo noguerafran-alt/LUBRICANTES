@@ -2,7 +2,7 @@
 
 python macro.py series    # baja las ids de seed/macro_series.csv -> data/macro/series.csv (largo: fecha,id,valor,signo)
 python macro.py energia   # CSV de ~770 MB en streaming -> data/macro/energia.csv (mes,empresa,producto,canal,provincia,cantidad)
-python macro.py fx        # dólar PTAX del Banco Central do Brasil -> data/fx.csv (fecha,moneda,por_usd,fuente); ARS sale de series.csv
+python macro.py fx        # dólar -> data/fx.csv (fecha,moneda,por_usd,fuente): BRL = PTAX del BCB do Brasil; ARS = Estadísticas Cambiarias del BCRA (series.csv queda de histórico)
 python macro.py test
 Una fuente que falla no escribe datos: queda registrada en data/fuentes.csv (macro_series, macro_<id>, macro_energia).
 """
@@ -31,6 +31,10 @@ FX_F = ["fecha", "moneda", "por_usd", "fuente"]
 PTAX_URL = ("https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarPeriodo(dataInicial=@dataInicial,"
             "dataFinalCotacao=@dataFinalCotacao)?@dataInicial='{d}'&@dataFinalCotacao='{h}'&$format=json")
 FX_VENTANA_DIAS = 10
+# BCRA, API de Estadísticas Cambiarias v1.0 (sin token): cotizaciones de divisas vigentes publicadas por el BCRA, en pesos por USD (tipoCotizacion).
+# Doc: https://www.bcra.gob.ar/documentacion-apis/?fileName=estadisticascambiarias-v1
+BCRA_URL = "https://api.bcra.gob.ar/estadisticascambiarias/v1.0/Cotizaciones/USD?fechadesde={d}&fechahasta={h}"
+BCRA_DESDE = date(2026, 10, 1)  # primer backfill: si fx.csv no tiene ARS se pide desde acá (la serie de valuación termina el 2026-09-30)
 
 SERIES_URL = "https://apis.datos.gob.ar/series/api/series/"
 LIMITE = 5000  # la API corta ahí; el tipo de cambio diario lo supera y se pagina con start=
@@ -285,8 +289,49 @@ def fx(hoy=None):
     return fila
 
 
+def filas_bcra(cuerpo):
+    """JSON de Cotizaciones/USD del BCRA → filas ARS de fx.csv (una por fecha, tipoCotizacion > 0). Día sin cotización = sin fila."""
+    out = {}
+    for r in json.loads(cuerpo).get("results") or []:
+        for d in r.get("detalle") or []:
+            v = d.get("tipoCotizacion")
+            if d.get("codigoMoneda") == "USD" and isinstance(v, (int, float)) and v > 0 and len(r.get("fecha") or "") == 10:
+                out[r["fecha"]] = v
+    return [dict(fecha=f, moneda="ARS", por_usd=f"{v:.5f}".rstrip("0").rstrip("."), fuente="bcra_cambiarias") for f, v in sorted(out.items())]
+
+
+def fx_bcra(hoy=None):
+    """Baja el USD del BCRA (ventana de FX_VENTANA_DIAS; desde BCRA_DESDE si fx.csv aún no tiene ARS) a data/fx.csv. Falla = sin escribir, fila de error (fx_bcra)."""
+    hoy = hoy or datetime.now(timezone(timedelta(hours=-3))).date()
+    fila = dict(fecha=hoy.isoformat(), fuente="fx_bcra", http="", n_items=0, n_con_precio=0, n_sin_stock=0, n_sin_match=0, n_descartados=0, error="")
+    try:
+        desde = hoy - timedelta(days=FX_VENTANA_DIAS)
+        if not any(r["moneda"] == "ARS" for r in recolectar.leer(FX_CSV)):
+            desde = min(desde, BCRA_DESDE)
+        fila["http"], cuerpo = pedir(BCRA_URL.format(d=desde.isoformat(), h=hoy.isoformat()))
+        filas = filas_bcra(cuerpo)
+        fila["n_items"] = len(filas)
+        if not filas:
+            raise ValueError(f"sin cotizaciones desde {desde}")
+        recolectar.reemplazar(FX_CSV, FX_F, filas, lambda f: (f["fecha"], f["moneda"]))
+        fila["n_con_precio"] = len(filas)
+        print(f"fx bcra: {len(filas)} cotizaciones, última {filas[-1]['fecha']} = {filas[-1]['por_usd']} ARS/USD", flush=True)
+    except Exception as e:
+        fila["error"] = f"{type(e).__name__}: {e}"[:200]
+        print("fx bcra FALLÓ:", fila["error"], flush=True)
+    recolectar.escribir_fuentes(FUENTES_CSV, [fila])
+    return fila
+
+
 def demo():
     import tempfile
+    eb = json.dumps({"status": 200, "results": [
+        {"fecha": "2026-11-18", "detalle": [{"codigoMoneda": "USD", "tipoPase": 0, "tipoCotizacion": 1559.5}]},
+        {"fecha": "2026-11-17", "detalle": [{"codigoMoneda": "USD", "tipoCotizacion": 1552.0}]},
+        {"fecha": "2026-11-16", "detalle": [{"codigoMoneda": "USD", "tipoCotizacion": 0}]}]})
+    assert filas_bcra(eb) == [dict(fecha="2026-11-17", moneda="ARS", por_usd="1552", fuente="bcra_cambiarias"),
+                              dict(fecha="2026-11-18", moneda="ARS", por_usd="1559.5", fuente="bcra_cambiarias")]  # el 0 no es cotización
+    assert filas_bcra('{"status":200,"results":[]}') == [] and "fechadesde=2026-10-01" in BCRA_URL.format(d="2026-10-01", h="2026-11-19")
     # PTAX: una fila por fecha (el último boletín del día), cotacaoVenda, fecha de dataHoraCotacao; sin día sin cotización
     ej = json.dumps({"value": [
         {"cotacaoCompra": 5.78450, "cotacaoVenda": 5.78510, "dataHoraCotacao": "2026-11-17 13:07:26.01516"},
@@ -308,6 +353,17 @@ def demo():
         pedir = lambda url, timeout=60: (_ for _ in ()).throw(OSError("caído"))
         assert "caído" in fx(date(2026, 11, 19))["error"] and len(recolectar.leer(FX_CSV)) == 2  # caída = no escribe, no arrastra
         assert "fx_bcb_ptax" in {r["fuente"] for r in recolectar.leer(FUENTES_CSV)}
+        # BCRA: sin ARS previo pide desde BCRA_DESDE; con ARS, la ventana corta; idempotente; caída = no escribe
+        urls = []
+        pedir = lambda url, timeout=60: (urls.append(url), (200, eb.encode()))[1]
+        assert fx_bcra(date(2026, 11, 19))["error"] == "" and "fechadesde=2026-10-01" in urls[-1]
+        fx_bcra(date(2026, 11, 19))
+        assert "fechadesde=2026-11-09" in urls[-1]
+        assert [(r["fecha"], r["moneda"], r["fuente"]) for r in recolectar.leer(FX_CSV) if r["moneda"] == "ARS"] == [
+            ("2026-11-17", "ARS", "bcra_cambiarias"), ("2026-11-18", "ARS", "bcra_cambiarias")] and len(recolectar.leer(FX_CSV)) == 4
+        pedir = lambda url, timeout=60: (_ for _ in ()).throw(OSError("caído"))
+        assert "caído" in fx_bcra(date(2026, 11, 20))["error"] and len(recolectar.leer(FX_CSV)) == 4
+        assert "fx_bcra" in {r["fuente"] for r in recolectar.leer(FUENTES_CSV)}
     finally:
         pedir = pedir0
     # null de datos.gob.ar → '...' y nunca 0; los valores no se reformatean
@@ -366,4 +422,4 @@ def demo():
 
 
 if __name__ == "__main__":
-    {"series": series, "energia": energia, "fx": fx, "test": demo}.get(sys.argv[1] if len(sys.argv) > 1 else "", lambda: sys.exit(__doc__))()
+    {"series": series, "energia": energia, "fx": lambda: (fx(), fx_bcra()), "test": demo}.get(sys.argv[1] if len(sys.argv) > 1 else "", lambda: sys.exit(__doc__))()

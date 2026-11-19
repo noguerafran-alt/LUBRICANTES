@@ -55,6 +55,7 @@ NOTAS_FUENTE = {
     "helix_api": "automática: combos Shell de helixturno.com.ar por su API JSON (servicios con mano de obra, no $/L de bidón)",
     "casa": "recolector de casa (celular o PC): SEPA, la SE y el resto; GitHub corre Mercado Libre y hace de respaldo",
     "fx_bcb_ptax": "tipo de cambio oficial PTAX (venta) del Banco Central do Brasil: solo para mostrar en USD",
+    "fx_bcra": "cotización del dólar publicada por el BCRA (Estadísticas Cambiarias): solo para mostrar en USD",
 }
 SITIOS_F = ["fuente", "host", "descripcion"]
 VITRINA_F = ("fecha,producto_id,nombre,linea,segmento,sae,base,imagen,imagen_fuente,ypf_n,ypf_promedio_litro,ypf_min_litro,"
@@ -122,11 +123,12 @@ def subdivisiones(pais):
 
 
 def tabla_fx(d):
-    """{(moneda, AAAA-MM-DD): (unidades por USD, fuente)}. BRL sale de data/fx.csv (PTAX); ARS de series.csv (BCRA, valuación). Un día sin fila no existe."""
+    """{(moneda, AAAA-MM-DD): (unidades por USD, fuente)}. BRL sale de data/fx.csv (PTAX); ARS de fx.csv (BCRA, Estadísticas Cambiarias) y, solo en las
+    fechas sin esa fila, de series.csv (BCRA, valuación, histórico). Cada cotización lleva su fuente. Un día sin fila no existe."""
     t = {(r["moneda"], r["fecha"]): (num(r["por_usd"]), r["fuente"]) for r in d.get("fx", []) if num(r["por_usd"])}
     for pt in d.get("macro_series", {}).get(ID_TC, []):
         if pt["valor"]:
-            t[("ARS", pt["fecha"][:10])] = (pt["valor"], "BCRA (datos.gob.ar)")
+            t.setdefault(("ARS", pt["fecha"][:10]), (pt["valor"], "BCRA (datos.gob.ar)"))
     return t
 
 
@@ -134,7 +136,8 @@ USD_CAMPOS = ("precio", "precio_litro", "mediana_litro", "promedio_litro", "min_
 
 
 ID_TC = "92.2_TIPO_CAMBIION_0_0_21_24"
-FX_FUENTES = {"bcb_ptax": ("BCB PTAX (venta)", "https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/aplicacao#!/recursos"),
+FX_FUENTES = {"bcra_cambiarias": ("BCRA, cotización de divisas (Estadísticas Cambiarias)", "https://www.bcra.gob.ar/documentacion-apis/?fileName=estadisticascambiarias-v1"),
+              "bcb_ptax": ("BCB PTAX (venta)", "https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/aplicacao#!/recursos"),
               "BCRA (datos.gob.ar)": ("BCRA, tipo de cambio de valuación (datos.gob.ar)", "https://datos.gob.ar/series/api/series/?ids=" + ID_TC)}
 
 
@@ -2332,12 +2335,18 @@ def demo():
     db = {"productos": [Pb("ypf-x", "YPF"), Pb("shell-x", "Shell"), Pb("ypf-x-br", "YPF"), Pb("lubrax-x-br", "Lubrax")],
           "equivalencias": [E("shell-x", "sustituto_comercial", "ypf-x"), E("lubrax-x-br", "sustituto_comercial", "ypf-x-br")], "imagenes": [], "fx": [
               {"fecha": "2026-11-17", "moneda": "BRL", "por_usd": "5", "fuente": "bcb_ptax"}],
-          "macro_series": {ID_TC: [{"fecha": "2026-11-17", "valor": 1000.0, "signo": None}]},
+          "macro_series": {ID_TC: [{"fecha": "2026-11-17", "valor": 1000.0, "signo": None}, {"fecha": "2026-11-18", "valor": 900.0, "signo": None}]},
           "obs": [Ob("2026-11-17", "vtex_a", "ypf-x", 1000), Ob("2026-11-17", "vtex_a", "shell-x", 1200),          # AR: fila sin pais/moneda = AR/ARS
                   Ob("2026-11-17", "vtex_br_p", "ypf-x-br", 50, "BR"), Ob("2026-11-17", "vtex_br_p", "lubrax-x-br", 60, "BR"),
                   Ob("2026-11-16", "oficial_br_np", "ypf-x-br", 40, "BR", "BR-PR"), Ob("2026-11-16", "oficial_br_np", "lubrax-x-br", 44, "BR", "BR-PR")]}
     db["fx_tabla"] = tabla_fx(db)
-    assert db["fx_tabla"] == {("BRL", "2026-11-17"): (5.0, "bcb_ptax"), ("ARS", "2026-11-17"): (1000.0, "BCRA (datos.gob.ar)")}
+    assert db["fx_tabla"] == {("BRL", "2026-11-17"): (5.0, "bcb_ptax"), ("ARS", "2026-11-17"): (1000.0, "BCRA (datos.gob.ar)"), ("ARS", "2026-11-18"): (900.0, "BCRA (datos.gob.ar)")}
+    # ARS: el BCRA (fx.csv) gana sobre la valuación en la misma fecha; cada una con su fuente y rótulo; día sin dato = sin clave
+    dx = dict(db, fx=db["fx"] + [{"fecha": "2026-11-18", "moneda": "ARS", "por_usd": "1559.5", "fuente": "bcra_cambiarias"}])
+    tx = tabla_fx(dx)
+    assert tx[("ARS", "2026-11-18")] == (1559.5, "bcra_cambiarias") and tx[("ARS", "2026-11-17")] == (1000.0, "BCRA (datos.gob.ar)") and ("ARS", "2026-11-19") not in tx
+    fl = {x["fecha"]: x for x in fx_lista(tx, "ARS")}
+    assert fl["2026-11-18"]["fuente_nombre"].startswith("BCRA, cotización") and "bcra.gob.ar" in fl["2026-11-18"]["fuente_url"] and "datos.gob.ar" in fl["2026-11-17"]["fuente_url"]
     ia, ib = indice(db), indice(db, pais="BR")
     assert {(r["pais"], r["moneda"]) for r in ia} == {("AR", "ARS")} and {(r["pais"], r["moneda"]) for r in ib} == {("BR", "BRL")}
     assert [(r["marca"], r["indice"]) for r in ia if r["fecha"] == "2026-11-17"] == [("Shell", 120.0), ("YPF", 100.0)]      # el índice AR no ve los R$
