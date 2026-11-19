@@ -71,6 +71,10 @@ El mismo celular corre `python server.py` (servicio `lub-server`, solo en `127.0
 
 Sin clave configurada la lectura es abierta y la carga POST (`/api/cargar`) queda cerrada. No cargues claves en el celu salvo que quieras habilitar esa carga.
 
+## Archivo de zips de SEPA
+
+El cron de las 06:00 define `SEPA_ARCHIVO=$HOME/sepa-archivo` (lo deja `termux_setup.sh`, fuera del clon). `sepa.py` copia ahí el zip crudo del día como `sepa-AAAA-MM-DD.zip` (~336 MB; escribe un `.tmp` y renombra) y borra los más viejos cuando la carpeta pasa de 60 GB. Sirve para reprocesar días pasados si se suman productos al seed (SEPA publica pocos días hacia atrás). Para cambiar el tope: `SEPA_ARCHIVO_MAX_GB=<n>` en el crontab (`crontab -e`, que `termux_setup.sh` no pisa) o, para apagarlo, borrar la línea `SEPA_ARCHIVO=`. Si falla (disco lleno), se loguea y SEPA sigue igual.
+
 ## Respaldo con chip 4G
 
 Decisión del usuario (2026-11-19), solo si cae el WiFi de casa: Ajustes > Conexiones > Wi-Fi > Avanzado > «Cambiar a datos móviles», y poner un límite de datos móviles. SEPA pesa ~336 MB por día. El túnel anda igual por 4G. No hay código para esto.
