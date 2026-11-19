@@ -796,8 +796,9 @@ def share(filas, canal=None, n=MESES_SHARE, top=None):
         empresas.append(fila("Otras", [max(0.0, tot[m] - sum(vol.get((m, e), 0.0) for e in top)) if m in tot else None for m in meses]))
     ult, ant = meses[-1], meses[-13] if len(meses) >= 13 else None
     tp, yp = defaultdict(float), {}
+    mp = set(meses[-MESES_SHARE:])  # el selector de mes del visor: solo la ventana de 36, no la serie completa
     for mes, emp, _p, can, prov, q in filas:
-        if mes in (ult, ant) and (not canal or can == canal):
+        if mes in mp and (not canal or can == canal):
             tp[(mes, prov)] += q
             if emp == "YPF":
                 yp[(mes, prov)] = yp.get((mes, prov), 0.0) + q
@@ -807,8 +808,12 @@ def share(filas, canal=None, n=MESES_SHARE, top=None):
         a, b = sh(ult, p), sh(ant, p)
         provincias.append({"provincia": p, "share_ypf": None if a is None else round(a, 6), "share_ypf_hace12": None if b is None else round(b, 6),
                            "var_pp": round((a - b) * 100, 2) if a is not None and b is not None else None, "volumen": round(tp[(ult, p)], 3)})
+    # share de YPF por provincia de cada mes de la ventana: el visor elige mes y mes de comparación sin pedir de nuevo
+    prov_meses = {m: {p: {"share_ypf": None if sh(m, p) is None else round(sh(m, p), 6), "volumen": round(tp[(m, p)], 3)}
+                      for mm, p in tp if mm == m} for m in meses[-MESES_SHARE:]}
     out.update(meses=meses, total=[round(tot[m], 3) if m in tot else None for m in meses], empresas=empresas,
-               canales=sorted(por_canal, key=lambda c: -por_canal[c]), provincias=provincias)
+               canales=sorted(por_canal, key=lambda c: -por_canal[c]), provincias=provincias,
+               provincias_meses={m: v for m, v in prov_meses.items() if v})
     return out
 
 
@@ -1843,6 +1848,9 @@ def demo():
     assert [p["provincia"] for p in S["provincias"]] == ["Córdoba", "Salta", "Jujuy"] and pv["Córdoba"]["volumen"] == 167
     assert pv["Córdoba"]["share_ypf"] == round(70 / 167, 6) and pv["Córdoba"]["share_ypf_hace12"] == round(60 / 157, 6) and pv["Salta"]["var_pp"] == 0
     assert pv["Jujuy"]["share_ypf"] is None and pv["Jujuy"]["var_pp"] is None            # sin YPF: null
+    pm_ = S["provincias_meses"]                                                          # mismo dato por mes, para el selector del visor
+    assert list(pm_)[-1] == "2026-09" and pm_["2026-09"]["Córdoba"] == {"share_ypf": pv["Córdoba"]["share_ypf"], "volumen": 167}
+    assert pm_[S["meses"][-13]]["Córdoba"]["share_ypf"] == pv["Córdoba"]["share_ypf_hace12"] and pm_["2026-09"]["Jujuy"]["share_ypf"] is None
     Sa = share(sh, "Agro")
     assert Sa["empresas"][0]["ultimo"] == 1.0 and Sa["empresas"][0]["hace12"] is None and Sa["empresas"][0]["var_pp"] is None  # hace 12 no hay Agro
     assert share(sh, "Al Público")["empresas"][0]["ultimo"] == round(100 / 202, 6)
