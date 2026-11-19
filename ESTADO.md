@@ -3,6 +3,10 @@
 Actualizado 2026-11-19 (Visualizador, página de producto y `/api/producto`; share por marca en Mercado; share ampliado con la serie completa desde 2010; gráficos ampliables en Mercado; modelos 3D sin foto atrás y con malla cerrada; export a Power BI; modelos 3D con Blender y modo presentación con GLB; Brasil; antes: mercado: share de la SE y series de datos.gob.ar). Remoto privado `noguerafran-alt/LUBRICANTES`; la Action corre a diario.
 
 
+## Barra de controles en una columna a 375 px (2026-11-19, solo CSS de `site/index.html`)
+- A 640 px o menos cada control de la barra (Visualizador: País, USD, Tipo de cambio con (i) en la misma fila, Modo presentación, Ver todos, Ir a un producto; página de producto: Volver, Ventana, Desde, Hasta; Mercado: `.mk-todo`) ocupa todo el ancho. Causa: `.vt-filtro .vt-toggle/.vt-buscar` (mas específicos) pisaban el `flex: 1 1 100%` móvil. Escritorio sin cambios (todo dentro de `@media (max-width: 640px)`).
+- Verificado en Edge headless a 375 px: las 9 pestañas y el producto, cada control = ancho del contenedor, sin desborde horizontal; captura del Visualizador con USD en oscuro. No verificado: claro a ojo, 1280 por captura nueva.
+
 ## Header, barra de controles y nota del dólar (2026-11-19, rama lub-header)
 - Logo: `h1` con `flex: none` y margen derecho de 16 px; lo que no entra es el nav (ya scrolleaba solo). Sin desborde de página medido (scrollWidth == clientWidth) a 1280, 1440, 1680, 1920 y 375 px.
 - Barra País / USD / Tipo de cambio: mismo alto `--ctl-h` (44 px en móvil), checkbox alineado a la base de los selects, y en el Visualizador las acciones (Modo presentación, Ver todos, Ir a un producto) van en un grupo `.vt-acciones` aparte; una columna a 375 px. El mismo `#pais-barra` sirve en Índice, Comparador, Evolución, etc.
