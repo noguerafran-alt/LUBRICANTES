@@ -24,7 +24,7 @@ from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from statistics import median
+from statistics import median, quantiles
 from urllib.parse import parse_qs, urlsplit
 
 import macro
@@ -375,6 +375,12 @@ def productos_de(d, pais):
     return [p for p in d["productos"] if p["marca"] == "YPF" and (normalizar.pais_producto(p["producto_id"]) == pais or p["producto_id"] in con_obs)]
 
 
+def cuerdos(xs):
+    """xs: [(precio_litro, aviso)] de un producto → los que están dentro de [mediana / SANIDAD, mediana × SANIDAD] (el resto es un envase mal leído)."""
+    m = median(pl for pl, _ in xs)
+    return [x for x in xs if m / SANIDAD <= x[0] <= m * SANIDAD]
+
+
 def modelo(pid):
     """Ruta relativa al sitio del GLB del producto, o None si todavía no se generó (nunca se inventa)."""
     return f"modelos/{pid}.glb" if (MODELOS / f"{pid}.glb").is_file() else None
@@ -400,8 +406,7 @@ def vitrina(d, mayoristas=False, pais="AR"):
     for x in vivas.values():
         por_pid[x[1]["producto_id"]].append(x)
     for pid, xs in por_pid.items():
-        m = median(pl for pl, _ in xs)
-        por_pid[pid] = [x for x in xs if m / SANIDAD <= x[0] <= m * SANIDAD]
+        por_pid[pid] = cuerdos(xs)
     prod = {p["producto_id"]: p for p in d["productos"]}
     foto = {f["producto_id"]: f for f in d.get("imagenes", [])}
 
@@ -551,14 +556,17 @@ def desde_hasta(d, dias):
     return (date.fromisoformat(hasta) - timedelta(days=dias - 1)).isoformat(), hasta
 
 
-def _avisos(d, dias, pids):
+def _avisos(d, dias, pids, prov_en_url=True):
     """→ (hasta, {producto_id: avisos}): cada aviso una vez, con su observación más reciente de la ventana (misma idea que la vitrina,
-    más la provincia en la clave: SEPA trae un aviso por comercio × bandera × provincia × EAN)."""
+    más la provincia en la clave: SEPA trae un aviso por comercio × bandera × provincia × EAN).
+    prov_en_url=False (/api/producto): un aviso con url y que no es Grok es una publicación, así que la provincia no entra en la clave
+    (ML la pasó de vacía a 'online' y contaba doble); sin url (SEPA) y Grok la provincia sigue distinguiendo avisos."""
     desde, hasta = desde_hasta(d, dias)
     ult = {}
     for r in d["obs"]:
         if r["producto_id"] in pids and r["fecha"] >= desde:
-            k = (r["producto_id"], r["fuente"], r["url"], r["ean"], r["titulo"], r["vendedor"], r["litros"], r["unidades"], r.get("provincia", ""))
+            prov = "" if r["url"] and not prov_en_url and canal(r["fuente"]) != "grok" else r.get("provincia", "")
+            k = (r["producto_id"], r["fuente"], r["url"], r["ean"], r["titulo"], r["vendedor"], r["litros"], r["unidades"], prov)
             if k not in ult or r["fecha"] >= ult[k]["fecha"]:
                 ult[k] = r
     por = defaultdict(list)
@@ -643,6 +651,107 @@ def aplanar_reventa(v):
     fichas = [("ypf", v["ypf"], "")] + [("equivalente", e, e["tipo"]) for e in v["equivalentes"]]
     return [{"rol": rol, "producto_id": f["producto_id"], "marca": f["marca"], "nombre": f["nombre"], "tipo": tipo, "pais": v["pais"], **o}
             for rol, f, tipo in fichas for o in f["observaciones"]]
+
+
+# ---------- /api/producto: lo que muestra la página de producto del visor (y lo que consume el agente de sobreprecios) ----------
+NOMBRE_FUENTE = {"ypf_gql": "YPF catálogo", "vtex_carrefour": "Carrefour", "vtex_masonline": "Masonline", "vtex_easy": "Easy", "vtex_jumbo": "Jumbo",
+                 "vtex_norauto": "Norauto", "shopify_datri": "Tienda D'Atri", "tn_lspalermo": "LS Palermo", "tn_spch": "Casa González",
+                 "sepa": "Precios Claros (SEPA)", "ml": "Mercado Libre", "vtex_br_pitstop": "Pitstop (Brasil)", "vtex_br_altese": "Altese (Brasil)",
+                 "oficial_br_notaparana": "Nota Paraná (Brasil, notas fiscales)"}
+METODO = ("Cada aviso (fuente + url + ean + título + vendedor + envase + provincia) cuenta una vez, con su observación más reciente de la ventana "
+          "(termina en el último día con datos). precio_litro = precio / (litros × unidades). Quedan fuera del cálculo (en_calculo=false, con motivo_exclusion): "
+          "avisos sin litros (sin_litros), mayoristas (mayorista, salvo ?mayoristas=1), Grok no verificado (grok_sin_verificar) y los que caen fuera de "
+          f"[mediana / {SANIDAD:g}, mediana × {SANIDAD:g}] del producto (fuera_de_sanidad: envase mal leído). Los servicios (combos con mano de obra) nunca entran. "
+          "resumen usa solo los avisos en cálculo; el promedio es la media simple y la mediana es el valor central (no la distorsionan los extremos). "
+          "desvio_pct_vs_mediana = (precio_litro / mediana_litro - 1) × 100 contra la mediana del propio producto. "
+          "comparacion = (mediana de todos los avisos de los equivalentes incluidos / mediana YPF - 1) × 100: positivo = la competencia es más cara; "
+          f"no entran los no_equivalente ni los equivalentes cuya mediana está a más de {RANGO_EQ} veces la de YPF. "
+          "Las url son publicaciones de terceros; SEPA no trae url. Sin umbral de sobreprecio: lo decide quien consume el dato.")
+PUBLICACION_F = ["fuente", "fuente_nombre", "canal", "vendedor", "sucursal", "provincia", "fecha", "capturado", "precio", "litros", "unidades",
+                 "precio_litro", "desvio_pct_vs_mediana", "url", "verificado", "en_calculo", "motivo_exclusion", "sobre_umbral"]
+CAMPOS["producto"] = ["rol", "producto_id", "marca", "nombre", "tipo", "evidencia"] + PUBLICACION_F + ["pais", "moneda"]
+
+
+def nombre_fuente(d, f):
+    if f.startswith("grok_"):
+        host = next((s["host"] for s in d.get("grok_sitios", []) if s["fuente"] == f), "")
+        return "Grok · " + (host or f)
+    return NOMBRE_FUENTE.get(f, f) + (" (mayorista)" if f in MAYORISTAS else "")
+
+
+def _cuartiles(xs):
+    if len(xs) < 2:
+        return xs[0], xs[0]
+    q = quantiles(xs, n=4, method="inclusive")
+    return q[0], q[2]
+
+
+def _publicaciones(d, rs, mayoristas, umbral):
+    """rs: los avisos (de `_avisos`) de UN producto → (resumen de los que cuentan, publicaciones[] con en_calculo y motivo_exclusion)."""
+    cand = [(r["pl"], r) for r in rs if r["pl"] is not None and (mayoristas or r["fuente"] not in MAYORISTAS) and r.get("verificado") != "0"]
+    dentro = {id(r) for _, r in cuerdos(cand)} if cand else set()
+    pls = sorted(pl for pl, r in cand if id(r) in dentro)
+    res = _stats([(pl, None) for pl in pls])
+    med = res["mediana_litro"]
+    res["p25_litro"], res["p75_litro"] = (round(x, 2) for x in _cuartiles(pls)) if pls else (None, None)
+    pubs = []
+    for r in rs:
+        pl, f = r["pl"], r["fuente"]
+        motivo = (None if id(r) in dentro else "sin_litros" if pl is None else "mayorista" if f in MAYORISTAS and not mayoristas
+                  else "grok_sin_verificar" if r.get("verificado") == "0" else "fuera_de_sanidad")
+        desvio = round((pl / med - 1) * 100, 1) if pl is not None and med else None
+        pub = {"fuente": f, "fuente_nombre": nombre_fuente(d, f), "canal": canal(f), "vendedor": r["vendedor"] or None, "sucursal": r.get("sucursal") or None,
+               "provincia": r.get("provincia") or None, "fecha": r["fecha"], "capturado": r.get("capturado") or None, "precio": num(r["precio"]),
+               "litros": num(r["litros"]), "unidades": num(r["unidades"]) or 1, "precio_litro": round(pl, 2) if pl is not None else None,
+               "desvio_pct_vs_mediana": desvio, "url": r["url"] or None, "verificado": {"1": True, "0": False}.get(r.get("verificado") or ""),
+               "en_calculo": motivo is None, "motivo_exclusion": motivo}
+        if umbral is not None:
+            pub["sobre_umbral"] = desvio is not None and desvio >= umbral
+        pubs.append(pub)
+    pubs.sort(key=lambda p: (not p["en_calculo"], -(p["precio_litro"] or 0), p["fuente"], p["url"] or ""))
+    return res, pubs
+
+
+def producto(d, pid, dias=30, mayoristas=False, umbral=None, pais="AR"):
+    """Todo lo que muestra la página de un producto: sus publicaciones (una por aviso, con link y desvío contra la mediana), las de cada equivalente
+    y la comparación YPF vs competencia. Reusa `_avisos` (clave de aviso), `cuerdos` (sanidad) y `precio_litro`. No decide qué es un sobreprecio."""
+    d = de_pais(d, pais)
+    prod = {p["producto_id"]: p for p in d["productos"]}
+    foto = {f["producto_id"]: f for f in d.get("imagenes", [])}
+    eqs = [e for e in d["equivalencias"] if e["ypf_id"] == pid]
+    hasta, por = _avisos(d, dias, {pid} | {e["comp_id"] for e in eqs}, prov_en_url=False)
+    desde, _ = desde_hasta(d, dias)
+    res, pubs = _publicaciones(d, por.get(pid, []), mayoristas, umbral)
+    p = prod[pid]
+    equivalentes, pool = [], []
+    for e in eqs:
+        c = prod.get(e["comp_id"], {})
+        r, ps = _publicaciones(d, por.get(e["comp_id"], []), mayoristas, umbral)
+        motivo = "no_equivalente" if e["tipo"] == "no_equivalente" else None
+        if not motivo and r["mediana_litro"] and res["mediana_litro"] and not 1 / RANGO_EQ <= r["mediana_litro"] / res["mediana_litro"] <= RANGO_EQ:
+            motivo = "fuera_de_rango"
+        if not motivo:
+            pool += [x["precio_litro"] for x in ps if x["en_calculo"]]
+        equivalentes.append({"producto_id": e["comp_id"], "marca": c.get("marca", ""), "nombre": c.get("nombre", ""), "tipo": e["tipo"], "evidencia": e["evidencia"],
+                             "specs": specs(c), "imagen": (foto.get(e["comp_id"]) or {}).get("url"), "en_comparacion": motivo is None,
+                             "motivo_exclusion": motivo, "resumen": r, "publicaciones": ps})
+    mc = round(median(pool), 2) if pool else None
+    return {"producto": {"producto_id": pid, "marca": p["marca"], "linea": p["linea"], "nombre": p["nombre"], "segmento": p["segmento"], "sae": p["sae"],
+                         "base": p["base"], "es_ypf": p["marca"] == "YPF", "specs": specs(p), "imagen": (foto.get(pid) or {}).get("url"),
+                         "imagen_fuente": (foto.get(pid) or {}).get("fuente"), "modelo": modelo(pid)},
+            "pais": pais, "moneda": PAISES[pais][1], "ventana": {"dias": dias, "desde": desde, "hasta": hasta}, "nota": NOTA_FRESCURA, "metodo": METODO,
+            "mayoristas_incluidos": mayoristas, **({"umbral_pct": umbral} if umbral is not None else {}),
+            "resumen": res, "publicaciones": pubs, "equivalentes": equivalentes,
+            "comparacion": {"mediana_ypf_litro": res["mediana_litro"], "mediana_comp_litro": mc, "n_comp": len(pool),
+                            "dif_pct_mediana_comp_vs_ypf": round((mc / res["mediana_litro"] - 1) * 100, 1) if mc and res["mediana_litro"] else None}}
+
+
+def aplanar_producto(v):
+    pais, moneda = v["pais"], v["moneda"]
+    fichas = [("ypf" if v["producto"]["es_ypf"] else "producto", v["producto"], "", "", v["publicaciones"])] + [
+        ("equivalente", e, e["tipo"], e["evidencia"], e["publicaciones"]) for e in v["equivalentes"]]
+    return [{"rol": rol, "producto_id": f["producto_id"], "marca": f["marca"], "nombre": f["nombre"], "tipo": tipo, "evidencia": ev, "pais": pais, "moneda": moneda, **x}
+            for rol, f, tipo, ev, ps in fichas for x in ps]
 
 
 def cobertura(d, pais="AR"):
@@ -1531,6 +1640,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.mercado(nombre, q)
         if nombre in ("provincias", "reventa", "cobertura"):
             return self.analisis(nombre, q)
+        if nombre == "producto":
+            return self.producto(q)
         if nombre.startswith("bi/"):  # modelo estrella para Power BI: CSV con BOM (para que lea los acentos), sin filtro de país
             desde = q.get("desde", "")
             if desde and not RX_FECHA.fullmatch(desde):
@@ -1612,6 +1723,30 @@ class Handler(BaseHTTPRequestHandler):
                      for p in v["productos"] for c in p["fuentes"]]
         filas = [{**f, "pais": pais, "moneda": v["moneda"]} for f in filas]
         self.enviar(200, a_csv("provincias", filas), "text/csv; charset=utf-8") if csv_ else self.salida(v)
+
+    def producto(self, q):
+        """/api/producto: la página de producto del visor y la fuente del agente de sobreprecios (400 si el producto no existe o `dias`/`umbral` son inválidos)."""
+        d, pid = self.datos, q.get("producto_id", "")
+        if not any(p["producto_id"] == pid for p in d["productos"]):
+            return self.json(400, {"error": f"producto_id desconocido o ausente: {pid!r}"})
+        try:
+            dias = int(q.get("dias") or 30)
+        except ValueError:
+            dias = 0
+        if not 1 <= dias <= 366:
+            return self.json(400, {"error": "dias tiene que ser un entero entre 1 y 366"})
+        umbral = None
+        if q.get("umbral"):
+            try:
+                umbral = float(q["umbral"])
+            except ValueError:
+                umbral = math.nan
+            if not math.isfinite(umbral):
+                return self.json(400, {"error": "umbral tiene que ser un número (porcentaje de desvío contra la mediana)"})
+        v = producto(d, pid, dias, q.get("mayoristas") == "1", umbral, self.pais)
+        if q.get("formato") == "csv":
+            return self.enviar(200, a_csv("producto", aplanar_producto(v)), "text/csv; charset=utf-8")
+        self.salida(v)
 
     def mercado(self, nombre, q):
         d = self.datos
@@ -2054,6 +2189,29 @@ def demo():
     assert rv["ypf"]["observaciones"][0]["fecha"] == "2026-11-05" and len(aplanar_reventa(rv)) == 12 and aplanar_reventa(rv)[-1]["rol"] == "equivalente"
     assert a_csv("reventa", aplanar_reventa(rv)).decode().startswith("rol,producto_id,marca,nombre,tipo,fecha,fuente,canal,vendedor,provincia,region,url,precio,")
     assert [canal(f) for f in ("sepa", "shopify_datri", "grok_x")] == ["publico", "mayorista", "grok"]
+    # ---------- /api/producto: una fila por aviso, con motivo de exclusión y desvío contra la mediana; sin umbral por defecto ----------
+    pr = producto(dp, "ypf-a")
+    mot = {x["url"]: x["motivo_exclusion"] for x in pr["publicaciones"]}
+    assert len(pr["publicaciones"]) == 10 and pr["resumen"]["n"] == 7 and pr["resumen"]["mediana_litro"] == 5200 and pr["resumen"]["p25_litro"] == 5000 and pr["producto"]["es_ypf"]
+    assert (mot["e2"], mot["m1"], mot["g2"], mot["a1"], mot["g1"]) == ("fuera_de_sanidad", "mayorista", "grok_sin_verificar", None, None)
+    assert {x["url"]: x["desvio_pct_vs_mediana"] for x in pr["publicaciones"]}["a4"] == 53.8 and all("sobre_umbral" not in x for x in pr["publicaciones"])
+    assert pr["ventana"] == {"dias": 30, "desde": "2026-10-07", "hasta": "2026-11-05"} and "tiempo real" in pr["nota"] and "umbral de sobreprecio" in pr["metodo"]
+    assert [x["en_calculo"] for x in pr["publicaciones"]].index(False) == 7 and pr["publicaciones"][0]["url"] == "a4"  # en cálculo primero, de más caro a más barato
+    g1 = next(x for x in pr["publicaciones"] if x["url"] == "g1")
+    assert g1["verificado"] is True and g1["fuente_nombre"] == "Grok · grok_helix" and nombre_fuente({"grok_sitios": [{"fuente": "grok_helix", "host": "www.helixturno.com.ar"}]}, "grok_helix") == "Grok · www.helixturno.com.ar" and nombre_fuente(dp, "shopify_datri") == "Tienda D'Atri (mayorista)" and next(x for x in pr["publicaciones"] if x["url"] == "g2")["verificado"] is False
+    assert {x["url"]: x["sobre_umbral"] for x in producto(dp, "ypf-a", umbral=50)["publicaciones"]}["a4"] is True
+    assert producto(dp, "ypf-a", umbral=50)["publicaciones"][-1]["sobre_umbral"] is False and producto(dp, "ypf-a", umbral=50)["umbral_pct"] == 50
+    assert producto(dp, "ypf-a", mayoristas=True)["resumen"]["n"] == 8 and producto(dp, "ypf-a", dias=1)["ventana"]["desde"] == "2026-11-05"
+    assert [(e["producto_id"], e["en_comparacion"], e["motivo_exclusion"]) for e in pr["equivalentes"]] == [("shell-s", True, None), ("gulf-g", False, "no_equivalente")]
+    assert pr["comparacion"] == {"mediana_ypf_litro": 5200, "mediana_comp_litro": 6000, "n_comp": 1, "dif_pct_mediana_comp_vs_ypf": 15.4}
+    vacio = producto(dp, "ypf-b")
+    assert vacio["resumen"]["n"] == 0 and vacio["resumen"]["mediana_litro"] is None and vacio["publicaciones"] == [] and vacio["comparacion"]["dif_pct_mediana_comp_vs_ypf"] is None
+    assert len(aplanar_producto(pr)) == 11 and aplanar_producto(pr)[-1]["rol"] == "equivalente" and a_csv("producto", aplanar_producto(pr)).decode().startswith("rol,producto_id,marca,nombre,tipo,evidencia,fuente,")
+    assert [x[0] for x in cuerdos([(1, 0), (5, 0), (5.2, 0)])] == [5, 5.2]
+    # misma publicación de ML que cambió provincia ('' → 'online'): una sola en /api/producto (la más nueva), dos en provincias
+    ml_ = {"producto_id": "p", "fuente": "ml", "url": "u", "ean": "", "titulo": "t", "vendedor": "v", "litros": "1", "unidades": "1", "precio": "9"}
+    dm = {"obs": [{**ml_, "fecha": "2026-11-17", "provincia": ""}, {**ml_, "fecha": "2026-11-18", "provincia": "online"}]}
+    assert [r["fecha"] for r in _avisos(dm, 30, {"p"}, prov_en_url=False)[1]["p"]] == ["2026-11-18"] and len(_avisos(dm, 30, {"p"})[1]["p"]) == 2
 
     # ---------- países: nada se mezcla (ni países ni monedas); USD solo con la cotización de ese día ----------
     Pb = lambda i, m, **k: {**dict.fromkeys(PRODUCTOS_F, ""), "producto_id": i, "marca": m, "linea": "L", "nombre": i, "segmento": "pcmo", "sae": "5W-30", **k}
@@ -2231,6 +2389,14 @@ def demo():
     cod, cuerpo = get("/api/cobertura", k)
     assert cod == 200 and json.loads(cuerpo)["total"]["productos_ypf"] == 1 and get("/api/cobertura?formato=csv", k)[1].startswith(b"producto_id,nombre")
     assert get("/api/provincias?producto_id=ypf-a-10w40&formato=csv", k)[1].startswith(b"producto_id,provincia,region,")
+    cod, cuerpo = get("/api/producto?producto_id=ypf-a-10w40")  # lectura abierta
+    pj_ = json.loads(cuerpo)
+    assert cod == 200 and pj_["producto"]["es_ypf"] and [e["producto_id"] for e in pj_["equivalentes"]] == ["shell-b-10w40"] and pj_["publicaciones"] and "metodo" in pj_
+    assert get("/api/producto?producto_id=ypf-a-10w40&formato=csv")[1].startswith(b"rol,producto_id,marca")
+    for mal in ("", "?producto_id=nada", "?producto_id=ypf-a-10w40&dias=0", "?producto_id=ypf-a-10w40&dias=367", "?producto_id=ypf-a-10w40&dias=x",
+                "?producto_id=ypf-a-10w40&umbral=x", "?producto_id=ypf-a-10w40&umbral=nan"):
+        assert get("/api/producto" + mal)[0] == 400, mal
+    assert json.loads(get("/api/producto?producto_id=ypf-a-10w40&umbral=10")[1])["umbral_pct"] == 10
     # ---------- carga de Grok (sin red: BAJAR y GH son fakes) ----------
     global BAJAR, GH
     hoy_s = date.today().isoformat()
