@@ -843,7 +843,7 @@ const series = {};      // producto_id → serie
 // por qué no hay precio en una fuente: si la fuente está caída, decirlo
 function motivoVacio(fuente) {
   const f = D.fuentes.find(x => x.fuente === fuente);
-  if (f && (f.error || f.dias_sin_datos > 1))
+  if (f && f.alerta)
     return f.ultimo_ok ? `${nf(fuente)}: sin datos desde ${fechaAR(f.ultimo_ok)}${f.error ? ", " + f.error : ""}` : `${nf(fuente)}: nunca trajo datos${f.error ? " (" + f.error + ")" : ""}`;
   return f && sinPrecios(f) ? "sin precios con stock" : "sin oferta con stock";
 }
@@ -856,7 +856,7 @@ function casaViejo() {
 const TXT_CASA = c => `El recolector de casa (celular o PC) no corre desde ${fechaAR(c.fecha)}: SEPA y la SE no se actualizan; el resto lo cubre GitHub`;
 
 function caidas() {
-  return fp().filter(f => f.fuente !== "casa").filter(f => f.error || f.dias_sin_datos === null || f.dias_sin_datos > 1);
+  return fp().filter(f => f.fuente !== "casa" && f.alerta);  // alerta y motivo los calcula el server (cadencia de cada fuente)
 }
 
 // Fuente que responde bien pero toda su oferta está sin stock (Jumbo): no es una caída HTTP.
@@ -871,17 +871,19 @@ const TXT_GUARDADOS = f => `${entero.format(+f.n_con_precio)} guardados · ${ent
 const TXT_SIN_PRECIOS = f => `${nf(f.fuente)}: sin precios con stock (${f.n_items} ítems publicados, todos sin stock; la fuente responde bien)`;
 
 function banner() {
-  // Un sitio Grok recién habilitado que todavía no tuvo carga no es una caída: va en una sola línea, no uno por renglón.
-  const todas = caidas(), gNueva = todas.filter(f => esGrok(f.fuente) && !f.ultimo_ok);
-  const c = todas.filter(f => !gNueva.includes(f)), sp = fp().filter(sinPrecios), sd = fp().filter(soloDescartados);
-  const lGrok = gNueva.length ? `<li>${esc(`Grok: ${gNueva.length} ${gNueva.length === 1 ? "sitio habilitado todavía no tuvo" : "sitios habilitados todavía no tuvieron"} su primera carga (detalle en Fuentes)`)}</li>` : "";
-  const lCasa = casaViejo() ? `<li>${esc(TXT_CASA(casaViejo()))}</li>` : "";
-  if (!c.length && !sp.length && !sd.length && !lGrok && !lCasa) return;
-  const lis = (c.length ? "<strong>Fuentes con problemas</strong><ul>" : "<ul>") + lCasa + sp.map(f => "<li>" + esc(TXT_SIN_PRECIOS(f)) + "</li>").join("") + sd.map(f => "<li>" + esc(nf(f.fuente) + ": " + TXT_GUARDADOS(f)) + "</li>").join("") + lGrok + c.map(f => "<li>" +
-    esc(f.ultimo_ok ? `${nf(f.fuente)}: sin datos desde ${fechaAR(f.ultimo_ok)}${f.error ? ", " + f.error : ""}`
-                    : `${nf(f.fuente)}: nunca trajo datos${f.error ? " (" + f.error + ")" : ""}`) + "</li>").join("") + "</ul>";
-  const n = (lis.match(/<li>/g) || []).length;
-  $("#banner").innerHTML = `<details><summary>${n} ${n === 1 ? "aviso" : "avisos"} sobre las fuentes (tocá para ver)</summary>${lis}</details>`;
+  // `alerta`/`motivo` vienen de /api/fuentes. Lo que no es falla (sin stock, sin primera carga, pausada, cubierta) va aparte, en "Para tener en cuenta".
+  const c = caidas(), sp = fp().filter(sinPrecios), sd = fp().filter(soloDescartados);
+  const gNueva = fp().filter(f => esGrok(f.fuente) && !f.ultimo_ok);
+  const info = [...sp.map(f => TXT_SIN_PRECIOS(f)), ...sd.map(f => nf(f.fuente) + ": " + TXT_GUARDADOS(f)),
+    ...(gNueva.length ? [`Grok: ${gNueva.length} ${gNueva.length === 1 ? "sitio habilitado todavía no tuvo" : "sitios habilitados todavía no tuvieron"} su primera carga (detalle en Fuentes)`] : []),
+    ...fp().filter(f => f.aviso && !esGrok(f.fuente) || f.aviso && f.aviso.startsWith("cubierto")).map(f => `${nf(f.fuente)}: ${f.aviso}`)];
+  const lCasa = casaViejo() ? esc(TXT_CASA(casaViejo())) : "";
+  if (!c.length && !info.length && !lCasa) return;
+  const probs = (lCasa ? [lCasa] : []).concat(c.map(f => esc(`${nf(f.fuente)}: ${f.motivo}`)));
+  const lis = (probs.length ? "<strong>Fuentes con problemas</strong><ul>" + probs.map(x => "<li>" + x + "</li>").join("") + "</ul>" : "") +
+    (info.length ? `<strong class="mut">Para tener en cuenta</strong><ul class="mut">` + info.map(x => "<li>" + esc(x) + "</li>").join("") + "</ul>" : "");
+  const n = probs.length;
+  $("#banner").innerHTML = `<details><summary>${n ? `${n} ${n === 1 ? "problema" : "problemas"} en las fuentes` : `${info.length} ${info.length === 1 ? "dato" : "datos"} para tener en cuenta sobre las fuentes`} (tocá para ver)</summary>${lis}</details>`;
 }
 
 function opciones(sel, valores, todas, etiqueta = v => v) {
@@ -1169,8 +1171,8 @@ function fuentes() {
     ${D.fuentes.map(f => `<tr><td>${nfh(f.fuente)}<br><span class="mut">${esc(f.fuente)}</span>${f.nota ? `<br><span class="caro">${esc(f.nota)}</span>` : ""}</td><td>${esc(f.pais || "AR")}</td><td>${fechaAR(f.fecha) || '<span class="vacio">sin cargas</span>'}</td><td>${esGrok(f.fuente) ? '<span class="mut">carga de Grok</span>' : esc(f.http) || '<span class="vacio">sin respuesta</span>'}</td>
       <td class="n">${esc(f.n_items)}</td><td class="n">${sinPrecios(f) ? '<span class="vacio" title="La fuente responde bien pero todos sus ítems están sin stock">sin precios con stock</span>' : nDesc(f) ? esc(TXT_GUARDADOS(f)) : esc(f.n_con_precio)}</td><td class="n">${esc(f.n_sin_stock)}</td><td class="n">${esc(f.n_sin_match)}</td>
       <td>${f.ultimo_ok ? fechaAR(f.ultimo_ok) : '<span class="vacio">nunca</span>'}</td>
-      <td class="n${f.dias_sin_datos > 1 || f.dias_sin_datos === null ? " caro" : ""}">${f.dias_sin_datos ?? '<span class="vacio">nunca trajo datos</span>'}</td>
-      <td>${f.error ? `<span class="caro">${esc(f.error)}</span>` : '<span class="mut">sin error</span>'}</td></tr>`).join("")}</table></div>`;
+      <td class="n${f.alerta ? " caro" : ""}" title="${esc(f.cadencia || "")}">${f.dias_sin_datos ?? '<span class="vacio">nunca trajo datos</span>'}</td>
+      <td>${f.alerta ? `<span class="caro">${esc(f.motivo)}</span>` : f.aviso ? `<span class="mut">${esc(f.aviso)}</span>` : '<span class="mut">sin problema vigente</span>'}${f.error && !f.alerta ? `<br><span class="mut">última fila: ${esc(f.error)}</span>` : ""}</td></tr>`).join("")}</table></div>`;
   const sm = D.sin_match, max = 300;
   $("#sm-out").innerHTML = !sm.length ? `<div class="explica">No hay avisos sin producto. Es así por diseño: desde que la recolección guarda solo lo relacionado con YPF, los avisos sin match o de otros productos se descartan y se cuentan en la columna "Con precio" de cada fuente (<code>n_descartados</code>), en vez de acumularse acá.</div>` :
     `<p class="nota">${entero.format(sm.length)} avisos distintos${sm.length > max ? `, se muestran los ${max} más recientes (todos en <code>/api/sin_match?formato=csv</code>)` : ""}.</p>

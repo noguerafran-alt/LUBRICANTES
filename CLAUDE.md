@@ -277,7 +277,7 @@ Sin autenticación para leer (ver «Lectura abierta»). Respuestas JSON; `?forma
 | `/api/obs?mes=AAAA-MM` | observaciones crudas del mes (insumo del análisis interno) |
 | `/api/serie?p=<producto_id>` | serie diaria: mediana de $/L por fuente |
 | `/api/indice` | índice $/L por fecha, segmento, SAE y marca (YPF = 100). Excluye fuentes mayoristas; `?mayoristas=1` las incluye |
-| `/api/fuentes` | último estado de cada fuente + días sin datos + `pais` y `nota` (p. ej. la cautela de Nota Paraná) |
+| `/api/fuentes` | último estado de cada fuente + días sin datos + `pais` y `nota` (p. ej. la cautela de Nota Paraná) + `cadencia` (diaria\|mensual\|manual\|serie\|pausada), `alerta` (bool), `motivo` y `aviso` (nota que no es falla); los calcula `server.avisos` y el visor no recalcula: diaria = error en la última fila o más de 1 día; `macro_<id>` sin error toma su edad de `macro_series`; `macro_energia` alerta si la última bajada buena tiene más de 45 días o si `casa` falló en `energia` después de ella; manual (`grok_*`) más de 30 días; `CUBIERTA` (grok_helix→helix_api, serie 92.2→fx_bcra) apaga la alerta si la cubridora está al día |
 | `/api/sin_match` | avisos sin `producto_id` (cola de revisión) |
 | `/api/oferta_ml` | `data/ml_oferta.csv` |
 | `/api/vitrina` | YPF vs competencia por producto (ver abajo; es la pestaña **Visualizador** del visor, antes «Vitrina YPF»: el hash `#vitrina` sigue valiendo como alias y la API no cambió de nombre). Excluye mayoristas; `?mayoristas=1` los incluye. `?formato=csv` aplana |
