@@ -1,6 +1,12 @@
 # ESTADO
 
-Actualizado 2026-11-19 (gráficos ampliables en Mercado; modelos 3D sin foto atrás y con malla cerrada; export a Power BI; modelos 3D con Blender y modo presentación con GLB; Brasil; antes: mercado: share de la SE y series de datos.gob.ar). Remoto privado `noguerafran-alt/LUBRICANTES`; la Action corre a diario.
+Actualizado 2026-11-19 (share ampliado con la serie completa desde 2010; gráficos ampliables en Mercado; modelos 3D sin foto atrás y con malla cerrada; export a Power BI; modelos 3D con Blender y modo presentación con GLB; Brasil; antes: mercado: share de la SE y series de datos.gob.ar). Remoto privado `noguerafran-alt/LUBRICANTES`; la Action corre a diario.
+
+## Share ampliado con la serie completa (2026-11-19, rama lub-share)
+- Al abrir «Ampliar el gráfico: Share mensual» el diálogo pide `GET /api/mercado/share?completo=1&producto=&canal=` (`server.share_completo`: reusa `share()` con `top=` fijo = las mismas top 7 + Otras de la tarjeta; arranca en el primer mes del archivo, hoy 2010-01, hasta el último). Mientras llega se ven los 36 meses; si falla, aviso. Rangos 1A/3A/5A/10A/Todo sobre la serie larga. Empresa sin fila = null = hueco, nunca 0 (Esso→PAE/Axion ya unida en los datos). La estadística de YPF (primera serie) viene abierta. CSV = `/api/mercado/share?formato=csv` con el producto/canal actual.
+- Genérico: un spec puede traer `completar()` (async, devuelve filas) en vez de `macroId`.
+- Assert en `demo()` (serie completa empieza en 2025-09 en los datos de prueba, mismas empresas que la ventana, sin fila = null). `server.py test` OK; corrida real con `energia.csv`: 201 meses 2010-01 → 2026-09, con y sin canal.
+- **Verificado (lub-test)**: a 1280 y 375 px, «Todo» desde ene 2010, tooltip, canal «Al Público» reabre con su serie y su CSV. **No verificado**: reabrir cambiando de producto (industriales, marinos, grasas).
 
 ## Gráficos ampliables en Mercado (2026-11-19, rama lub-graficos)
 - **Pedido**: "cada gráfico se pueda abrir para ver más en detalle con ejes y escala y todo lo de análisis de gráficos". Solo `site/index.html`; la API no cambió (`/api/macro?ids=` ya devuelve la serie larga, también de las derivadas `se_*`), así que no hay assert nuevo.

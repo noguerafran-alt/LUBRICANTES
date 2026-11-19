@@ -754,8 +754,18 @@ def agregado(filas, canal=None):
     return vol, tot
 
 
-def share(filas, canal=None, n=MESES_SHARE):
-    """Share mensual por empresa de un producto (`filas` = tuplas de energia.csv de ese producto), últimos n meses, top 7 + Otras."""
+def share_completo(filas, canal=None):
+    """Serie desde el primer mes del archivo, con las mismas empresas (top 7 + Otras) que la ventana de 36 meses de `share`."""
+    vol, tot = agregado(filas, canal)
+    if not tot:
+        return share(filas, canal)
+    a, b = min(tot), max(tot)
+    n = (int(b[:4]) - int(a[:4])) * 12 + int(b[5:7]) - int(a[5:7]) + 1
+    return share(filas, canal, n, top=[e["empresa"] for e in share(filas, canal)["empresas"] if e["empresa"] != "Otras"])
+
+
+def share(filas, canal=None, n=MESES_SHARE, top=None):
+    """Share mensual por empresa de un producto (`filas` = tuplas de energia.csv de ese producto), últimos n meses, top 7 + Otras (o `top` fijo)."""
     vol, tot = agregado(filas, canal)
     out = {"meses": [], "total": [], "empresas": [], "canales": [], "provincias": [], "nota": NOTA_SHARE}
     if not tot:
@@ -770,7 +780,7 @@ def share(filas, canal=None, n=MESES_SHARE):
         if mes in ventana:
             por_emp[emp] += q
     ranking = sorted(por_emp, key=lambda e: (-por_emp[e], e))
-    top = ranking[:TOP_EMPRESAS]
+    top = top or ranking[:TOP_EMPRESAS]
 
     def fila(nombre, vols):
         serie = [v / tot[m] if v is not None and tot.get(m) else None for m, v in zip(meses, vols)]
@@ -1542,6 +1552,9 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(404, {"error": f"canal sin datos: {canal!r}", "canales": canales})
         if nombre == "mercado/share" and q.get("formato") == "csv":
             return self.enviar(200, a_csv("mercado_share", share_filas(filas, canal)), "text/csv; charset=utf-8")
+        if nombre == "mercado/share" and q.get("completo") == "1":
+            c = share_completo(filas, canal)
+            return self.json(200, {"producto": PRODUCTOS_SHARE[prod], "canal": canal, "meses": c["meses"], "total": c["total"], "empresas": c["empresas"]})
         if nombre == "mercado/share":
             return self.json(200, {"producto": PRODUCTOS_SHARE[prod], "canal": canal, **share_origen(d, filas, canal)})
         self.json(200, self.calc["mercado"] if prod == "automotrices" and not canal else mercado(d, prod, canal))
@@ -1794,6 +1807,9 @@ def demo():
     assert share([])["meses"] == [] and share(sh, "Inexistente")["empresas"] == []
     sf = share_filas(sh, "Al Público")
     assert sf[0]["mes"] == "2025-09" and sf[0]["empresa"] == "YPF" and sf[0]["share"] == round(120 / 217, 6) and sf[0]["volumen"] == 120
+    sc = share_completo(sh)
+    assert sc["meses"][0] == "2025-09" and sc["meses"][-1] == S["meses"][-1] and [e["empresa"] for e in sc["empresas"]] == [e["empresa"] for e in S["empresas"]]
+    assert sc["empresas"][0]["serie"][0] == round(120 / 217, 6) and sc["empresas"][1]["serie"][-7] is None  # sin fila = null, no 0
     # ---------- dónde pierde share: descomposición exacta, nulos, unidades ----------
     pm = perdidas(d, "automotrices", ventana="mes")
     f_ = pm["foco"]
@@ -2037,6 +2053,7 @@ def demo():
     assert json.loads(get("/api/mercado/share?canal=" + urllib.parse.quote("Al Público"), k)[1])["empresas"][0]["ultimo"] == round(100 / 202, 6)
     assert get("/api/mercado/share?canal=Nada", k)[0] == 404
     assert json.loads(get("/api/mercado/share", k)[1])["empresas"][0]["origen"]["marcas"] == ["YPF"]
+    assert json.loads(get("/api/mercado/share?completo=1", k)[1])["meses"][0] == "2025-09"
     assert get("/api/mercado/share?formato=csv", k)[1].startswith(b"mes,empresa,volumen,total,share\n2025-09,YPF,120")
     pj = json.loads(get("/api/mercado/perdidas?ventana=mes&min=0", k)[1])
     assert pj["origenes"]["YPF"]["filas_url"] == "/api/mercado/filas?empresa=YPF" and pj["origenes"]["A"]["razones_sociales"] == ["A"]
