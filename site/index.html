@@ -1338,6 +1338,7 @@ function pintarMercado() {
           <label>Ver por <select id="mk-por"><option value="empresa">Empresa</option><option value="marca">Marca</option></select></label>
         </div>
       </div>
+      ${glosario()}
       <div id="mk-share-in"></div>
     </div>
     <div class="mk-bloque" id="mk-p">
@@ -1351,7 +1352,7 @@ function pintarMercado() {
           <label>Piso de volumen <input id="mk-p-min" type="number" min="0" step="any" inputmode="decimal" placeholder="50 (12 m) / 5 (mes)" title="Segmentos con menos volumen que este piso (m³ o t) no se rankean"></label>
         </div>
       </div>
-      <p class="nota">Cuánto share le sacaron a YPF, en qué producto, canal y provincia y quién, con los datos oficiales de la Secretaría de Energía. Cada producto va con su unidad: nunca se mezclan m³ con toneladas.</p>
+      <p class="nota">Cuánto share le sacaron a YPF, en qué producto, canal y provincia y quién, con los datos oficiales de la Secretaría de Energía. Cada producto va con su unidad: nunca se mezclan m³ con toneladas. <a href="#mk-glosario" id="mk-glo-ir">ⓘ Qué es cada producto y canal</a></p>
       <div id="mk-p-in"><div class="explica">Calculando…</div></div>
     </div>
     <div class="mk-bloque" id="mk-b">
@@ -1368,6 +1369,7 @@ function pintarMercado() {
       <p class="nota">Cruces propios entre los precios relevados por este visor y las series oficiales. No los publica ningún organismo.</p>
       <div id="mk-comp-in"></div>
     </div>`;
+  $("#mk-glo-ir").onclick = (e) => { e.preventDefault(); const g = $("#mk-glosario"); g.open = true; g.scrollIntoView(); };
   $("#mk-prod").value = M.producto;
   $("#mk-prod").onchange = e => { M.producto = e.target.value; pedirMercado(); };
   $("#mk-canal").onchange = e => { M.canal = e.target.value; pedirMercado(); };
@@ -1383,6 +1385,29 @@ function pintarMercado() {
   pintarShare(); pedirPerdidas(); pintarActividad(); pintarCompuestos();
   pintarGraficos();
 }
+
+// ----- glosario de productos y canales de la SE (sin definición oficial: lo habitual va rotulado) -----
+const GLO_PROD = [
+  ["Lubricantes automotrices", "m³", "Para vehículos: aceite de motor de autos, camionetas, camiones, colectivos y motos. Probablemente también caja y diferencial (no confirmado: la SE no tiene categoría aparte de transmisión)."],
+  ["Lubricantes industriales", "m³", "Máquinas y plantas: hidráulicos, turbinas, compresores, engranajes industriales, corte."],
+  ["Lubricantes marinos", "m³", "Motores de barcos."],
+  ["Grasas", "toneladas", "Grasas lubricantes de cualquier uso."]];
+const GLO_CANAL = [
+  ["Otras Empresas", "El canal más grande en volumen: venta directa a empresas que no son del sector (distribuidores, industrias, flotas)."],
+  ["Al Público", "Venta a través de la red de estaciones de servicio, bocas de expendio y comercios al público."],
+  ["Agro", ""], ["Industrias Petroquímicas", ""],
+  ["Bunker Cabotaje", "Abastecimiento a buques en navegación nacional."],
+  ["transporte Público de Pasajeros", ""],
+  ["Bunker Internacional", "Abastecimiento a buques de navegación internacional."],
+  ["Transporte de Carga", ""], ["Transporte Ferroviario", ""], ["Usinas Eléctricas", ""], ["S/N", "Sin dato de canal en la declaración."], ["Estado", ""]];
+const glosario = () => `<details class="mk-agg mk-glosario" id="mk-glosario"><summary><span aria-hidden="true">ⓘ</span>&nbsp;Qué es cada producto y cada canal</summary>
+  <p class="nota">La Secretaría de Energía no publica una definición de cada categoría (ni en la ficha del dataset ni en la norma, verificado el 2026-11-19). Los nombres y las unidades son los del dato; la columna «Lectura habitual» es una interpretación, sin definición oficial.</p>
+  <div class="tabla"><table><tr><th>Producto (nombre en la SE)</th><th>Unidad</th><th>Lectura habitual</th></tr>
+  ${GLO_PROD.map(([n, u, t]) => `<tr><td>${esc(n)}</td><td>${esc(u)}</td><td>${esc(t)}</td></tr>`).join("")}</table></div>
+  <p class="nota">Nunca se suman m³ con toneladas.</p>
+  <div class="tabla"><table><tr><th>Canal (subtipo de comercialización)</th><th>Lectura habitual</th></tr>
+  ${GLO_CANAL.map(([n, t]) => `<tr><td>${esc(n)}</td><td>${esc(t || "Sin descripción oficial; el nombre es lo único que dice el dato.")}</td></tr>`).join("")}</table></div>
+  <p class="mk-fuente">Son ventas al mercado, sin las ventas a otras empresas del sector petrolero. Canales ordenados de mayor a menor volumen de lubricantes (m³) entre 2010 y 2026, a la fecha de esta redacción.</p></details>`;
 
 // ----- origen de cada línea del share y tabla marca → empresa -----
 const DATASET_SE = "https://datos.energia.gob.ar/dataset/5bdc436c-60d4-4c86-98ab-59834d047700";
