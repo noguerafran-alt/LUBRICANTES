@@ -316,6 +316,8 @@ table.comp td .vacio { display: block; line-height: 1.3; }
 .mk-detalle h3 { margin: 10px 0 2px; font-size: 16px; } .mk-detalle h4 { margin: 12px 0 4px; font-size: 13px; }
 .mk-desc p { margin: 4px 0; overflow-wrap: anywhere; }
 .mk-fuentes ul { font-size: 12px; padding-left: 18px; overflow-wrap: anywhere; }
+.mk-prec { font-size: 10px; padding: 0 5px; border-radius: 8px; border: 1px solid var(--borde-ctl); color: var(--mut); white-space: nowrap; vertical-align: middle; }
+.mk-prec.agrupado { border-style: dashed; }
 .mk-limite { border-left: 3px solid var(--borde-ctl); padding: 2px 0 2px 10px; margin: 12px 0 0; }
 .mk-orig { list-style: none; padding: 0; margin: 6px 0 0; font-size: 12px; overflow-wrap: anywhere; }
 .mk-orig li { padding: 6px 0; border-bottom: 1px solid var(--borde); }
@@ -1234,7 +1236,15 @@ reducido.addEventListener("change", vtAuto);
 addEventListener("resize", () => { if (VT.pista && !$("#vitrina").hidden) vtIr(VT.pos, false); });
 
 // ---------- Mercado ----------
-const M = { r: null, pedido: null, producto: "automotrices", canal: "", g: {} };
+const M = { r: null, pedido: null, producto: "automotrices", canal: "", por: "empresa", g: {} };
+// «Ver por: Marca» es solo un rótulo: la SE publica por empresa y los números no cambian. Los rótulos vienen de `origen.rotulos` (server.rotulos); el de PAE/Axion depende del mes.
+const rotDe = (o, mes) => (o?.rotulos || []).filter(r => !r.desde || r.desde <= mes).at(-1) || null;
+const PREC_TXT = { exacto: "la empresa vende una sola marca relevante", agrupado: "varias marcas de una misma empresa: esta fuente no las puede separar" };
+const insignia = r => M.por === "marca" && r?.precision ? ` <span class="mk-prec ${r.precision}" title="${esc(PREC_TXT[r.precision])}">${esc(r.precision)}</span>` : "";
+const rotP = (emp, orig, mes) => M.por === "marca" ? rotDe(orig?.[emp], mes || PD.r?.ultimo_mes || "9999") : null;
+const etqT = (emp, orig, mes) => rotP(emp, orig, mes)?.marca || emp;
+const etq = (emp, orig, mes) => esc(etqT(emp, orig, mes)) + insignia(rotP(emp, orig, mes));
+const NOTA_MARCA = "La Secretaría de Energía publica por empresa. Una línea agrupada suma varias marcas que no se pueden separar con esta fuente.";
 const PRODUCTOS_SE = { automotrices: "Automotrices", industriales: "Industriales", marinos: "Marinos", grasas: "Grasas" };
 const GRUPOS = { liviano: "Flota liviana", pesado: "Transporte pesado", agro: "Agro", industria: "Industria y construcción", precios: "Precios, salarios y dólar", demanda: "Ventas de lubricantes (Secretaría de Energía)" };
 const SIGNOS = { "*": "dato provisorio", "**": "dato preliminar", e: "estimado por extrapolación o proyección", i: "estimado por imputación",
@@ -1326,6 +1336,7 @@ function pintarMercado() {
         <div class="filtros">
           <label>Producto <select id="mk-prod">${Object.entries(PRODUCTOS_SE).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></label>
           <label>Canal <select id="mk-canal"></select></label>
+          <label>Ver por <select id="mk-por"><option value="empresa">Empresa</option><option value="marca">Marca</option></select></label>
         </div>
       </div>
       <div id="mk-share-in"></div>
@@ -1361,6 +1372,8 @@ function pintarMercado() {
   $("#mk-prod").value = M.producto;
   $("#mk-prod").onchange = e => { M.producto = e.target.value; pedirMercado(); };
   $("#mk-canal").onchange = e => { M.canal = e.target.value; pedirMercado(); };
+  $("#mk-por").value = M.por;
+  $("#mk-por").onchange = e => { M.por = e.target.value; pintarShare(); pintarGraficos($("#mk-share-in")); pedirPerdidas(); };
   const reP = () => { PD.todas = false; pedirPerdidas(); };
   $("#mk-p-prod").value = PD.producto; $("#mk-p-vent").value = PD.ventana;
   $("#mk-p-prod").onchange = e => { PD.producto = e.target.value; PD.canal = PD.provincia = ""; reP(); };
@@ -1389,6 +1402,16 @@ function tablaMarcas(marcas) {
     <p class="mk-fuente">La SE publica ventas por empresa declarante, no por marca; esta tabla dice qué marca va dentro de cada una. «Inferida» = no sale de una ficha oficial.</p>`;
 }
 
+function sinDato(marcas) {
+  const xs = (marcas || []).filter(m => !m.estado.startsWith("declara"));
+  if (M.por !== "marca" || !xs.length) return "";
+  return `<h3 class="mk-sub">Marcas sin dato en la SE</h3>
+    <div class="tabla"><table class="mk-marcas"><tr><th>Marca</th><th>Qué pasa</th><th>Evidencia y fuente</th></tr>
+    ${xs.map(m => `<tr><td>${esc(m.marca)}</td><td>${esc(m.estado)}${m.nota ? `<br><span class="vacio">${esc(m.nota)}</span>` : ""}</td>
+      <td>${esc(m.evidencia)}${m.fuente_url ? ` · <a href="${esc(m.fuente_url)}" target="_blank" rel="noopener">fuente</a>` : ""}</td></tr>`).join("")}</table></div>
+    <p class="mk-fuente">Estas marcas no tienen línea en el share: la empresa que las vende no declara a la SE (o dejó de hacerlo). No se les inventa ningún volumen.</p>`;
+}
+
 // ----- A. share oficial -----
 function pintarShare() {
   const s = M.r.share || {}, caja = $("#mk-share-in");
@@ -1406,6 +1429,8 @@ function pintarShare() {
   const esYpf = e => /^ypf/i.test(e.empresa), esOtras = e => /^otras?$/i.test(e.empresa);
   const orden = [...emps.filter(esYpf), ...emps.filter(e => !esYpf(e) && !esOtras(e)).sort((a, b) => (b.ultimo ?? -1) - (a.ultimo ?? -1)), ...emps.filter(esOtras)];
   const ypf = orden.find(esYpf), ult = meses.at(-1), total = (s.total || []).at(-1);
+  const porM = M.por === "marca", rot = (e, mes = ult) => porM ? rotDe(e.origen, mes) : null;
+  const nom = (e, mes = ult) => rot(e, mes)?.marca || info[e.empresa].nombre;
   const canalTxt = M.canal ? ` en el canal ${esc(M.canal)}` : "";
   let kpi;
   if (!ypf) kpi = `<p class="vt-vacio">YPF no figura entre las empresas que declararon ${esc(nomProd)}${canalTxt}.</p>`;
@@ -1418,12 +1443,12 @@ function pintarShare() {
   }
   const ctx = `<p class="mk-ctx">${esNum(total) ? `${entero.format(Math.round(total))} ${unidad} vendidos en total` : "Total del mes sin publicar («...»)"}${canalTxt}, entre las empresas que declaran.</p>`;
   const rank = `<ol class="mk-rank" aria-label="Share por empresa en ${esc(mesLargo(ult))}">${orden.map(e => `<li${esYpf(e) ? ' class="ypf"' : ""}>
-      <i class="mk-sw" style="background:${info[e.empresa].color}"></i><span title="${esc(e.empresa)}">${esc(info[e.empresa].nombre)}</span>
+      <i class="mk-sw" style="background:${info[e.empresa].color}"></i><span title="${esc(e.empresa)}">${esc(nom(e))}${insignia(rot(e))}</span>
       <span class="d ${esNum(e.var_pp) ? "" : "vacio"}" title="vs hace 12 meses">${esNum(e.var_pp) ? pp(e.var_pp) : "..."}</span><span class="n">${pct(e.ultimo)}</span></li>`).join("")}</ol>`;
-  M.g.share = barrasShare(meses, s.total || [], orden, info, unidad);
+  M.g.share = barrasShare(meses, s.total || [], orden, info, unidad, nom);
   const csv = `/api/mercado/share?producto=${encodeURIComponent(M.producto)}${M.canal ? "&canal=" + encodeURIComponent(M.canal) : ""}&formato=csv`;
   AMP.specs.share = () => ({ titulo: `Share mensual de ${nomProd}${M.canal ? ", canal " + M.canal : ""}`, unidad: "% del volumen que declaran las empresas", frec: "M", pp: true, neutro: true, signos: false,
-    fmt: pct, fmtEje: v => dec1.format(v * 100) + " %", series: orden.map(e => ({ nombre: info[e.empresa].nombre, color: info[e.empresa].color })),
+    fmt: pct, fmtEje: v => dec1.format(v * 100) + " %", series: orden.map(e => ({ nombre: nom(e), color: info[e.empresa].color, rotulo: porM && e.origen?.rotulos?.length > 1 ? x => nom(e, x.slice(0, 7)) : null })),
     filas: meses.map((m, i) => ({ x: m, v: orden.map(e => esNum(e.serie?.[i]) ? e.serie[i] : null) })),
     fuente: "Secretaría de Energía, Res. SE 1104 (datos.energia.gob.ar)", links: [["Dataset de la Secretaría de Energía", DATASET_SE]], csv,
     // serie completa (desde el primer mes del archivo) con las mismas empresas que la tarjeta; mientras llega se ven los 36 meses
@@ -1434,7 +1459,7 @@ function pintarShare() {
     },
     nota: `Serie mensual completa desde ${mesCorto(meses[0])} si la carga termina; el CSV trae todas las empresas. Se muestran las mismas empresas que la tarjeta (las demás, en Otras). Una empresa sin fila ese mes queda como hueco (no declaró), no es 0.` });
   const datos = `<details><summary>Ver los datos</summary><div class="tabla mk-datos"><table>
-      <tr><th>Mes</th>${orden.map(e => `<th>${esc(info[e.empresa].nombre)}</th>`).join("")}<th>Total (${esc(unidad)})</th></tr>
+      <tr><th>Mes</th>${orden.map(e => `<th>${esc(nom(e))}${insignia(rot(e))}</th>`).join("")}<th>Total (${esc(unidad)})</th></tr>
       ${meses.map((m, i) => `<tr><td>${mesCorto(m)}</td>${orden.map(e => `<td class="n">${pct(e.serie?.[i])}</td>`).join("")}<td class="n">${esNum(s.total?.[i]) ? entero.format(Math.round(s.total[i])) : "..."}</td></tr>`).join("")}
     </table></div><p><a href="${esc(location.origin + csv)}" download>Bajar la serie mensual completa (CSV)</a></p></details>`;
   const provs = [...(s.provincias || [])].sort((a, b) => (b.volumen ?? -1) - (a.volumen ?? -1));
@@ -1455,11 +1480,12 @@ function pintarShare() {
     <h3 class="mk-sub">Share de YPF por provincia, ${esc(mesLargo(ult))}</h3>${tablaProv}
     <p class="mk-fuente">Fuente: Secretaría de Energía, Res. SE 1104. Variación en puntos porcentuales contra el mismo mes del año anterior.</p>
     <h3 class="mk-sub">De dónde viene cada línea del share</h3>
-    <ul class="mk-orig">${orden.map(e => e.origen ? origenLi(info[e.empresa].nombre, e.origen) : "").join("")}</ul>
-    ${tablaMarcas(M.r.marcas)}`;
+    <ul class="mk-orig">${orden.map(e => e.origen ? origenLi(nom(e), e.origen) : "").join("")}</ul>
+    ${tablaMarcas(M.r.marcas)}${sinDato(M.r.marcas)}`;
+  if (porM) caja.querySelector(".mk-share").insertAdjacentHTML("afterend", `<p class="nota mk-limite mk-nota-marca">${esc(NOTA_MARCA)}</p>`);
 }
 
-function barrasShare(meses, total, orden, info, unidad) {
+function barrasShare(meses, total, orden, info, unidad, nom = e => info[e.empresa].nombre) {
   const n = meses.length;
   return {
     W: 0, xs: [],
@@ -1501,7 +1527,7 @@ function barrasShare(meses, total, orden, info, unidad) {
     },
     marcar(svg, i) { svg.querySelectorAll(".mk-bar, .mk-hueco").forEach((b, k) => b.classList.toggle("off", i !== null && k !== i)); },
     tip(i) {
-      return `<b>${esc(mesLargo(meses[i]))}</b>` + orden.map(e => `<div class="f"><i style="background:${info[e.empresa].color}"></i><span>${esc(info[e.empresa].nombre)}</span><span>${pct(e.serie?.[i])}</span></div>`).join("")
+      return `<b>${esc(mesLargo(meses[i]))}</b>` + orden.map(e => `<div class="f"><i style="background:${info[e.empresa].color}"></i><span>${esc(nom(e, meses[i]))}</span><span>${pct(e.serie?.[i])}</span></div>`).join("")
         + `<div class="mut">Total: ${esNum(total[i]) ? entero.format(Math.round(total[i])) + " " + esc(unidad) : "..."}</div>`;
     }
   };
@@ -1724,7 +1750,7 @@ function ampTip(sp, f, mmN) {
   sp.series.forEach((se, k) => {
     const v = f.v[k], sg = f.s?.[k];
     const vm = varAmp(sp, v, ampRef(sp, k, iso, mp)), va = varAmp(sp, v, ampRef(sp, k, iso, 12));
-    if (varias) s += `<div class="f"><i style="background:${se.color}"></i><span>${esc(se.nombre)}</span><span>${valorTxt({ valor: v, signo: sg }, sp.fmt)}</span></div>`;
+    if (varias) s += `<div class="f"><i style="background:${se.color}"></i><span>${esc(se.rotulo ? se.rotulo(f.x) : se.nombre)}</span><span>${valorTxt({ valor: v, signo: sg }, sp.fmt)}</span></div>`;
     else s += `<div>${valorTxt({ valor: v, signo: sg }, sp.fmt)}${uni}</div>`;
     if (!varias || sp.series.length <= 2) s += `<div class="mut">${varias ? esc(se.nombre) + ": " : ""}var. ${per}: ${varTxt(sp, vm)} · interanual: ${varTxt(sp, va)}</div>`;
     if (sg && SIGNOS[sg] && !varias) s += `<div class="mut">${esc(sg)}: ${esc(SIGNOS[sg])}</div>`;
@@ -1875,7 +1901,7 @@ function fraseResumen(r) {
     partes.push(`En ${nom}${donde}, ${vent}, YPF pierde ${num(Math.abs(r.perdido_por_share_m3))} ${u} por share`
       + (una ? " en ese canal y provincia." : `, sumando ${perd.length === 1 ? "1 segmento" : perd.length + " segmentos"} canal × provincia.`));
     const cs = r.por_competidor.filter(c => c.ganado_donde_ypf_pierde_m3 > 0).slice(0, 3);
-    if (cs.length) partes.push(`Se lo llevan sobre todo ${cs.map(c => `${c.empresa} (${num(c.ganado_donde_ypf_pierde_m3)} ${u})`).join(", ")}.`);
+    if (cs.length) partes.push(`Se lo llevan sobre todo ${cs.map(c => `${etqT(c.empresa, r.origenes)} (${num(c.ganado_donde_ypf_pierde_m3)} ${u})`).join(", ")}.`);
     if (!una) partes.push(`Donde más pierde: ${perd.slice(0, 3).map(s => `${s.canal}, ${s.provincia} (${num(Math.abs(s.efecto_share))} ${u})`).join("; ")}.`);
   } else partes.push(`En ${nom}${donde}, ${vent}: en las celdas con datos YPF no pierde share.`);
   if (una && perd.length) partes.push(`Share de ${pct(f.s_t0)} a ${pct(f.s_t)}; el mercado ${f.efecto_mercado < 0 ? "restó" : "sumó"} ${num(Math.abs(f.efecto_mercado))} ${u}.`);
@@ -1897,7 +1923,7 @@ function filasTabla(segs, r) {
       <td class="n"><b class="${s.efecto_share < 0 ? "baja" : "sube"}">${m3s(s.efecto_share, u)}</b></td>
       <td class="n mk-h12">${m3s(s.efecto_mercado, u)}</td>
       <td class="n mk-h12">${num(s.total_t)} ${u}${s.huecos ? ` <span class="mk-sig" title="faltan meses en algún período: ${s.meses_con_dato.t} de ${r.ventana === "12m" ? 12 : 1} y ${s.meses_con_dato.t0}">*</span>` : ""}</td>
-      <td>${g ? `${esc(g.empresa)} <span class="mk-var sube">${pp(g.delta_pp)}</span>` : '<span class="vacio">nadie</span>'}</td>
+      <td>${g ? `${etq(g.empresa, r.origenes)} <span class="mk-var sube">${pp(g.delta_pp)}</span>` : '<span class="vacio">nadie</span>'}</td>
       <td class="mk-h12">${verFilas(ef)}</td></tr>`;
   }).join("");
 }
@@ -1933,7 +1959,7 @@ function pintarPerdidas() {
     <div class="mk-quien">
       <div><h3 class="mk-sub">¿Con quién? Quién ganó lo que YPF perdió</h3>
         ${comp.length ? `<div class="tabla"><table><tr><th>Empresa</th><th class="n">Ganó donde YPF pierde (${u})</th><th class="n mk-h12">Ganó en total (${u})</th><th class="n mk-h12">Celdas</th><th class="mk-h12">Filas</th></tr>
-          ${comp.map(c => `<tr><td>${esc(c.empresa)}</td><td class="n"><b>${m3s(c.ganado_donde_ypf_pierde_m3, u)}</b></td><td class="n mk-h12">${m3s(c.ganado_m3, u)}</td><td class="n mk-h12">${c.celdas}</td>
+          ${comp.map(c => `<tr><td>${etq(c.empresa, r.origenes)}</td><td class="n"><b>${m3s(c.ganado_donde_ypf_pierde_m3, u)}</b></td><td class="n mk-h12">${m3s(c.ganado_m3, u)}</td><td class="n mk-h12">${c.celdas}</td>
           <td class="mk-h12">${verFilas(ef({ empresa: c.empresa }))}</td></tr>`).join("")}</table></div>`
           : `<div class="explica">Ningún competidor que declara ganó share en las celdas con datos.</div>`}
         <p class="mk-fuente">Se suma celda por celda (canal × provincia) lo que cada empresa ganó en share, expresado en ${esc(u)} del período actual. Se cuentan solo las empresas que declaran en los dos períodos.</p></div>
@@ -1982,7 +2008,7 @@ async function abrirDetalle(s) {
   const f = r.foco, u = r.unidad;
   const ef = (extra = {}) => ({ producto: r.producto, canal: s.canal, provincia: s.provincia, desde: r.periodo_t0[0], hasta: r.periodo_t[1], ...extra });
   const ganan = f.competidores.filter(c => c.m3_eq > 0), pierden = f.competidores.filter(c => c.m3_eq <= 0);
-  const serie = f.serie, nombres = serie.empresas.map(e => e.empresa);
+  const serie = f.serie, nombres = serie.empresas.map(e => etqT(e.empresa, r.origenes));
   const Y = nombres.map((n, i) => ({ nombre: n, color: i === 0 ? "var(--e1)" : colEmp(i) }));
   const filasG = serie.meses.map((m, i) => ({ x: m, v: serie.empresas.map(e => e.serie[i]) }));
   M.g.p_serie = lineas(filasG, Y, pct, { fmtEje: v => dec1.format(v * 100) + " %", label: "Share mensual de YPF y de los competidores que ganaron en este segmento. Usá las flechas para recorrer los meses.",
@@ -1991,7 +2017,7 @@ async function abrirDetalle(s) {
     fmt: pct, fmtEje: v => dec1.format(v * 100) + " %", series: Y, filas: filasG.map(f => ({ x: f.x, v: f.v.map(v => esNum(v) ? v : null) })),
     fuente: "Secretaría de Energía, Res. SE 1104 (datos.energia.gob.ar)", links: [["Dataset de la Secretaría de Energía", DATASET_SE], ["Filas exactas (CSV)", ...[location.origin + filasUrl(ef())]]],
     nota: "Un mes sin fila de la empresa queda como hueco: no declaró, no es 0." });
-  const filaComp = c => `<tr><td>${esc(c.empresa)}</td><td class="n">${pct(c.s_t0)} → ${pct(c.s_t)}</td><td class="n"><b class="${c.m3_eq > 0 ? "sube" : "baja"}">${pp(c.delta_pp)}</b></td>
+  const filaComp = c => `<tr><td>${etq(c.empresa, r.origenes)}</td><td class="n">${pct(c.s_t0)} → ${pct(c.s_t)}</td><td class="n"><b class="${c.m3_eq > 0 ? "sube" : "baja"}">${pp(c.delta_pp)}</b></td>
     <td class="n">${m3s(c.m3_eq, u)}</td><td class="mk-h12">${verFilas(ef({ empresa: c.empresa }))}</td></tr>`;
   const cabC = `<tr><th>Empresa</th><th class="n">Share</th><th class="n">Δ</th><th class="n">Equivale a</th><th class="mk-h12">Filas</th></tr>`;
   const cuerpo = f.estado === "sin dato" || f.estado === "sin dato YPF"
@@ -2004,7 +2030,7 @@ async function abrirDetalle(s) {
       ${ganan.length ? `<div class="tabla"><table>${cabC}${ganan.map(filaComp).join("")}</table></div>` : `<div class="explica">Ninguna empresa que declara en los dos períodos ganó share.</div>`}
       ${pierden.length ? `<details class="mk-agg"><summary>Competidores que también perdieron o quedaron igual (${pierden.length})</summary><div class="tabla"><table>${cabC}${pierden.map(filaComp).join("")}</table></div></details>` : ""}
       <details class="mk-agg"><summary>De dónde viene cada empresa</summary>${listaOrigen(["YPF", ...f.competidores.map(c => c.empresa), ...f.entraron_salieron.map(x => x.empresa)], r.origenes)}</details>
-      ${f.entraron_salieron.length ? `<p class="nota"><b>Aparte (no cuentan como ganancia ni pérdida de share):</b> ${f.entraron_salieron.map(x => `${esc(x.empresa)} ${esc(x.flag)} (${num(x.volumen)} ${esc(u)})`).join("; ")}.</p>` : ""}
+      ${f.entraron_salieron.length ? `<p class="nota"><b>Aparte (no cuentan como ganancia ni pérdida de share):</b> ${f.entraron_salieron.map(x => `${etq(x.empresa, r.origenes)} ${esc(x.flag)} (${num(x.volumen)} ${esc(u)})`).join("; ")}.</p>` : ""}
       <div class="graf"><div class="graf-cab"><h4>Share mensual en este segmento: YPF y los que ganaron</h4>${botonAmp("p_serie", "Share mensual en " + s.canal + ", " + s.provincia)}</div>
         <div class="ley">${Y.map(y => `<span><i style="background:${y.color}"></i>${esc(y.nombre)}</span>`).join("")}</div>
         <div class="mk-svg" data-g="p_serie"></div><p class="mk-fuente">Un mes sin fila de la empresa queda como hueco: no declaró, no es 0.</p></div>`;

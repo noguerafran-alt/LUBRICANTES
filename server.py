@@ -1002,13 +1002,46 @@ def marcas_empresas(d):
     return out
 
 
+# Rótulo de marca de cada empresa de la SE (la SE publica por empresa: es una re-etiqueta, los números no cambian). `exacto` = una sola marca relevante;
+# `agrupado` = varias marcas que esta fuente no puede separar. Una empresa fuera de la tabla (y `Otras`) conserva su nombre, sin precisión.
+ROTULOS = {"YPF": ("YPF (Elaion, Extravida, ROD)", "exacto"), "Shell/Raízen": ("Shell (Raízen)", "exacto"), "TotalEnergies": ("TotalEnergies + Elf", "agrupado"),
+           "Petronas": ("Petronas", "exacto"), "Fercol": ("Fercol", "exacto"), "DAPSA": ("DAPSA", "exacto"), "Gulf": ("Gulf", "exacto")}
+PAE_ANTES = ("Axion/Esso (incluía Mobil hasta 2018, inferida)", "agrupado")
+PAE_DESDE = ("Castrol + Axion (no separable)", "agrupado")
+
+
+def rotulos(d, emp):
+    """[{desde, marca, precision}] ordenado: el rótulo de `emp` según el mes (desde '' = desde siempre). Solo PAE/Axion cambia; el corte sale del `desde` de Castrol en el seed."""
+    if emp == "PAE/Axion":
+        corte = next((m["desde"] for m in d.get("marcas_seed", []) if m["marca"] == "Castrol" and m["desde"]), "2019")
+        corte = corte if len(corte) > 4 else corte + "-01"
+        return [{"desde": "", "marca": PAE_ANTES[0], "precision": PAE_ANTES[1]}, {"desde": corte, "marca": PAE_DESDE[0], "precision": PAE_DESDE[1]}]
+    marca, prec = ROTULOS.get(emp, (emp, None))
+    return [{"desde": "", "marca": marca, "precision": prec}]
+
+
+def rotulo_en(rs, mes):
+    return [r for r in rs if not r["desde"] or r["desde"] <= mes][-1]
+
+
+def etiquetar(d, S, completo=False):
+    """?por=marca: suma `marca` y `precision` (los del último mes) a cada empresa de un share; con `completo` y si cambia, `marca_mes` (rótulo por mes). No toca ningún número."""
+    for e in S["empresas"]:
+        rs = rotulos(d, e["empresa"]) if e["empresa"] != "Otras" else [{"desde": "", "marca": "Otras", "precision": None}]
+        r = rotulo_en(rs, S["meses"][-1]) if S["meses"] else rs[-1]
+        e["marca"], e["precision"] = r["marca"], r["precision"]
+        if completo and len(rs) > 1:
+            e["marca_mes"] = [rotulo_en(rs, m)["marca"] for m in S["meses"]]
+    return S
+
+
 def origen(d, emp, agrupa=None):
     """De dónde sale una línea del share: empresa declarante de la SE, razones sociales que agrupa su etiqueta, marcas, meses y filas exactas.
     `agrupa` (solo 'Otras') = las etiquetas que junta."""
     dataset = FUENTE_PERDIDAS["dataset"]
     if agrupa is not None:
         return {"fuente": "SE, Res. 1104 — suma de las demás empresas declarantes", "razones_sociales": agrupa, "marcas": [], "desde": None, "hasta": None,
-                "filas_url": None, "dataset": dataset}
+                "filas_url": None, "dataset": dataset, "rotulos": [{"desde": "", "marca": "Otras", "precision": None}]}
     sp = _span(d).get(emp, (None, None))
     marcas = []
     for m in d["marcas_seed"]:  # fechas tal cual el seed: las calculadas de energia.csv ya están en desde/hasta de la empresa
@@ -1018,7 +1051,8 @@ def origen(d, emp, agrupa=None):
             # una marca que declara sin fechas en el seed va sin calificar; con fechas del seed (Castrol desde 2019) las lleva
             marcas.append(m["marca"] + (f" ({q})" if q else ""))
     return {"fuente": f"SE, Res. 1104 — empresa declarante {emp}", "razones_sociales": [p for p, c in macro.ETIQUETAS if c == emp] or [emp],
-            "marcas": marcas, "desde": sp[0], "hasta": sp[1], "filas_url": "/api/mercado/filas?empresa=" + urllib.parse.quote(emp), "dataset": dataset}
+            "marcas": marcas, "desde": sp[0], "hasta": sp[1], "filas_url": "/api/mercado/filas?empresa=" + urllib.parse.quote(emp), "dataset": dataset,
+            "rotulos": rotulos(d, emp)}
 
 
 def share_origen(d, filas, canal=None):
@@ -1095,12 +1129,12 @@ def actividad(meta, ser):
             for i, m in meta.items()]
 
 
-def mercado(d, producto="automotrices", canal=None):
+def mercado(d, producto="automotrices", canal=None, por="empresa"):
     ok = [r["fecha"] for r in d["fuentes"] if r["fuente"] == "macro_series" and not r["error"]]
     meses_e = [f[0] for f in d["energia"]]
     return {"actualizado": {"energia": max(meses_e) if meses_e else None, "series": max(ok) if ok else None},
-            "share": {"producto": PRODUCTOS_SHARE[producto], "canal": canal,
-                      **share_origen(d, d["energia_por_producto"].get(PRODUCTOS_SHARE[producto], []), canal)},
+            "share": {"producto": PRODUCTOS_SHARE[producto], "canal": canal, "por": por,
+                      **(etiquetar if por == "marca" else lambda d, S: S)(d, share_origen(d, d["energia_por_producto"].get(PRODUCTOS_SHARE[producto], []), canal))},
             "marcas": marcas_empresas(d),
             "actividad": actividad(d["macro_meta"], d["macro_series"]),
             "compuestos": compuestos(d, d["macro_series"])}
@@ -1547,6 +1581,9 @@ class Handler(BaseHTTPRequestHandler):
         if prod not in PRODUCTOS_SHARE:
             return self.json(400, {"error": f"producto inválido: {prod!r}", "productos": list(PRODUCTOS_SHARE)})
         filas = d["energia_por_producto"].get(PRODUCTOS_SHARE[prod], [])
+        por = q.get("por", "empresa")
+        if por not in ("empresa", "marca"):
+            return self.json(400, {"error": f"por inválido: {por!r}", "por": ["empresa", "marca"]})
         canales = share(filas)["canales"]
         if canal and canal not in canales:
             return self.json(404, {"error": f"canal sin datos: {canal!r}", "canales": canales})
@@ -1554,10 +1591,13 @@ class Handler(BaseHTTPRequestHandler):
             return self.enviar(200, a_csv("mercado_share", share_filas(filas, canal)), "text/csv; charset=utf-8")
         if nombre == "mercado/share" and q.get("completo") == "1":
             c = share_completo(filas, canal)
-            return self.json(200, {"producto": PRODUCTOS_SHARE[prod], "canal": canal, "meses": c["meses"], "total": c["total"], "empresas": c["empresas"]})
+            if por == "marca":
+                etiquetar(d, c, True)
+            return self.json(200, {"producto": PRODUCTOS_SHARE[prod], "canal": canal, "por": por, "meses": c["meses"], "total": c["total"], "empresas": c["empresas"]})
         if nombre == "mercado/share":
-            return self.json(200, {"producto": PRODUCTOS_SHARE[prod], "canal": canal, **share_origen(d, filas, canal)})
-        self.json(200, self.calc["mercado"] if prod == "automotrices" and not canal else mercado(d, prod, canal))
+            S = share_origen(d, filas, canal)
+            return self.json(200, {"producto": PRODUCTOS_SHARE[prod], "canal": canal, "por": por, **(etiquetar(d, S) if por == "marca" else S)})
+        self.json(200, self.calc["mercado"] if prod == "automotrices" and not canal and por == "empresa" else mercado(d, prod, canal, por))
 
     def mercado_perdidas(self, q, prod, canal):
         d = self.datos
@@ -2054,6 +2094,20 @@ def demo():
     assert get("/api/mercado/share?canal=Nada", k)[0] == 404
     assert json.loads(get("/api/mercado/share", k)[1])["empresas"][0]["origen"]["marcas"] == ["YPF"]
     assert json.loads(get("/api/mercado/share?completo=1", k)[1])["meses"][0] == "2025-09"
+    # por marca: solo rótulo y precisión; los números son los mismos que por empresa
+    se_, sm_ = (json.loads(get("/api/mercado/share" + x, k)[1]) for x in ("", "?por=marca"))
+    quitar = lambda es: [{a: b for a, b in e.items() if a not in ("marca", "precision")} for e in es]
+    assert quitar(sm_["empresas"]) == se_["empresas"] and sm_["meses"] == se_["meses"] and sm_["total"] == se_["total"] and sm_["provincias"] == se_["provincias"]
+    assert sm_["empresas"][0]["marca"] == "YPF (Elaion, Extravida, ROD)" and sm_["empresas"][0]["precision"] == "exacto" and "marca" not in se_["empresas"][0]
+    assert quitar(json.loads(get("/api/mercado?por=marca", k)[1])["share"]["empresas"]) == quitar(mj["share"]["empresas"]) and get("/api/mercado/share?por=x", k)[0] == 400
+    cm_ = json.loads(get("/api/mercado/share?completo=1&por=marca", k)[1])
+    assert quitar(cm_["empresas"]) == json.loads(get("/api/mercado/share?completo=1", k)[1])["empresas"]
+    rp_ = rotulos(d, "PAE/Axion")
+    assert rotulo_en(rp_, "2018-12")["marca"].startswith("Axion/Esso") and rotulo_en(rp_, "2019-01")["marca"] == "Castrol + Axion (no separable)" and rotulo_en(rp_, "2019-01")["precision"] == "agrupado"
+    fake = {"meses": ["2018-12", "2019-01"], "empresas": [{"empresa": "PAE/Axion"}, {"empresa": "Otras"}]}
+    etiquetar(d, fake, True)
+    assert fake["empresas"][0]["marca_mes"] == [rp_[0]["marca"], rp_[1]["marca"]] and fake["empresas"][0]["marca"] == rp_[1]["marca"] and fake["empresas"][1]["marca"] == "Otras" and "marca_mes" not in fake["empresas"][1]
+    assert origen(d, "PAE/Axion")["rotulos"] == rp_ and origen(d, "TotalEnergies")["rotulos"][0]["precision"] == "agrupado"
     assert get("/api/mercado/share?formato=csv", k)[1].startswith(b"mes,empresa,volumen,total,share\n2025-09,YPF,120")
     pj = json.loads(get("/api/mercado/perdidas?ventana=mes&min=0", k)[1])
     assert pj["origenes"]["YPF"]["filas_url"] == "/api/mercado/filas?empresa=YPF" and pj["origenes"]["A"]["razones_sociales"] == ["A"]
