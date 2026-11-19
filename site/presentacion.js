@@ -1,10 +1,10 @@
-// Modo presentación de la Vitrina: una escena three.js por producto YPF con precio.
+// Modo presentación del Visualizador: una escena three.js por producto YPF con precio.
 // Se importa con import() solo al abrir el modo: el resto del visor no paga los 690 KB de three.js.
 // Usa los helpers del <script> clásico de index.html (esc, pesos, entero, dec1, TIPO, SEGMENTO, BASE, nombreVt, bloqueYpf,
 // fotoOk, foto, linkUrl, icono, reducido): los const de nivel superior de un script clásico son visibles desde un módulo.
 import * as THREE from "./vendor/three.module.min.js";
 
-const DUR = 7000;  // mismo ritmo que el pase de la Vitrina
+const DUR = 7000;  // mismo ritmo que el pase del Visualizador
 const FUENTE = 'Bahnschrift, "DIN Alternate", "Roboto Condensed", "Arial Narrow", sans-serif';
 // colores de estilo para el render, no relevados del envase real
 const LINEAS = [
@@ -49,7 +49,7 @@ export function abrir(lista, i0, origen, alCerrar) {
   S.inertes = [...document.body.children].filter(e => e !== dlg && !e.inert && e.tagName !== "SCRIPT");
   S.inertes.forEach(e => e.inert = true);
   if (R === null) R = iniciar3d() || false;
-  notaEl.textContent = R ? "Arrastrá para girar la escena. Flechas o deslizar para cambiar de producto." : "Vista 2D: este navegador no tiene WebGL, se muestra la foto y la ficha completa.";
+  notaEl.textContent = R ? "Arrastrá para girar la escena. Tocá el producto para ver de dónde salen sus precios. Flechas o deslizar para cambiar de producto." : "Vista 2D: este navegador no tiene WebGL, se muestra la foto y la ficha completa.";
   if (R) { ajustar(); R.setAnimationLoop(document.hidden ? null : cuadro); }
   mostrar(S.i, false);
   dlg.querySelector(".pz-cerrar").focus();
@@ -75,6 +75,7 @@ function armar() {
   dlg.querySelectorAll("[data-paso]").forEach(b => b.onclick = () => { pausar(); paso(+b.dataset.paso); });
   btnPlay.onclick = () => { if (reducido.matches) return; S.play = !S.play; programar(); };
   dlg.querySelector(".pz-cerrar").onclick = cerrar;
+  panel.addEventListener("click", e => { if (e.target.closest("[data-ver]")) { e.preventDefault(); verProducto(); } });
   dlg.addEventListener("keydown", e => {
     if (e.key === "Escape") { e.preventDefault(); cerrar(); }
     else if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && !e.target.closest?.("input, select, textarea")) { e.preventDefault(); pausar(); paso(e.key === "ArrowRight" ? 1 : -1); }
@@ -97,11 +98,28 @@ function armar() {
     const dx = e.clientX - arrastre.x0, dy = e.clientY - arrastre.y0, dt = performance.now() - arrastre.t;
     arrastre = null; escenaEl.classList.remove("agarra");
     if (e.type === "pointerup" && Math.abs(dx) > 60 && dt < 350 && Math.abs(dx) > Math.abs(dy) * 1.5) { pausar(); paso(dx < 0 ? 1 : -1); }
+    else if (e.type === "pointerup" && Math.hypot(dx, dy) < 8 && dt < 500 && sobreProducto(e)) verProducto();  // un toque sin arrastre: no se abre al rotar el 3D
   };
   escenaEl.addEventListener("pointerup", soltarPuntero);
   escenaEl.addEventListener("pointercancel", soltarPuntero);
   escenaEl.addEventListener("wheel", e => { if (!R) return; e.preventDefault(); cam.tR = clamp(cam.tR * (1 + e.deltaY * .001), .6, 1.4); }, { passive: false });
   new ResizeObserver(() => { if (R && S.abierto) ajustar(); }).observe(escenaEl);
+}
+
+// ¿el toque cayó sobre el envase (o la foto en la vista 2D)? Rayo desde la cámara contra el grupo 3D.
+function sobreProducto(e) {
+  if (!R || !grupo) return !!e.target.closest?.(".pz-2d");
+  const r = R.domElement.getBoundingClientRect(), rc = new THREE.Raycaster();
+  rc.setFromCamera(new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), camara);
+  return rc.intersectObject(grupo, true).length > 0;
+}
+
+// cierra la presentación y abre la página del producto (#producto/<id>) con las fuentes y publicaciones de sus precios
+function verProducto() {
+  const id = S.lista[S.i]?.producto_id;
+  if (!id) return;
+  cerrar();
+  location.hash = "#producto/" + encodeURIComponent(id);
 }
 
 function cerrar() {
@@ -176,6 +194,7 @@ function ficha(p) {
     <h2 class="pz-nombre">${esc(nom)}</h2>
     ${chips ? `<ul class="vt-specs" aria-label="Especificación">${chips}</ul>` : ""}
     <div class="pz-sec">${bloqueYpf(p.ypf)}</div>
+    <div class="pz-sec"><a class="vt-toggle" href="#producto/${encodeURIComponent(p.producto_id)}" data-ver>Ver fuentes y publicaciones</a></div>
     <div class="pz-sec"><div class="vt-bloque comp"><h4>Competencia equivalente</h4>${comp}</div></div>
     <div class="pz-sec"><h3>Especificación técnica</h3>${specs}</div>
     ${eqs.length ? `<div class="pz-sec"><h3>Equivalentes</h3><div class="pz-tabla"><table class="pz-eqs"><tr><th>Producto</th><th>Tipo</th><th>Evidencia</th><th class="n">$/L hoy</th></tr>${filas}</table></div></div>` : ""}`;

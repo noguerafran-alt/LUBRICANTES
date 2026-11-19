@@ -45,7 +45,7 @@ normalizar.py      # aviso → (marca, sae, litros, unidades, producto_id, match
 macro.py           # `series`: series de datos.gob.ar → data/macro/series.csv; `energia`: ventas de lubricantes de la SE (CSV de 770 MB en streaming) → data/macro/energia.csv; `fx`: dólar PTAX del BCB → data/fx.csv
 server.py          # http.server: visor estático site/ + /api/* calculado desde data/ y seed/
 tools/modelos3d.py # foto → GLB (script de Blender; local: `blender -b --factory-startup -P tools/modelos3d.py -- [--limite N] [--solo ID] [--forzar]`, `-- test` = self-test con el assert de malla cerrada; las fotos que no sirven van a `DESCARTES` con su motivo), en la Action modelos3d.yml; site/presentacion.js: modo presentación 3D
-site/index.html    # visor: Mapa, Cobertura, Comparador, Evolución, Índice, Fuentes (JS vanilla, SVG propio); en Mercado cada gráfico (tarjetas de actividad, compuestos, share) abre un <dialog> ampliado (`ampliar()`): ejes, rangos, estadísticas, CSV
+site/index.html    # visor: Visualizador (ex Vitrina; `#producto/<id>` = página de producto con las publicaciones y sus links), Mapa, Cobertura, Comparador, Evolución, Índice, Fuentes (JS vanilla, SVG propio); en Mercado cada gráfico (tarjetas de actividad, compuestos, share) abre un <dialog> ampliado (`ampliar()`): ejes, rangos, estadísticas, CSV
 seed/productos.csv     # catálogo normalizado YPF + competencia (a mano)
 seed/alias.csv         # EAN / regex de título → producto_id
 seed/equivalencias.csv # pares YPF ↔ competidor (a mano)
@@ -257,7 +257,7 @@ Sin autenticación para leer (ver «Lectura abierta»). Respuestas JSON; `?forma
 | `/api/fuentes` | último estado de cada fuente + días sin datos + `pais` y `nota` (p. ej. la cautela de Nota Paraná) |
 | `/api/sin_match` | avisos sin `producto_id` (cola de revisión) |
 | `/api/oferta_ml` | `data/ml_oferta.csv` |
-| `/api/vitrina` | YPF vs competencia por producto (ver abajo). Excluye mayoristas; `?mayoristas=1` los incluye. `?formato=csv` aplana |
+| `/api/vitrina` | YPF vs competencia por producto (ver abajo; es la pestaña **Visualizador** del visor, antes «Vitrina YPF»: el hash `#vitrina` sigue valiendo como alias y la API no cambió de nombre). Excluye mayoristas; `?mayoristas=1` los incluye. `?formato=csv` aplana |
 | `/api/servicios` | último precio de cada servicio/combo cargado por Grok (`tipo=servicio`), con `verificado`, `solo_aceite` y `precio_litro`: si `detalle` no nombra filtros ni otro repuesto (`RX_EXTRA`) y hay litros, `precio_litro = precio / (litros × unidades)` con la colocación adentro; si no, vacío. Nunca entra al comparador ni al índice |
 | `/api/grok?mes=AAAA-MM` | filas Grok crudas del mes (con `verificado`, `tipo`, `cargado`); van aparte de `/api/obs` |
 | `/api/grok_sitios` | `seed/grok_sitios.csv` |
@@ -267,6 +267,7 @@ Sin autenticación para leer (ver «Lectura abierta»). Respuestas JSON; `?forma
 | `/api/macro?ids=a,b` | series largas de `data/macro/series.csv` y las derivadas de la SE (`se_*`); `?formato=csv` = `fecha,id,valor,signo`. Sin `ids`, el catálogo |
 | `/api/provincias?producto_id=<id>` | $/L y precio medianos por (provincia, fuente) y por (región, fuente), con `canal`, `n`, `fecha`; ver abajo |
 | `/api/reventa?producto_id=<id YPF>` | todas las observaciones del período del producto YPF y de cada equivalente (el endpoint para cruzar con datos internos); ver abajo |
+| `/api/producto?producto_id=<id>[&dias=N][&mayoristas=1][&umbral=N]` | **Página de producto y agente de IA**: publicaciones (una por aviso, con link), resumen de $/L, equivalentes y comparación; ver «Para agentes de IA» |
 | `/api/cobertura` | por producto YPF del seed: equivalencias, fuentes y provincias con precio en 7 días, última fecha; ver abajo |
 | `/api/bi/precios[?desde=AAAA-MM-DD]` | **Power BI, tabla de hechos** (CSV UTF-8 con BOM): una fila por observación con `producto_id` (`fecha,capturado,producto_id,fuente,canal,vendedor,sucursal,provincia,pais,moneda,precio,litros,unidades,precio_litro,precio_usd_litro,url,match,verificado`). Incluye Grok como `/api/reventa`: `verificado` `0`/`1` solo en Grok y vacío en el resto, el modelo decide si filtra `0`. `precio_usd_litro` con la cotización de ese día exacto (vacío si no hay). `desde` = `fecha >=`, para carga incremental; mal formado = 400 |
 | `/api/bi/productos` · `/api/bi/equivalencias` · `/api/bi/fuentes` · `/api/bi/provincias` | dimensiones del modelo estrella, CSV con BOM: `seed/productos.csv` + `es_ypf` (1/0); `ypf_id,comp_id,tipo,criterio,evidencia,fuente`; `fuente,canal,pais,tipo,ultima_fecha` (`tipo` = tienda\|mayorista\|grok\|sepa\|ml; las `oficial_*` de Brasil cuentan como `sepa`; solo fuentes con observaciones); `codigo,nombre,region,pais,online` (AR, BR y la fila `online`, con `online=1`). Guía en `docs/powerbi.md` |
@@ -295,11 +296,26 @@ cuenta una vez, con su observación más reciente de la ventana; `$/L = precio /
 - `GET /api/cobertura` → `{hasta, nota, total:{productos_ypf, con_equivalencia, con_precio_7d}, productos:[{producto_id, nombre, linea, segmento, sae, equivalencias, tiene_equivalencia, fuentes_7d, provincias_7d, ultima_fecha}]}`.
   Cuenta solo el precio del propio producto YPF (no el del equivalente), sin Grok `verificado=0`; `provincias_7d` cuenta provincias ISO (no `online`).
 
+### Para agentes de IA — `/api/producto`
+Pensado para que un agente (Copilot) avise de sobreprecios de revendedores de productos YPF. Los precios de YPF salen de afuera: son avisos de **terceros** que venden el producto (YPF no publica precio). Es lo mismo que muestra la página `#producto/<producto_id>` del visor
+(se abre desde el Visualizador y desde el modo presentación). Guía completa en `docs/agente-sobreprecios.md`.
+- `GET /api/producto?producto_id=<id>[&dias=N][&mayoristas=1][&umbral=N][&formato=csv][&pais=]`: lectura abierta. `dias` 1–366 (default 30, ventana que termina en el último día con datos). 400 si `producto_id` falta o no existe, si `dias` está fuera de rango o si `umbral` no es un número.
+- Respuesta: `producto{producto_id, marca, linea, nombre, segmento, sae, base, es_ypf, specs, imagen, imagen_fuente, modelo}`, `pais`, `moneda`, `ventana{dias, desde, hasta}`, `nota` (no es tiempo real: recolección diaria), `metodo` (reglas de cálculo en texto),
+  `mayoristas_incluidos`, `resumen{n, mediana_litro, promedio_litro, min_litro, max_litro, p25_litro, p75_litro}` (solo avisos en cálculo; `null` si n=0), `publicaciones[]`, `equivalentes[]` y `comparacion{mediana_ypf_litro, mediana_comp_litro, n_comp, dif_pct_mediana_comp_vs_ypf}`.
+- `publicaciones[]` = `{fuente, fuente_nombre, canal (publico|mayorista|grok), vendedor, sucursal, provincia, fecha, capturado, precio, litros, unidades, precio_litro, desvio_pct_vs_mediana, url, verificado (true|false|null), en_calculo, motivo_exclusion}`;
+  vacío = `null` (nunca se inventa: `capturado` es `null` en filas anteriores a esa columna; SEPA no trae `url`). `motivo_exclusion`: `sin_litros|mayorista|grok_sin_verificar|fuera_de_sanidad`. Los excluidos **se listan** (con `en_calculo=false`); el desvío es contra la mediana del propio producto.
+  Primero los que cuentan, de más caro a más barato por litro.
+- `equivalentes[]` = `{producto_id, marca, nombre, tipo, evidencia, specs, imagen, en_comparacion, motivo_exclusion (no_equivalente|fuera_de_rango|null), resumen, publicaciones}`. `dif_pct_mediana_comp_vs_ypf = (mediana de todos los avisos de los equivalentes incluidos / mediana YPF - 1) × 100` (positivo: la competencia es más cara).
+- **No hay umbral de sobreprecio ni etiqueta de sobreprecio: el agente decide.** `?umbral=N` (porcentaje, opcional y sin default) solo suma `sobre_umbral` (bool: `desvio_pct_vs_mediana >= N`) a cada publicación y `umbral_pct` a la respuesta.
+- Reusa la lógica de `/api/provincias` y la vitrina: `_avisos` (clave de aviso, una vez por aviso con su observación más reciente), `cuerdos` (sanidad `SANIDAD`, compartida con la vitrina) y `precio_litro`. Ventana por defecto 30 días (la vitrina usa 3).
+  `?formato=csv`: una fila por publicación con `rol` (`ypf|equivalente`), `producto_id`, `marca`, `nombre`, `tipo`, `evidencia` y las columnas de `publicaciones[]`.
+- Ejemplo: `GET /api/producto?producto_id=ypf-elaion-ts1040-10w40&dias=30&umbral=15` → `publicaciones[0] = {"fuente":"ml","fuente_nombre":"Mercado Libre","precio_litro":36368.75,"desvio_pct_vs_mediana":62.6,"url":"https://articulo.mercadolibre.com.ar/MLA-1873751937","en_calculo":true,"motivo_exclusion":null,"sobre_umbral":true,…}`.
+
 ### Geometría del mapa (vendorizada)
 `site/vendor/ar-provincias.js` (`window.AR_GEO`: `viewBox` y, por ISO, `n` nombre, `r` región, `d` path SVG, `c` centro) sale de **Natural Earth 1:10m Admin 1 – States, Provinces** (dominio público; texto en `site/vendor/ar-provincias.LICENSE`),
 simplificada con `tools/geo_provincias.py` (Douglas-Peucker 0,03°, equirectangular × cos 40°, islas < 0,1 grados² fuera). Son los límites de Natural Earth, no una posición oficial del IGN. Sin CDN ni tiles.
 
-### Vitrina — `/api/vitrina`
+### Vitrina (pestaña Visualizador) — `/api/vitrina`
 `{"fecha": último día con datos, "productos": [...]}`: un elemento por producto de marca YPF de `seed/productos.csv`, primero los
 que tienen precio hoy (por `ypf.n` desc), después los que no. Cada uno:
 `producto_id, nombre, linea, segmento, sae, base, imagen, imagen_fuente` (de `data/imagenes.csv`; `null` si no hay), `modelo` (`"modelos/<producto_id>.glb"` si el archivo existe en `site/modelos/`, si no `null`; también en cada equivalente),

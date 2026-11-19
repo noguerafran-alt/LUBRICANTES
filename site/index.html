@@ -87,7 +87,24 @@ table.comp td .vacio { display: block; line-height: 1.3; }
   table.comp td[data-l]::before { content: attr(data-l); color: var(--mut); font-size: 12px; font-weight: 400; text-align: left; flex: 0 1 45%; }
 }
 
-/* ---------- Vitrina ---------- */
+a.vt-toggle { display: inline-flex; align-items: center; text-decoration: none; }
+/* ---------- Página de producto (#producto/<id>) ---------- */
+.pr-cab { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; margin: 8px 0 12px; }
+.pr-cab figure { margin: 0; width: 120px; flex: none; background: #fff; border-radius: 8px; padding: 6px; }
+.pr-cab figure img, .pr-cab figure svg { width: 100%; height: auto; display: block; }
+.pr-cab > div { flex: 1 1 260px; min-width: 0; }
+.pr-sec { margin: 18px 0; }
+.pr-sec h3 { font-size: 16px; margin: 0 0 6px; }
+.pr-res { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin: 8px 0; }
+.pr-res div { background: var(--panel); border: 1px solid var(--borde); border-radius: 8px; padding: 8px 10px; }
+.pr-res b { display: block; font: 600 18px/1.2 var(--f-cifra); } .pr-res span { font-size: 12px; color: var(--mut); }
+.pr-tabla table { min-width: 1080px; font-size: 13px; }
+.pr-tabla td, .pr-tabla th { white-space: nowrap; }
+.pr-tabla td.l { white-space: normal; min-width: 11em; }
+.pr-tabla tr.fuera td { opacity: .62; }
+.pr-como li { margin: 4px 0; max-width: 80ch; }
+@media (max-width: 640px) { .pr-cab figure { width: 88px; } }
+/* ---------- Visualizador ---------- */
 /* Bahnschrift es DIN (Windows); sin CDN no hay fuentes web, así que la pila busca otras DIN/condensadas instaladas */
 :root {
   --f-cifra: Bahnschrift, "DIN Alternate", "DIN Next", "Roboto Condensed", "Arial Narrow", system-ui, sans-serif;
@@ -192,13 +209,13 @@ table.comp td .vacio { display: block; line-height: 1.3; }
   button.link { min-height: 44px; padding: 0 8px; }
   .vt-buscar, .vt-filtro { flex: 1 1 100%; justify-content: flex-start; }
 }
-/* escritorio con alto suficiente: la Vitrina ocupa la ventana (sin scroll de página); lo que no entra scrollea dentro de .vt-datos */
+/* escritorio con alto suficiente: el Visualizador ocupa la ventana (sin scroll de página); lo que no entra scrollea dentro de .vt-datos */
 @media (min-width: 1025px) and (min-height: 641px) {
-  body:has(#vitrina:not([hidden])) { height: 100dvh; display: flex; flex-direction: column; }
-  body:has(#vitrina:not([hidden])) header { flex: none; }
-  body:has(#vitrina:not([hidden])) main { flex: 1; min-height: 0; width: 100%; display: flex; flex-direction: column; }
+  body:has(#visualizador:not([hidden])) { height: 100dvh; display: flex; flex-direction: column; }
+  body:has(#visualizador:not([hidden])) header { flex: none; }
+  body:has(#visualizador:not([hidden])) main { flex: 1; min-height: 0; width: 100%; display: flex; flex-direction: column; }
   #banner { flex: none; margin: 6px 0; }
-  #vitrina:not([hidden]) { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 0 0 4px; }
+  #visualizador:not([hidden]) { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 0 0 4px; }
   .vt-cab { flex: none; margin: 0 0 6px; }
   #vt-out, .vt-car { flex: 1; min-height: 0; display: flex; flex-direction: column; }
   .vt-ctrl { flex: none; margin-bottom: 4px; }
@@ -420,7 +437,7 @@ body:has(#dl[open]) { overflow: hidden; }
 }
 @media (prefers-reduced-motion: reduce) { .mk-bar { transition: none; } }
 
-/* modo oscuro: mismos roles, pasos elegidos para fondo oscuro. La foto de la Vitrina sigue sobre blanco (mix-blend-mode multiply) */
+/* modo oscuro: mismos roles, pasos elegidos para fondo oscuro. La foto del Visualizador sigue sobre blanco (mix-blend-mode multiply) */
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
@@ -461,7 +478,7 @@ body:has(#dl[open]) { overflow: hidden; }
 <header><div class="cab">
   <h1>Lubricantes: YPF vs competencia</h1>
   <nav role="tablist">
-    <button role="tab" data-tab="vitrina">Vitrina YPF</button>
+    <button role="tab" data-tab="visualizador">Visualizador</button>
     <button role="tab" data-tab="mercado">Mercado</button>
     <button role="tab" data-tab="mapa">Mapa</button>
     <button role="tab" data-tab="cobertura">Cobertura</button>
@@ -480,10 +497,10 @@ body:has(#dl[open]) { overflow: hidden; }
     <p class="nota" id="pais-nota" aria-live="polite"></p>
   </div>
 
-  <section id="vitrina" hidden>
+  <section id="visualizador" hidden>
     <div class="vt-cab">
       <div>
-        <h2 class="vt-titulo">Vitrina YPF</h2>
+        <h2 class="vt-titulo">Visualizador</h2>
         <p class="nota" id="vt-fecha"></p>
       </div>
       <div class="vt-filtro">
@@ -497,6 +514,18 @@ body:has(#dl[open]) { overflow: hidden; }
       <datalist id="vt-lista"></datalist>
     </div>
     <div id="vt-out">Cargando…</div>
+  </section>
+
+  <section id="producto" hidden>
+    <div class="vt-cab">
+      <div><h2 class="vt-titulo" id="pr-titulo">Producto</h2><p class="nota" id="pr-fecha"></p></div>
+      <div class="vt-filtro">
+        <a class="vt-toggle" href="#visualizador">&larr; Volver al Visualizador</a>
+        <label>Ventana <select id="pr-dias"><option value="7">7 días</option><option value="30" selected>30 días</option><option value="90">90 días</option><option value="366">1 año</option></select></label>
+        <label class="chk"><span><input type="checkbox" id="pr-may"> Sumar mayoristas al cálculo</span></label>
+      </div>
+    </div>
+    <div id="pr-out">Cargando…</div>
   </section>
 
   <section id="mercado" hidden>
@@ -637,7 +666,7 @@ const linkUrl = (url, txt) => /^https:\/\//.test(url) ? `<a href="${esc(url)}" r
 const fechaAR = iso => iso ? iso.slice(8, 10) + "/" + iso.slice(5, 7) + "/" + iso.slice(0, 4) : "";
 const dia = iso => Date.parse(iso + "T00:00:00Z") / 864e5;
 
-// País elegido (?pais=BR&usd=1; Argentina por defecto). Lo usan Comparador, Vitrina, Índice y Evolución; Mapa, Cobertura y Mercado son solo Argentina.
+// País elegido (?pais=BR&usd=1; Argentina por defecto). Lo usan Comparador, Visualizador, Índice y Evolución; Mapa, Cobertura y Mercado son solo Argentina.
 const Q = new URLSearchParams(location.search);
 const P = { pais: (Q.get("pais") || "AR").toUpperCase() === "BR" ? "BR" : "AR", usd: Q.get("usd") === "1" };
 const reales = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -950,7 +979,7 @@ async function enviar() {
   if (j.ok) { await cargarDatos(); mesCargado(); }
 }
 
-// ---------- Vitrina ----------
+// ---------- Visualizador (antes Vitrina; el hash #vitrina y /api/vitrina siguen valiendo) ----------
 const VT = { lista: [], pos: 0, K: 0, timer: null, pausa: false, quieto: false, pista: null, t: 0 };
 const reducido = matchMedia("(prefers-reduced-motion: reduce)");
 const BASE = { mineral: "Mineral", semisintetico: "Semisintético", sintetico: "Sintético" };
@@ -1054,7 +1083,8 @@ function slideVt(p, i, n, clon) {
   return `<article class="vt-slide" data-i="${i}" role="group" aria-roledescription="producto" aria-label="${i + 1} de ${n}: ${esc(nom)}"${clon ? ' aria-hidden="true" inert' : ""}>
     <figure class="vt-foto">${foto(p.imagen, nom, true)}<figcaption>${fotoOk(p.imagen) && p.imagen_fuente ? "Foto: " + esc(nfFoto(p.imagen_fuente)) : "Sin foto"}</figcaption></figure>
     <div class="vt-datos">
-      <div><h3 class="vt-nombre">${esc(nom)}</h3>${specs ? `<ul class="vt-specs" aria-label="Especificación">${specs}</ul>` : ""}</div>
+      <div><h3 class="vt-nombre">${esc(nom)}</h3>${specs ? `<ul class="vt-specs" aria-label="Especificación">${specs}</ul>` : ""}
+        <p style="margin:8px 0 0"><a class="vt-toggle" href="#producto/${encodeURIComponent(p.producto_id)}">Ver fuentes y publicaciones</a></p></div>
       ${varilla(p)}
       <div class="vt-bloques">${bloqueYpf(p.ypf)}${bloqueComp(p)}</div>
     </div></article>`;
@@ -1064,7 +1094,7 @@ async function cargarVitrina() {
   const out = $("#vt-out");
   let r;
   try { r = await apiP("vitrina"); }
-  catch (e) { out.innerHTML = `<div class="explica">No se pudo leer la vitrina (${esc(e.message)}). El resto de las pestañas sigue funcionando.</div>`; return; }
+  catch (e) { out.innerHTML = `<div class="explica">No se pudo leer el Visualizador (${esc(e.message)}). El resto de las pestañas sigue funcionando.</div>`; return; }
   VT.todos = r.productos || [];
   VT.ver = false;
   $("#vt-fecha").textContent = !r.fecha ? "" : P.pais === "BR"
@@ -1192,7 +1222,7 @@ function vtMarcar(i) {
 }
 
 // pase automático: nunca con movimiento reducido, ni con la pestaña oculta, ni mientras el mouse o el foco están encima
-const vtCorre = () => !VT.pausa && !VT.quieto && !VT.pz && !reducido.matches && !$("#vitrina").hidden && !document.hidden && VT.lista.length > 1;
+const vtCorre = () => !VT.pausa && !VT.quieto && !VT.pz && !reducido.matches && !$("#visualizador").hidden && !document.hidden && VT.lista.length > 1;
 function vtAuto() {
   clearInterval(VT.timer); VT.timer = null;
   const b = $("#vt-play"), pz = $("#vt-pz");
@@ -1223,19 +1253,19 @@ async function abrirPz() {
   const volver = p => { VT.pz = false; const k = VT.lista.indexOf(p); if (k >= 0) vtIr(k + VT.K, false); vtAuto(); };
   try { (await import("./presentacion.js")).abrir(ps, Math.max(0, ps.indexOf(actual)), $("#vt-pz"), volver); }
   catch (e) {
-    dlg.innerHTML = `<div class="explica" style="margin:16px">No se pudo cargar el modo presentación (${esc(e.message)}). La Vitrina sigue funcionando. <button type="button" class="vt-toggle">Volver a la Vitrina</button></div>`;
+    dlg.innerHTML = `<div class="explica" style="margin:16px">No se pudo cargar el modo presentación (${esc(e.message)}). El Visualizador sigue funcionando. <button type="button" class="vt-toggle">Volver al Visualizador</button></div>`;
     dlg.querySelector("button").onclick = () => { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); dlg.hidden = true; dlg.innerHTML = ""; volver(actual); $("#vt-pz").focus(); };
     dlg.querySelector("button").focus();
   }
 }
 $("#vt-pz").onclick = abrirPz;
 document.addEventListener("keydown", e => {
-  if ((e.key === "p" || e.key === "P") && !e.ctrlKey && !e.metaKey && !e.altKey && !$("#vitrina").hidden && $("#pz").hidden
+  if ((e.key === "p" || e.key === "P") && !e.ctrlKey && !e.metaKey && !e.altKey && !$("#visualizador").hidden && $("#pz").hidden
     && !e.target.closest?.("input, textarea, select, [contenteditable]")) { e.preventDefault(); abrirPz(); }
 });
 document.addEventListener("visibilitychange", vtAuto);
 reducido.addEventListener("change", vtAuto);
-addEventListener("resize", () => { if (VT.pista && !$("#vitrina").hidden) vtIr(VT.pos, false); });
+addEventListener("resize", () => { if (VT.pista && !$("#visualizador").hidden) vtIr(VT.pos, false); });
 
 // ---------- Mercado ----------
 const M = { r: null, pedido: null, producto: "automotrices", canal: "", por: "empresa", g: {}, pm: "", pvs: "12m", pvo: "" };  // pm/pvs/pvo: mes, contra qué se compara y "otro mes" de la tabla por provincia
@@ -2406,17 +2436,98 @@ async function abrirCobertura() {
   pintar();
 }
 
+// ---------- Página de producto: de dónde sale cada precio ----------
+const PR = { pid: "", pais: "", dias: "", may: false, tok: 0, listo: false };
+const MOTIVO = { sin_litros: "sin litros: no se puede calcular el $/L", mayorista: "mayorista: fuera del cálculo por defecto", grok_sin_verificar: "Grok sin verificar: fuera del cálculo",
+  fuera_de_sanidad: "fuera de [mediana ÷ 2,5; mediana × 2,5]: envase mal leído", no_equivalente: "no equivalente: fuera de la comparación", fuera_de_rango: "mediana a más de 3 veces la de YPF: fuera de la comparación" };
+const canalTxt = x => x.fuente === "sepa" || x.fuente.startsWith("oficial_") ? "SEPA" : x.canal === "grok" ? "Grok" : x.canal === "mayorista" ? "mayorista" : "público";
+const horaAR = iso => iso ? new Date(iso).toLocaleString("es-AR", { timeZone: "America/Argentina/Buenos_Aires", dateStyle: "short", timeStyle: "short" }) : "";
+const pctTxt = v => (v > 0 ? "+" : "") + dec1.format(v) + " %";
+
+function filaPub(x) {
+  const sepa = canalTxt(x) === "SEPA";
+  const link = x.url ? linkUrl(x.url, "ver publicación") + (/^https:\/\//.test(x.url) ? "" : ` <span class="vacio">${esc(x.url)}</span>`)
+    : sepa ? '<span class="vacio">precio declarado en SEPA, sin link</span>' : '<span class="vacio">sin link</span>';
+  const marcas = (x.canal === "mayorista" ? '<span class="badge">mayorista</span>' : "") + (x.verificado === true ? '<span class="badge confirmada">✓ verificado</span>' : x.verificado === false ? '<span class="badge caro">Grok: no verificado</span>' : "");
+  const env = x.litros ? `${dec1.format(x.litros)} L × ${entero.format(x.unidades)}` : '<span class="vacio">sin litros</span>';
+  return `<tr${x.en_calculo ? "" : ' class="fuera"'}><td class="l">${esc(x.fuente_nombre)}${marcas ? "<br>" + marcas : ""}</td><td>${canalTxt(x)}</td><td class="l">${x.vendedor ? esc(x.vendedor) : '<span class="vacio">sin dato</span>'}</td>
+    <td>${x.provincia ? esc(x.provincia) : '<span class="vacio">sin dato</span>'}</td><td>${fechaAR(x.fecha)}</td><td>${horaAR(x.capturado) || '<span class="vacio">sin hora</span>'}</td>
+    <td class="n">${mon.format(x.precio)}</td><td>${env}</td><td class="n">${x.precio_litro === null ? '<span class="vacio">sin $/L</span>' : mon.format(x.precio_litro)}</td>
+    <td class="n">${x.desvio_pct_vs_mediana === null ? "" : pctTxt(x.desvio_pct_vs_mediana)}</td>
+    <td class="l">${x.en_calculo ? "sí" : `<span class="vacio">no: ${esc(MOTIVO[x.motivo_exclusion] || x.motivo_exclusion)}</span>`}</td><td class="l">${link}</td></tr>`;
+}
+function tablaPub(ps) {
+  if (!ps.length) return `<p class="vt-vacio">Sin publicaciones en la ventana: ninguna fuente tuvo este producto en esos días.</p>`;
+  return `<div class="tabla pr-tabla"><table><tr><th>Fuente</th><th>Canal</th><th>Vendedor</th><th>Provincia</th><th>Fecha</th><th>Captura (hora AR)</th><th class="n">Precio</th><th>Envase</th><th class="n">$/L</th><th class="n">Desvío vs mediana</th><th>En el cálculo</th><th>Publicación</th></tr>${ps.map(filaPub).join("")}</table></div>`;
+}
+function resumenPub(r) {
+  if (!r.n) return `<p class="vt-vacio">Ningún aviso entra al cálculo en esta ventana: no hay mediana ni promedio.</p>`;
+  const c = (t, v) => `<div><b>${v}</b><span>${t}</span></div>`;
+  return `<div class="pr-res">${c("avisos en el cálculo", entero.format(r.n))}${c("mediana por litro", mon.format(r.mediana_litro))}${c("promedio por litro", mon.format(r.promedio_litro))}${c("mínimo", mon.format(r.min_litro))}${c("máximo", mon.format(r.max_litro))}${c("percentil 25", mon.format(r.p25_litro))}${c("percentil 75", mon.format(r.p75_litro))}</div>`;
+}
+function paginaProducto(v) {
+  const p = v.producto, nom = `${p.linea} ${p.nombre}`.trim(), s = p.specs || {}, w = v.ventana, cmp = v.comparacion;
+  const sd = x => x ? esc(x) : '<span class="vacio">sin dato</span>';
+  const eqs = v.equivalentes.map(e => `<div class="pr-sec"><h3>${esc(e.marca)} ${esc(e.nombre)}</h3>
+      <p class="nota">${esc(TIPO[e.tipo] || e.tipo)}, evidencia ${esc(e.evidencia)}. ${e.en_comparacion ? "Entra a la comparación con YPF." : `Fuera de la comparación: ${esc(MOTIVO[e.motivo_exclusion] || e.motivo_exclusion)}.`}</p>
+      ${resumenPub(e.resumen)}${tablaPub(e.publicaciones)}</div>`).join("");
+  const dif = cmp.dif_pct_mediana_comp_vs_ypf;
+  return `<div class="pr-cab"><figure>${foto(p.imagen, nom, true)}</figure><div><h3 class="vt-nombre">${esc(p.marca)} ${esc(nom)}</h3>
+      <ul class="vt-specs">${[p.sae && `<li class="sae">${esc(p.sae)}</li>`, BASE[p.base] && `<li>${BASE[p.base]}</li>`, p.segmento && `<li>${esc(SEGMENTO[p.segmento] || p.segmento)}</li>`].filter(Boolean).join("")}</ul>
+      <dl class="pz-dl" style="margin-top:8px"><dt>API</dt><dd>${sd(s.api)}</dd><dt>ACEA</dt><dd>${sd(s.acea)}</dd><dt>ILSAC</dt><dd>${sd(s.ilsac)}</dd><dt>JASO</dt><dd>${sd(s.jaso)}</dd>
+      <dt>OEM</dt><dd>${s.oem?.length ? esc(s.oem.join(", ")) : '<span class="vacio">sin dato</span>'}</dd></dl></div></div>
+    <div class="pr-sec"><h3>${p.es_ypf ? "Precio de YPF según terceros que lo venden" : "Precio publicado"}</h3>
+      <p class="nota">YPF no publica precio en canales propios: estos son avisos de tiendas, supermercados, Mercado Libre y relevamientos de terceros. Ventana del ${fechaAR(w.desde)} al ${fechaAR(w.hasta)} (${w.dias} días). ${esc(v.nota)}</p>
+      ${resumenPub(v.resumen)}${tablaPub(v.publicaciones)}</div>
+    ${v.equivalentes.length ? `<div class="pr-sec"><h3>Comparación con la competencia</h3>${typeof dif === "number"
+      ? `<p>Mediana de la competencia ${mon.format(cmp.mediana_comp_litro)}/L (${entero.format(cmp.n_comp)} avisos) contra ${mon.format(cmp.mediana_ypf_litro)}/L de YPF: <b>${pctTxt(dif)}</b> <span class="mut">(positivo: la competencia es más cara)</span>.</p>`
+      : `<p class="vt-vacio">Sin comparación: falta precio de ${cmp.mediana_ypf_litro === null ? "YPF" : "la competencia"} en la ventana.</p>`}</div>${eqs}` : `<p class="vt-vacio">Sin equivalentes cargados para este producto.</p>`}
+    <div class="pr-sec pr-como"><h3>Cómo se calcula</h3><ul>
+      <li><b>Ventana.</b> Los últimos ${w.dias} días, terminando en el último día con datos (${fechaAR(w.hasta)}), no en hoy.</li>
+      <li><b>Un aviso, una vez.</b> Cada aviso (fuente, link, EAN, título, vendedor, envase y provincia) cuenta una sola vez, con su observación más reciente de la ventana.</li>
+      <li><b>$/L.</b> Precio dividido por (litros × unidades del envase): una caja de 12 × 1 L son 12 L.</li>
+      <li><b>Sanidad.</b> Un aviso con $/L fuera de [mediana ÷ 2,5; mediana × 2,5] del producto no cuenta: es casi seguro un envase mal leído (una caja como bidón).</li>
+      <li><b>No cuentan.</b> Mayoristas (precio por caja o tambor, IVA sin verificar; se pueden sumar con el tilde de arriba), Grok sin verificar, avisos sin litros y los servicios (combos con mano de obra). Siguen listados en la tabla, atenuados y con el motivo.</li>
+      <li><b>Promedio y mediana.</b> El promedio es la media simple y lo mueve un aviso extremo; la mediana es el valor central y no. El desvío de cada fila es contra la mediana del propio producto.</li>
+      <li><b>Comparación.</b> Mediana de todos los avisos de los equivalentes incluidos contra la mediana de YPF; no entran los no equivalentes ni los de mediana a más de 3 veces la de YPF.</li>
+      <li><b>Sin umbral.</b> La página no declara ningún precio como sobreprecio: muestra los datos y quien los consulta decide. Las publicaciones son de terceros y los links llevan a sus sitios. No es tiempo real.</li>
+    </ul><p class="nota">Los mismos datos, en JSON o CSV: <a href="/api/producto?producto_id=${encodeURIComponent(p.producto_id)}&dias=${w.dias}${v.mayoristas_incluidos ? "&mayoristas=1" : ""}" target="_blank" rel="noopener">/api/producto</a>.</p></div>`;
+}
+async function abrirProducto(pid) {
+  const dias = $("#pr-dias").value, may = $("#pr-may").checked;
+  if (PR.listo && PR.pid === pid && PR.pais === P.pais && PR.dias === dias && PR.may === may) return;  // ir() se llama dos veces al arrancar
+  Object.assign(PR, { pid, pais: P.pais, dias, may, listo: false });
+  const tok = ++PR.tok, out = $("#pr-out");
+  out.textContent = "Cargando…"; $("#pr-fecha").textContent = "";
+  let v;
+  try { v = await apiP(`producto?producto_id=${encodeURIComponent(pid)}&dias=${dias}${may ? "&mayoristas=1" : ""}`); }
+  catch (e) { if (tok === PR.tok) out.innerHTML = `<div class="explica">No se pudo leer el producto «${esc(pid)}» (${esc(e.message)}). Puede que no exista: volvé al Visualizador y elegí uno.</div>`; return; }
+  if (tok !== PR.tok) return;
+  PR.listo = true;
+  $("#pr-titulo").textContent = `${v.producto.marca} ${v.producto.linea} ${v.producto.nombre}`.replace(/\s+/g, " ").trim();
+  $("#pr-fecha").textContent = `Datos hasta el ${fechaAR(v.ventana.hasta)}.`;
+  out.innerHTML = paginaProducto(v);
+  scrollTo(0, 0);
+}
+$("#pr-dias").onchange = $("#pr-may").onchange = () => { if (!$("#producto").hidden) abrirProducto(PR.pid); };
+
 // ---------- pestañas ----------
-// la vitrina se carga sola (su propia ruta): no depende de que lleguen los demás datos
-const vistas = { vitrina: () => { if (VT.pista) vtIr(VT.pos, false); }, mercado: abrirMercado, mapa: initMapa, cobertura: abrirCobertura, comparador: () => {}, evolucion, indice: () => {}, fuentes: () => {}, cargar: mesCargado };
-function ir(tab) {
-  if (!vistas[tab]) tab = "vitrina";
-  document.querySelectorAll("nav button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === tab));
+// el Visualizador se carga solo (su propia ruta): no depende de que lleguen los demás datos
+const vistas = { visualizador: () => { if (VT.pista) vtIr(VT.pos, false); }, producto: () => {}, mercado: abrirMercado, mapa: initMapa, cobertura: abrirCobertura, comparador: () => {}, evolucion, indice: () => {}, fuentes: () => {}, cargar: mesCargado };
+// el hash es #<pestaña> o #producto/<producto_id>; #vitrina (el nombre viejo) sigue valiendo como alias de #visualizador
+function ir(hash) {
+  let tab = hash === "vitrina" ? "visualizador" : hash.split("/")[0], pid = "";
+  if (tab === "producto") { try { pid = decodeURIComponent(hash.slice(9)); } catch { pid = ""; } }
+  if (!vistas[tab] || (tab === "producto" && !pid)) tab = hash = "visualizador";
+  const nav = tab === "producto" ? "visualizador" : tab;
+  document.querySelectorAll("nav button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === nav));
   document.querySelectorAll("main section").forEach(s => s.hidden = s.id !== tab);
   notaPais(tab);
   for (const id of ["#banner", "#pais-barra"]) $(id).style.display = tab === "mercado" ? "none" : "";  // Mercado es solo SE/INDEC: ni avisos de precios ni país/USD
-  if (location.hash !== "#" + tab) history.replaceState(null, "", "#" + tab);
-  if (tab === "vitrina" || tab === "mercado") vistas[tab]();  // tienen su propia ruta: no esperan al resto
+  const h = tab === "producto" ? hash : tab;
+  if (location.hash !== "#" + h) history.replaceState(null, "", "#" + h);
+  if (tab === "producto") abrirProducto(pid);
+  else if (tab === "visualizador" || tab === "mercado") vistas[tab]();  // tienen su propia ruta: no esperan al resto
   else if (D.productos) vistas[tab]();
   vtAuto();
 }
