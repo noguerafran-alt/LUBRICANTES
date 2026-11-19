@@ -384,6 +384,9 @@ body:has(#dl[open]) { overflow: hidden; }
 .dl-rangos button { font: inherit; font-size: 13px; min-height: 40px; min-width: 44px; padding: 4px 12px; border: 1px solid var(--borde-ctl); border-radius: 999px; background: var(--panel); color: var(--tx); cursor: pointer; }
 .dl-rangos button[aria-pressed="true"] { background: var(--acento); border-color: var(--acento); color: var(--panel); font-weight: 600; }
 .dl-rangos button:disabled { opacity: .45; cursor: not-allowed; }
+.dl-mes { display: flex; align-items: center; gap: 6px; font-size: 13px; min-width: 0; }
+.dl-mes select { font: inherit; font-size: 13px; min-height: 40px; min-width: 0; width: auto; max-width: 100%; padding: 4px 6px; }
+@media (max-width: 640px) { .dl-mes { flex: 1 1 100%; } .dl-mes select { flex: 1 1 0; } }
 .dl-tg { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; min-height: 40px; }
 .dl-tg input { width: 18px; height: 18px; padding: 0; }
 .dl-ejes { font-size: 12px; color: var(--mut); margin: 0 0 4px; }
@@ -1838,19 +1841,15 @@ function ampTip(sp, f, mmN) {
 function ampliar(sp) {
   $("#mk-tip").hidden = true;
   if (AMP.blob) { URL.revokeObjectURL(AMP.blob); AMP.blob = null; }
-  Object.assign(AMP, { spec: sp, log: false, mm: false, rango: "5A", elegido: false });
+  Object.assign(AMP, { spec: sp, log: false, mm: false, rango: "5A", elegido: false, custom: null, msg: "" });
   sp.fmtEje ||= sp.fmt;
   ampPrep(sp);
-  const dlg = $("#dl"), id = sp.macroId, q = s => /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  const dlg = $("#dl"), id = sp.macroId;
   $("#dl-tit").textContent = sp.titulo;
-  let csv = sp.csv;
-  if (!csv) {
-    AMP.blob = URL.createObjectURL(new Blob(["﻿" + ["fecha", ...sp.series.map(s => q(s.nombre))].join(",") + "\n" + sp.filas.map(f => [ymd(f.x), ...f.v.map(v => esNum(v) ? v : "")].join(",")).join("\n") + "\n"], { type: "text/csv;charset=utf-8" }));
-    csv = AMP.blob;
-  }
   const links = id ? [[/^se_/.test(id) ? "Dataset de la Secretaría de Energía" : "Serie oficial en datos.gob.ar", /^se_/.test(id) ? DATASET_SE : `https://apis.datos.gob.ar/series/api/series/?ids=${encodeURIComponent(id)}&format=csv`]] : sp.links || [];
   $("#dl-cuerpo").innerHTML = `
     <div class="dl-ctl"><div class="dl-rangos" role="group" aria-label="Rango de fechas">${RANGOS.map(([t]) => `<button type="button" data-r="${t}" aria-pressed="false">${t}</button>`).join("")}</div>
+      <div class="dl-mes" role="group" aria-label="Rango por mes"><label for="dl-desde">Desde</label><select id="dl-desde"></select><label for="dl-hasta">Hasta</label><select id="dl-hasta"></select></div>
       ${sp.series.length === 1 ? `<label class="dl-tg"><input type="checkbox" id="dl-mm"> Media móvil de 12 meses</label>` : ""}
       <label class="dl-tg"><input type="checkbox" id="dl-log"> <span id="dl-log-t">Escala logarítmica</span></label></div>
     <p class="dl-aviso nota" id="dl-aviso" aria-live="polite"></p>
@@ -1862,7 +1861,7 @@ function ampliar(sp) {
     <div id="dl-stats"></div>
     <div class="dl-pie"><p>Fuente: ${esc(sp.fuente || "")}.${id ? ` Id de la serie: <code>${esc(id)}</code>.` : ""} ${esc(sp.nota || "")}</p>
       <p>${links.map(([t, u]) => `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(t)}</a>`).join("")}</p>
-      <a class="dl-csv" href="${esc(csv.startsWith("blob:") ? csv : location.origin + csv)}" download="${esc((id || sp.titulo).replace(/[^\w.-]+/g, "_"))}.csv">Descargar CSV</a></div>`;
+      <a class="dl-csv" id="dl-csv" href="#">Descargar CSV</a></div>`;
   if (!dlg.open) dlg.showModal();
   $("#dl").scrollTop = 0;
   ampActualizar();
@@ -1894,17 +1893,36 @@ function ampActualizar() {
   const fs = sp.filas, hasta = ymd(fs.at(-1).x), span = (ms(fs.at(-1).x) - ms(fs[0].x)) / AÑO_MS;
   const dis = ([t, a]) => a > 0 && span <= a;
   if (dis(RANGOS.find(r => r[0] === AMP.rango))) AMP.rango = "Todo";
-  const años = RANGOS.find(r => r[0] === AMP.rango)[1], desde = años ? restaMeses(hasta, 12 * años) : "";
-  document.querySelectorAll("#dl [data-r]").forEach(b => { const r = RANGOS.find(x => x[0] === b.dataset.r); b.disabled = dis(r); b.setAttribute("aria-pressed", String(b.dataset.r === AMP.rango)); });
+  const años = RANGOS.find(r => r[0] === AMP.rango)[1], desde = años ? restaMeses(hasta, 12 * años) : "", cu = AMP.custom;
+  document.querySelectorAll("#dl [data-r]").forEach(b => { const r = RANGOS.find(x => x[0] === b.dataset.r); b.disabled = dis(r); b.setAttribute("aria-pressed", String(!cu && b.dataset.r === AMP.rango)); });
   const conMM = AMP.mm && sp.mmv;
-  const vis = fs.map((f, i) => ({ x: f.x, s: f.s, v: conMM ? [...f.v, sp.mmv[i]] : f.v })).filter(f => ymd(f.x) > desde);
+  const dentro = f => cu ? f.x.slice(0, 7) >= cu.d && f.x.slice(0, 7) <= cu.h : ymd(f.x) > desde;
+  const vis = fs.map((f, i) => ({ x: f.x, s: f.s, v: conMM ? [...f.v, sp.mmv[i]] : f.v })).filter(dentro);
+  // selectores de mes: todos los meses de la serie completa; reflejan el rango activo (botón o personalizado)
+  const m0 = fs[0].x.slice(0, 7), m1 = fs.at(-1).x.slice(0, 7), sd = $("#dl-desde"), sh = $("#dl-hasta"), meses = [];
+  for (let m = m0; m <= m1; m = restaMeses(m + "-01", -1).slice(0, 7)) meses.push(m);
+  if (sd.options.length !== meses.length || sd.options[0]?.value !== m0) {
+    const ops = meses.map(m => `<option value="${m}">${esc(mesCorto(m))}</option>`).join("");
+    sd.innerHTML = sh.innerHTML = ops;
+  }
+  sd.value = cu ? cu.d : (vis[0]?.x.slice(0, 7) || m0); sh.value = cu ? cu.h : (vis.at(-1)?.x.slice(0, 7) || m1);
+  // CSV del rango visible (sin la media móvil); si abarca toda la serie y hay archivo del servidor, se usa ese
+  const q = s => /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s, filasR = fs.filter(dentro), a = $("#dl-csv");
+  if (AMP.blob) URL.revokeObjectURL(AMP.blob);
+  AMP.blob = null;
+  if (sp.csv && filasR.length === fs.length) a.href = location.origin + sp.csv;
+  else {
+    AMP.blob = URL.createObjectURL(new Blob(["﻿" + ["fecha", ...sp.series.map(s => q(s.nombre))].join(",") + "\n" + filasR.map(f => [ymd(f.x), ...f.v.map(v => esNum(v) ? v : "")].join(",")).join("\n") + "\n"], { type: "text/csv;charset=utf-8" }));
+    a.href = AMP.blob;
+  }
+  a.download = (sp.macroId || sp.titulo).replace(/[^\w.-]+/g, "_") + (filasR.length === fs.length ? "" : `_${filasR[0] ? filasR[0].x.slice(0, 7) : ""}_a_${filasR.at(-1) ? filasR.at(-1).x.slice(0, 7) : ""}`) + ".csv";
   const todos = vis.flatMap(f => f.v).filter(esNum), hay = todos.length > 0;
   const logOk = hay && todos.every(v => v > 0);
   if (!logOk) AMP.log = false;
   const cl = $("#dl-log"); cl.disabled = !logOk; cl.checked = AMP.log;
   $("#dl-log-t").textContent = logOk || !hay ? "Escala logarítmica" : "Escala logarítmica (no disponible: hay valores en cero o negativos)";
   if ($("#dl-mm")) $("#dl-mm").checked = !!AMP.mm;
-  $("#dl-aviso").textContent = sp.completa || !(sp.macroId || sp.completar) ? "" : sp.aviso || "Cargando la serie completa…";
+  $("#dl-aviso").textContent = [AMP.msg, sp.completa || !(sp.macroId || sp.completar) ? "" : sp.aviso || "Cargando la serie completa…"].filter(Boolean).join(" ");
   const nombres = sp.series.length;
   $("#dl-ejes").textContent = `Eje X: fecha (${sp.diario ? "diaria" : sp.trim ? "trimestral" : "mensual"}), de ${fechaInd(vis[0]?.x || "", sp.frec)} a ${fechaInd(vis.at(-1)?.x || "", sp.frec)}. Eje Y: ${sp.unidad || "valor"}${AMP.log ? ", escala logarítmica" : ""}.`;
   const prov = vis.some(f => f.s?.some(g => PROV.includes(g)));
@@ -1931,8 +1949,16 @@ function ampActualizar() {
 $("#dl-x").addEventListener("click", () => $("#dl").close());
 $("#dl").addEventListener("click", e => { if (e.target === $("#dl")) $("#dl").close(); });  // clic en el fondo
 $("#dl").addEventListener("close", () => { $("#dl-tip").hidden = true; AMP.spec = null; if (AMP.blob) { URL.revokeObjectURL(AMP.blob); AMP.blob = null; } });
-$("#dl-cuerpo").addEventListener("click", e => { const b = e.target.closest("[data-r]"); if (b && !b.disabled) { AMP.rango = b.dataset.r; AMP.elegido = true; ampActualizar(); } });
-$("#dl-cuerpo").addEventListener("change", e => { if (e.target.id === "dl-mm") AMP.mm = e.target.checked; if (e.target.id === "dl-log") AMP.log = e.target.checked; ampActualizar(); });
+$("#dl-cuerpo").addEventListener("click", e => { const b = e.target.closest("[data-r]"); if (b && !b.disabled) { AMP.rango = b.dataset.r; AMP.elegido = true; AMP.custom = null; AMP.msg = ""; ampActualizar(); } });
+$("#dl-cuerpo").addEventListener("change", e => {
+  if (e.target.id === "dl-desde" || e.target.id === "dl-hasta") {
+    let d = $("#dl-desde").value, h = $("#dl-hasta").value;
+    AMP.msg = d > h ? "Elegiste “Desde” posterior a “Hasta”: se intercambiaron." : "";
+    if (d > h) [d, h] = [h, d];
+    AMP.custom = { d, h }; AMP.elegido = true;
+    return ampActualizar();
+  }
+  if (e.target.id === "dl-mm") AMP.mm = e.target.checked; if (e.target.id === "dl-log") AMP.log = e.target.checked; ampActualizar(); });
 $("#mk-out").addEventListener("click", e => {
   const el = e.target.closest("[data-amp]"), f = el && AMP.specs[el.dataset.amp];
   if (f) ampliar(f());
