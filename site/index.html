@@ -29,12 +29,12 @@
 body { margin: 0; background: var(--bg); color: var(--tx); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
 main, .cab { max-width: none; margin: 0; padding: 0 clamp(12px, 1.4vw, 24px); }
 header { background: var(--marca); color: #fff; }
-.cab { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0 24px; }
+.cab { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0 12px; }
 header :focus-visible { outline-color: #fff; }
 header h1 { font-size: 18px; margin: 10px 0 6px; white-space: nowrap; }
 nav { display: flex; gap: 2px; flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; }
 nav::-webkit-scrollbar { display: none; }
-nav button { background: none; border: 0; border-bottom: 3px solid transparent; color: #dbe6fb; font: inherit; padding: 8px 10px; min-height: 44px; cursor: pointer; white-space: nowrap; flex: none; }
+nav button { background: none; border: 0; border-bottom: 3px solid transparent; color: #dbe6fb; font: inherit; padding: 8px 8px; min-height: 44px; cursor: pointer; white-space: nowrap; flex: none; }
 nav button[aria-selected="true"] { color: #fff; border-color: #fff; font-weight: 600; }
 .pais-barra { align-items: flex-end; justify-content: flex-end; margin: 8px 0 4px; }
 .vt-filtro .pais-barra { display: contents; }
@@ -140,6 +140,15 @@ a.vt-toggle { display: inline-flex; align-items: center; text-decoration: none; 
 .pr-tabla td.l { white-space: normal; min-width: 11em; }
 .pr-tabla tr.fuera td { opacity: .62; }
 .pr-como li { margin: 4px 0; max-width: 80ch; }
+.pr-cab > .pr-tira { flex: 2 1 340px; }
+.pr-tira p { margin: 0 0 6px; font-size: 12px; }
+.pr-tira ul { list-style: none; margin: 0; padding: 2px 2px 6px; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: thin; }
+.pr-tira a { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 108px; padding: 6px; text-align: center; text-decoration: none; color: var(--tx); background: var(--panel); border: 1px solid var(--borde); border-radius: 10px; font-size: 11px; line-height: 1.2; min-height: 44px; }
+.pr-tira a:hover { border-color: var(--acento); }
+.pr-tira a[aria-current] { border: 2px solid var(--acento); padding: 5px; background: color-mix(in srgb, var(--acento) 10%, var(--panel)); }
+.pr-tira .mini { display: block; width: 100%; height: 64px; background: #fff; border-radius: 6px; }
+.pr-tira .mini img, .pr-tira .mini svg { width: 100%; height: 100%; object-fit: contain; display: block; mix-blend-mode: multiply; }
+.pr-tira b { font-size: 12px; } .pr-tira a span:not(.mini) { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--mut); overflow-wrap: anywhere; }
 @media (max-width: 640px) { .pr-cab figure { width: 88px; } }
 /* ---------- Visualizador ---------- */
 /* Bahnschrift es DIN (Windows); sin CDN no hay fuentes web, así que la pila busca otras DIN/condensadas instaladas */
@@ -288,7 +297,13 @@ a.vt-toggle { display: inline-flex; align-items: center; text-decoration: none; 
 .pz-modelo { position: absolute; left: 16px; top: 56px; margin: 0; font-size: 11px; font-style: italic; color: var(--pz-mut); }
 .pz-ayuda { position: absolute; left: 16px; bottom: 12px; right: 16px; margin: 0; font-size: 12px; color: var(--pz-mut); pointer-events: none; }
 .pz-2d { position: absolute; inset: 24px 24px 44px; margin: 0; display: grid; place-items: center; background: #fff; border-radius: 12px; }
+.pz-2d { grid-template-rows: minmax(0, 1fr) auto; padding: 8px; }
 .pz-2d img, .pz-2d svg { width: 80%; height: 80%; object-fit: contain; }
+.pz-2d-p { width: 100%; height: 100%; min-height: 0; padding: 0; border: 0; background: none; cursor: pointer; display: grid; place-items: center; border-radius: 8px; }
+.pz-2d-eq { list-style: none; margin: 0; padding: 6px 0 0; display: flex; gap: 8px; justify-content: center; max-width: 100%; overflow-x: auto; }
+.pz-2d-eq button { width: 76px; padding: 4px 4px 2px; border: 1px solid #c3cad1; border-radius: 8px; background: #fff; color: #3b4450; font: inherit; font-size: 11px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 44px; }
+.pz-2d-eq button:hover { border-color: var(--acento); }
+.pz-2d .pz-2d-eq img, .pz-2d .pz-2d-eq svg { width: 100%; height: 56px; }
 .pz-panel { grid-column: 2; grid-row: 1 / 3; overflow-y: auto; background: var(--panel); border-left: 1px solid var(--borde); padding: 22px 24px 32px; scrollbar-width: thin; }
 .pz-linea { margin: 0; font-size: 14px; color: var(--mut); }
 .pz-nombre { font: 600 clamp(26px, 3vw, 36px)/1.04 var(--f-ui); letter-spacing: -0.01em; margin: 2px 0 10px; text-wrap: balance; }
@@ -415,13 +430,13 @@ th.n { text-align: right; }
 .mk-amp svg, .graf .mk-amp svg { width: 16px; height: 16px; }
 .mk-ind .mk-amp { position: absolute; top: 6px; right: 6px; }
 .graf-cab { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
-#dl { padding: 0; border: 1px solid var(--borde-ctl); border-radius: 10px; background: var(--panel); color: var(--tx); width: min(1000px, calc(100vw - 24px)); max-width: none; max-height: calc(100dvh - 24px); overflow: auto; box-shadow: 0 20px 60px rgba(0, 0, 0, .35); }
-#dl::backdrop { background: rgba(10, 20, 35, .6); }
-body:has(#dl[open]) { overflow: hidden; }
+#dl, #ix-dl { padding: 0; border: 1px solid var(--borde-ctl); border-radius: 10px; background: var(--panel); color: var(--tx); width: min(1000px, calc(100vw - 24px)); max-width: none; max-height: calc(100dvh - 24px); overflow: auto; box-shadow: 0 20px 60px rgba(0, 0, 0, .35); }
+#dl::backdrop, #ix-dl::backdrop { background: rgba(10, 20, 35, .6); }
+body:has(#dl[open]), body:has(#ix-dl[open]) { overflow: hidden; }
 .dl-cab { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; position: sticky; top: 0; z-index: 2; background: var(--panel); padding: 12px 16px 8px; border-bottom: 1px solid var(--borde); }
 .dl-cab h2 { font-size: 17px; margin: 0; min-width: 0; overflow-wrap: anywhere; }
-#dl-x { flex: none; width: 40px; height: 40px; border: 1px solid var(--borde-ctl); border-radius: 50%; background: var(--panel); color: var(--tx); font-size: 16px; cursor: pointer; }
-#dl-x:hover { border-color: var(--acento); color: var(--acento); }
+#dl-x, #ix-x { flex: none; width: 40px; height: 40px; border: 1px solid var(--borde-ctl); border-radius: 50%; background: var(--panel); color: var(--tx); font-size: 16px; cursor: pointer; }
+#dl-x:hover, #ix-x:hover { border-color: var(--acento); color: var(--acento); }
 .dl-in { padding: 8px 16px 16px; min-width: 0; }
 .dl-ctl { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; margin: 4px 0 8px; }
 .dl-rangos { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -482,6 +497,52 @@ body:has(#dl[open]) { overflow: hidden; }
 /* botón de tema: en el header, a la derecha de las pestañas; en pantallas angostas va arriba a la derecha para no empujar la barra */
 #tema-btn { background: none; border: 1px solid rgba(255, 255, 255, .5); border-radius: 6px; color: #fff; font: inherit; font-size: 13px; min-height: 36px; min-width: 44px; padding: 0 10px; cursor: pointer; white-space: nowrap; align-self: center; flex: none; }
 #tema-btn:hover { background: rgba(255, 255, 255, .15); }
+/* interruptor global «Ocultar sin datos» */
+#sd-btn { display: inline-flex; align-items: center; gap: 6px; background: none; border: 1px solid rgba(255, 255, 255, .5); border-radius: 6px; color: #fff; font: inherit; font-size: 13px; min-height: 36px; padding: 0 8px; cursor: pointer; white-space: nowrap; align-self: center; flex: none; }
+#sd-btn:hover { background: rgba(255, 255, 255, .15); }
+.sd-sw { position: relative; width: 28px; height: 16px; border-radius: 999px; border: 1px solid #fff; flex: none; }
+.sd-sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: 50%; background: #fff; transition: transform .15s ease-out; }
+#sd-btn[aria-checked="true"] .sd-sw { background: rgba(255, 255, 255, .35); }
+#sd-btn[aria-checked="true"] .sd-sw::after { transform: translateX(12px); }
+@media (prefers-reduced-motion: reduce) { .sd-sw::after { transition: none; } }
+.sd-aviso { margin: 4px 0 8px; font-size: 13px; color: var(--mut); }
+.sd-aviso .link { font-size: 13px; padding: 6px 4px; min-height: 32px; }
+/* Índice: mapa de calor divergente centrado en 100 (verde = más barato que YPF, rojo = más caro). El texto de la celda queda en --tx: el tinte se limita a ~34 % para sostener el contraste AA en claro y oscuro */
+.ix-ley { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; margin: 6px 0 4px; font-size: 13px; }
+.ix-ley b { font-weight: 600; }
+.ix-escala { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--mut); }
+.ix-escala i { display: block; width: 150px; height: 12px; border-radius: 3px; border: 1px solid var(--borde); background: linear-gradient(90deg, color-mix(in srgb, var(--barato) 34%, var(--panel)), var(--panel) 50%, color-mix(in srgb, var(--caro) 34%, var(--panel))); }
+.ix-sdsw { display: inline-grid; place-items: center; width: 22px; height: 18px; border-radius: 3px; background: color-mix(in srgb, var(--mut) 10%, var(--panel)); color: var(--mut); border: 1px solid var(--borde); font-size: 12px; margin-right: 4px; }
+.ix-pista { margin: 2px 0 8px; }
+.ix-t { width: auto; min-width: 100%; border-collapse: separate; border-spacing: 0; }
+.ix-t th, .ix-t td { text-align: center; vertical-align: middle; border-right: 1px solid var(--borde); }
+.ix-t thead th { background: var(--panel); }
+.ix-t th[rowspan] { z-index: 2; }
+.ix-t th.ix-g { font-size: 13px; color: var(--tx); border-bottom: 2px solid var(--borde-ctl); }
+.ix-t th[rowspan], .ix-t th[scope="row"] { position: sticky; left: 0; z-index: 1; background: var(--panel); text-align: left; min-width: 96px; border-right: 2px solid var(--borde-ctl); }
+.ix-t td.ix-c, .ix-t td.ix-sd { min-width: 96px; }
+.ix-c { cursor: zoom-in; user-select: none; touch-action: manipulation; background: color-mix(in srgb, var(--mut) 4%, var(--panel)); color: var(--tx); line-height: 1.25; }
+.ix-c.ix-caro { background: color-mix(in srgb, var(--caro) var(--h), var(--panel)); }
+.ix-c.ix-barato { background: color-mix(in srgb, var(--barato) var(--h), var(--panel)); }
+.ix-c:hover { outline: 2px solid var(--acento); outline-offset: -2px; }
+.ix-c:focus-visible { outline: 3px solid var(--acento); outline-offset: -3px; }
+.ix-v { display: block; font: 600 17px/1.2 var(--f-cifra); font-variant-numeric: tabular-nums; }
+.ix-d, .ix-l { display: block; font-size: 11px; color: var(--tx); font-variant-numeric: tabular-nums; }
+.ix-l { opacity: .8; }
+.ix-c svg { display: block; margin: 2px auto 0; }
+.ix-sd { background: color-mix(in srgb, var(--mut) 10%, var(--panel)); color: var(--mut); cursor: help; position: relative; /* ancla el .sr: sin esto su caja absoluta ensancha la página */ }
+.ix-t tr.ix-ref td, .ix-t tr.ix-ref th { background: color-mix(in srgb, var(--acento) 9%, var(--panel)); font-weight: 600; border-bottom: 2px solid var(--borde-ctl); }
+.ix-t .ix-sub { font-weight: 400; display: block; }
+#ix-cuerpo h3 { font-size: 15px; margin: 14px 0 4px; }
+#ix-cuerpo .graf { margin-bottom: 8px; }
+.ix-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 6px 0; }
+.ix-kpis div { border: 1px solid var(--borde); border-radius: 6px; padding: 6px 10px; }
+.ix-kpis b { display: block; font: 600 17px/1.2 var(--f-cifra); }
+.ix-kpis span { font-size: 12px; color: var(--mut); }
+.ix-links { margin: 4px 0; padding-left: 18px; }
+.ix-links li { margin: 4px 0; }
+@media (prefers-reduced-motion: no-preference) { .ix-c { transition: outline-color .12s ease-out; } }
+@media (max-width: 899px) { #sd-btn { order: 3; flex: 1 1 auto; justify-content: flex-start; align-self: flex-start; margin: 0 0 6px; } }
 @media (max-width: 899px) { .cab { position: relative; } #tema-btn { position: absolute; top: 8px; right: 16px; padding: 0; width: 44px; } #tema-btn span { display: none; } header h1 { white-space: normal; padding-right: 56px; } }
 
 /* ---------- Mapa y Cobertura ---------- */
@@ -520,6 +581,7 @@ body:has(#dl[open]) { overflow: hidden; }
     <button role="tab" data-tab="fuentes">Fuentes</button>
     <button role="tab" data-tab="cargar">Cargar</button>
   </nav>
+  <button type="button" id="sd-btn" role="switch" aria-checked="true" title="Oculta las filas, columnas y series que no tienen ningún dato en lo que se ve; el aviso de cada pestaña dice cuántas"><span class="sd-sw" aria-hidden="true"></span>Ocultar sin datos</button>
   <button type="button" id="tema-btn"></button>
 </div></header>
 <main>
@@ -632,8 +694,8 @@ body:has(#dl[open]) { overflow: hidden; }
   </section>
 
   <section id="indice" hidden>
-    <p class="nota">Mediana de $/L de cada marca dividida por la de YPF, mismo segmento, SAE y día, × 100. 110 = 10 % más caro por litro que YPF. Sin YPF ese día no se calcula. Debajo de cada valor, los últimos 90 días. Las fuentes mayoristas (precio por caja o tambor, IVA no verificado) no entran; en la API se suman con <code>?mayoristas=1</code>.</p>
     <div id="ind-out"></div>
+    <p class="nota">Cada celda es la mediana de $/L de la marca dividida por la de YPF, en el mismo segmento, SAE y día, × 100. Sin YPF ese día no se calcula. Debajo de cada valor, los últimos 90 días. Las fuentes mayoristas (precio por caja o tambor, IVA no verificado) no entran; en la API se suman con <code>?mayoristas=1</code>.</p>
   </section>
 
   <section id="cargar" hidden>
@@ -666,6 +728,10 @@ print(filas[0])</pre>
 obs = pd.read_csv("<span class="origen"></span>/api/obs?mes=2026-11&amp;formato=csv")</pre>
   </section>
 </main>
+<dialog id="ix-dl" aria-labelledby="ix-tit">
+  <div class="dl-cab"><h2 id="ix-tit"></h2><button type="button" id="ix-x" aria-label="Cerrar el detalle del índice">✕</button></div>
+  <div class="dl-in" id="ix-cuerpo"></div>
+</dialog>
 <dialog id="dl" aria-labelledby="dl-tit">
   <div class="dl-cab"><h2 id="dl-tit"></h2><button type="button" id="dl-x" aria-label="Cerrar el gráfico ampliado">✕</button></div>
   <div class="dl-in" id="dl-cuerpo"></div>
@@ -853,6 +919,16 @@ function comparador() {
     (!q || texto(p).includes(q) || equivDe(p.producto_id).some(e => prod(e.comp_id) && texto(prod(e.comp_id)).includes(q))));
   if (!filas.length) return out.innerHTML = `<div class="explica">Ningún producto YPF coincide con los filtros.</div>`;
 
+  const tiene = pid => fuentes.some(f => precio[pid + "|" + f]);
+  const tieneEq = p => equivDe(p.producto_id).some(e => tiene(e.comp_id));
+  const filasT = filas.slice();
+  if (SD.on) filas.splice(0, filas.length, ...filasT.filter(p => tiene(p.producto_id) || tieneEq(p)));
+  const nOcP = filasT.length - filas.length, hayP = (p, f) => precio[p.producto_id + "|" + f] || equivDe(p.producto_id).some(e => precio[e.comp_id + "|" + f]);
+  const fuentesV = SD.on ? fuentes.filter(f => filas.some(p => hayP(p, f))) : fuentes;
+  const nOcF = fuentes.length - fuentesV.length;
+  const nOcE = SD.on ? filas.reduce((a, p) => a + equivDe(p.producto_id).filter(e => !tiene(e.comp_id)).length, 0) : 0;
+  const aviso = avisoSD([[nOcP, "producto YPF", "productos YPF", "m"], [nOcE, "equivalente", "equivalentes", "m"], [nOcF, "fuente", "fuentes", "f"]]);
+  if (!filas.length) return out.innerHTML = aviso + `<div class="explica">Ninguno de los productos tiene precio en las fuentes para esta presentación.</div>`;
   const celda = (pid, f, ref) => {
     const u = precio[pid + "|" + f];
     if (!u) return `<td data-l="${esc(nf(f))}"><span class="vacio" title="${esc(motivoVacio(f))}">${esc(motivoVacio(f))}</span></td>`;
@@ -867,19 +943,19 @@ function comparador() {
     }
     return `<td class="n" data-l="${esc(nf(f))}"><span>${mon.format(u.precio_litro)}/L${usdDe(u, "precio_litro")}${dif}<br><span class="mut">${fechaAR(u.fecha)}${u.n > 1 ? " · " + u.n + " precios" : ""}</span>${esGrok(u.fuente) ? `<br><span class="mut">${linkUrl(u.url, nf(u.fuente))}</span> ${sello(u.verificado)}` : ""}</span></td>`;
   };
-  const cab = `<tr><th>Producto</th><th>Equivalencia</th>${fuentes.map(f => `<th>${nfh(f)}</th>`).join("")}</tr>`;
-  out.innerHTML = filas.map(p => {
-    const eqs = equivDe(p.producto_id);
+  const cab = `<tr><th>Producto</th><th>Equivalencia</th>${fuentesV.map(f => `<th>${nfh(f)}</th>`).join("")}</tr>`;
+  out.innerHTML = aviso + filas.map(p => {
+    const eqs = equivDe(p.producto_id).filter(e => !SD.on || tiene(e.comp_id));
     const filasEq = eqs.length ? eqs.map(e => {
       const c = prod(e.comp_id);
       return `<tr><td>${esc(e.comp_marca)} ${esc(e.comp_nombre || e.comp_id)}${c ? "" : ` <span class="vacio">(no está en productos.csv)</span>`}</td>
         <td data-l="Equivalencia"><span><span class="badge">${esc(TIPO[e.tipo] || e.tipo)}</span><span class="badge ${esc(e.evidencia)}">${esc(e.evidencia)}</span></span></td>
-        ${fuentes.map(f => celda(e.comp_id, f, p.producto_id)).join("")}</tr>`;
-    }).join("") : `<tr><td colspan="${fuentes.length + 2}" class="vacio">Sin equivalencias cargadas en seed/equivalencias.csv</td></tr>`;
-    return `<div class="tabla"><table class="comp" style="--nf:${fuentes.length}">${cab}
+        ${fuentesV.map(f => celda(e.comp_id, f, p.producto_id)).join("")}</tr>`;
+    }).join("") : `<tr><td colspan="${fuentesV.length + 2}" class="vacio">${equivDe(p.producto_id).length ? "Ningún equivalente tiene precio en esta presentación" : "Sin equivalencias cargadas en seed/equivalencias.csv"}</td></tr>`;
+    return `<div class="tabla"><table class="comp" style="--nf:${fuentesV.length}">${cab}
       <tr class="ypf"><td>YPF ${esc(p.linea)} ${esc(p.nombre)} <span class="mut">${esc(p.sae)} · ${esc(SEGMENTO[p.segmento] || p.segmento)}</span><br>
         <button class="link" data-evo="${esc(p.producto_id)}">ver evolución</button></td><td></td>
-        ${fuentes.map(f => celda(p.producto_id, f)).join("")}</tr>${filasEq}</table></div>`;
+        ${fuentesV.map(f => celda(p.producto_id, f)).join("")}</tr>${filasEq}</table></div>`;
   }).join("");
   out.querySelectorAll("[data-evo]").forEach(b => b.onclick = () => { $("#e-prod").value = b.dataset.evo; ir("evolucion"); });
 }
@@ -903,7 +979,8 @@ async function evolucion() {
   if ($("#e-prod").value !== id) return;
   const color = {}; ids.forEach((x, i) => color[x] = `var(${COLORES[i % COLORES.length]})`);
   const nombre = x => `${prod(x).marca} ${prod(x).nombre}`;
-  const ley = `<div class="ley">${ids.map(x => `<span><i style="background:${color[x]}"></i>${esc(nombre(x))}${series[x].length ? "" : " (sin precios)"}</span>`).join("")}</div>`;
+  const idsV = SD.on ? ids.filter(x => series[x].length) : ids;
+  const ley = avisoSD([[ids.length - idsV.length, "producto sin precios", "productos sin precios", "m"]]) + `<div class="ley">${idsV.map(x => `<span><i style="background:${color[x]}"></i>${esc(nombre(x))}${series[x].length ? "" : " (sin precios)"}</span>`).join("")}</div>`;
   const fuentes = [...new Set(ids.flatMap(x => series[x].map(s => s.fuente)))].sort();
   if (!fuentes.length) return out.innerHTML = ley + `<div class="explica">Ni este producto ni sus equivalentes tienen precios todavía.</div>`;
   out.innerHTML = ley + fuentes.map(f => {
@@ -913,21 +990,24 @@ async function evolucion() {
   }).join("");
 }
 
-function grafico(lineas) {
-  const W = 700, H = 240, m = { l: 70, r: 10, t: 10, b: 24 };
+// o (opcional, el detalle del Índice): W, H, fmt del eje Y, sufijo del tooltip, ref = línea punteada de referencia (100 = YPF), label
+function grafico(lineas, o = {}) {
+  const W = o.W || 700, H = o.H || 240, m = { l: o.ref != null ? 50 : 70, r: 10, t: 10, b: 24 }, fm = o.fmt || (v => mon.format(v));
   const todos = lineas.flatMap(l => l.puntos);
   if (!todos.length) return `<div class="vacio">sin precios en esta fuente</div>`;
   const xs = todos.map(p => dia(p[0])), ys = todos.map(p => p[1]);
+  if (o.ref != null) ys.push(o.ref);
   let x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
   if (x1 === x0) { x0 -= 1; x1 += 1; }
   const pad = (y1 - y0) * 0.08 || y1 * 0.05 || 1; y0 -= pad; y1 += pad;
   const X = d => m.l + (dia(d) - x0) / (x1 - x0) * (W - m.l - m.r);
   const Y = v => H - m.b - (v - y0) / (y1 - y0) * (H - m.t - m.b);
-  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="$/L en el tiempo">`;
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(o.label || "$/L en el tiempo")}">`;
   for (let i = 0; i <= 3; i++) {
     const v = y0 + (y1 - y0) * i / 3;
-    s += `<line class="eje" x1="${m.l}" x2="${W - m.r}" y1="${Y(v)}" y2="${Y(v)}"/><text x="${m.l - 6}" y="${Y(v) + 4}" text-anchor="end">${mon.format(v)}</text>`;
+    s += `<line class="eje" x1="${m.l}" x2="${W - m.r}" y1="${Y(v)}" y2="${Y(v)}"/><text x="${m.l - 6}" y="${Y(v) + 4}" text-anchor="end">${fm(v)}</text>`;
   }
+  if (o.ref != null) s += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(o.ref)}" y2="${Y(o.ref)}" stroke="var(--mut)" stroke-dasharray="5 4"/><text x="${W - m.r - 4}" y="${Y(o.ref) - 4}" text-anchor="end">${o.refTxt || o.ref}</text>`;
   const fx = d => fechaAR(new Date(d * 864e5).toISOString().slice(0, 10));
   s += `<text x="${m.l}" y="${H - 6}">${fx(x0)}</text><text x="${W - m.r}" y="${H - 6}" text-anchor="end">${fx(x1)}</text>`;
   for (const l of lineas) {
@@ -939,35 +1019,130 @@ function grafico(lineas) {
       tramo.push(`${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`);
     });
     cerrar();
-    l.puntos.forEach(p => s += `<circle cx="${X(p[0]).toFixed(1)}" cy="${Y(p[1]).toFixed(1)}" r="2" fill="${l.color}"><title>${esc(l.nombre)} ${fechaAR(p[0])}: ${mon.format(p[1])}/L</title></circle>`);
+    l.puntos.forEach(p => s += `<circle cx="${X(p[0]).toFixed(1)}" cy="${Y(p[1]).toFixed(1)}" r="2" fill="${l.color}"><title>${esc(l.nombre)} ${fechaAR(p[0])}: ${fm(p[1])}${o.sufijo ?? "/L"}</title></circle>`);
   }
   return s + "</svg>";
 }
 
+// ---------- Ocultar sin datos: interruptor global (header) ----------
+// Oculta filas, columnas y series que no tienen NINGÚN dato en lo que se ve; cada pestaña avisa cuántas y ofrece «mostrar».
+const SD = { on: true };
+try { SD.on = localStorage.getItem("lub_ocultar_sd") !== "0"; } catch (e) {}
+function avisoSD(items) {   // items: [[n, singular, plural, "f"|"m"]]
+  const xs = items.filter(i => i[0] > 0);
+  if (!SD.on || !xs.length) return "";
+  const lista = xs.map(i => i[0] === 1 ? `1 ${i[1]}` : `${entero.format(i[0])} ${i[2]}`).reduce((a, t, k, r) => k === 0 ? t : k === r.length - 1 ? `${a} y ${t}` : `${a}, ${t}`, "");
+  const plural = xs.length > 1 || xs[0][0] > 1, f = xs.every(i => i[3] === "f");
+  return `<p class="sd-aviso" role="status">${esc(lista)} ${f ? "oculta" : "oculto"}${plural ? "s" : ""} por no tener datos · <button type="button" class="link" data-sd-mostrar>mostrar</button></p>`;
+}
+function repintarSD() {
+  if (D.productos) { indice(); comparador(); }
+  const tab = document.querySelector("main section:not([hidden])")?.id;
+  if (["evolucion", "cobertura", "mercado"].includes(tab)) vistas[tab]();
+}
+function setSD(on) {
+  SD.on = on;
+  try { localStorage.setItem("lub_ocultar_sd", on ? "1" : "0"); } catch (e) {}
+  $("#sd-btn").setAttribute("aria-checked", String(on));
+  repintarSD();
+}
+$("#sd-btn").setAttribute("aria-checked", String(SD.on));
+$("#sd-btn").onclick = () => setSD(!SD.on);
+document.addEventListener("click", e => { if (e.target.closest("[data-sd-mostrar]")) setSD(false); });
+
 // ---------- Índice ----------
+// Mapa de calor por celda: divergente centrado en 100. Columnas agrupadas por segmento; YPF, fila de referencia.
+const IX_GRUPOS = [["Autos", ["pcmo"]], ["Moto", ["moto4t", "moto2t"]], ["Pesados", ["hddo"]], ["Marino", ["marino"]], ["Otros", null]];
+const grupoIx = seg => (IX_GRUPOS.find(([, ss]) => ss && ss.includes(seg)) || IX_GRUPOS.at(-1))[0];
+const subIx = g => { const [seg, sae] = g.split("|"); return seg === "moto4t" ? "4T" + (sae ? " · " + sae : "") : seg === "moto2t" ? "2T" + (sae ? " · " + sae : "")
+  : grupoIx(seg) === "Otros" ? (SEGMENTO[seg] || seg) + (sae ? " · " + sae : "") : sae || "sin SAE"; };
+const IX = { hist: {}, ultimo: "", desde: 0, foco: null };
+
 function indice() {
   const out = $("#ind-out");
   if (!D.indice.length) return out.innerHTML = `<div class="explica">Todavía no hay precios con producto asignado para calcular el índice.</div>`;
   const ultimo = D.indice.reduce((a, r) => r.fecha > a ? r.fecha : a, "");
   const hoy = D.indice.filter(r => r.fecha === ultimo);
-  const grupos = [...new Set(hoy.map(r => r.segmento + "|" + r.sae))].sort();
-  const marcas = [...new Set(hoy.map(r => r.marca))].sort((a, b) => (b === "YPF") - (a === "YPF") || a.localeCompare(b));
   const desde = dia(ultimo) - 90;
   const hist = {};
   D.indice.filter(r => dia(r.fecha) > desde).forEach(r => (hist[r.marca + "|" + r.segmento + "|" + r.sae] ??= []).push(r));
+  Object.assign(IX, { hist, ultimo, desde });
+  const delPais = D.productos.filter(p => p.producto_id.endsWith("-br") === (P.pais === "BR"));
+  const celdaDe = {};
+  hoy.forEach(r => celdaDe[r.marca + "|" + r.segmento + "|" + r.sae] = r);
+  // catálogo completo (lo que podría haber) contra lo que hoy tiene valor; el interruptor decide si lo vacío se muestra
+  const gTodos = [...new Set([...hoy.map(r => r.segmento + "|" + r.sae), ...delPais.filter(p => p.marca === "YPF").map(p => p.segmento + "|" + p.sae)])];
+  const mTodas = [...new Set([...hoy.map(r => r.marca), ...delPais.map(p => p.marca), "YPF"])];
+  const ordenG = g => IX_GRUPOS.findIndex(([n]) => n === grupoIx(g.split("|")[0]));
+  const cols = (SD.on ? gTodos.filter(g => mTodas.some(m => celdaDe[m + "|" + g])) : gTodos)
+    .sort((a, b) => ordenG(a) - ordenG(b) || a.localeCompare(b, "es", { numeric: true }));
+  const marcas = (SD.on ? mTodas.filter(m => cols.some(g => celdaDe[m + "|" + g])) : mTodas)
+    .sort((a, b) => (b === "YPF") - (a === "YPF") || a.localeCompare(b));
+  const aviso = avisoSD([[mTodas.length - marcas.length, "marca", "marcas", "f"], [gTodos.length - cols.length, "columna", "columnas", "f"]]);
   const celda = (marca, g) => {
-    const r = hoy.find(x => x.marca === marca && x.segmento + "|" + x.sae === g);
-    if (!r) return D.productos.some(p => p.marca === marca && p.segmento + "|" + p.sae === g)
-      ? `<td><span class="vacio">sin precio el ${fechaAR(ultimo)}</span></td>`
-      : `<td><span class="vacio">sin producto en el catálogo</span></td>`;
-    const v = r.indice === null ? `<span class="vacio">sin YPF ese día</span>`
-      : `<span class="${marca === "YPF" ? "" : r.indice > 100 ? "caro" : "barato"}">${dec1.format(r.indice)}</span>`;
-    return `<td class="n">${v}<br><span class="mut">${mon.format(r.mediana_litro)}/L</span>${usdDe(r, "mediana_litro")}<br>${sparkline(hist[marca + "|" + g] || [], desde)}</td>`;
+    const r = celdaDe[marca + "|" + g];
+    if (!r) {
+      const motivo = delPais.some(p => p.marca === marca && p.segmento + "|" + p.sae === g)
+        ? `Sin dato: ninguna fuente publicó precio de ${marca} en este segmento y SAE el ${fechaAR(ultimo)}.`
+        : `Sin dato: ${marca} no tiene un producto de este segmento y SAE en el catálogo.`;
+      return `<td class="ix-sd" title="${esc(motivo)}"><span aria-hidden="true">–</span><span class="sr">${esc(motivo)}</span></td>`;
+    }
+    const sp = marca === "YPF" ? "" : `<span class="ix-sp">${sparkline(hist[marca + "|" + g] || [], desde)}</span>`;
+    const lit = `<span class="ix-l">${mon.format(r.mediana_litro)}/L</span>${usdDe(r, "mediana_litro", "")}`;
+    if (marca === "YPF") return `<td class="n"><b class="ix-v">100</b>${lit}</td>`;
+    if (r.indice === null) return `<td class="ix-c" style="cursor:default"><span class="vacio">sin YPF ese día</span>${lit}</td>`;
+    const d = r.indice - 100, t = Math.min(Math.abs(d) / 30, 1), tono = Math.abs(d) < .05 ? "" : d > 0 ? "ix-caro" : "ix-barato";
+    const txt = tono ? `${dec1.format(Math.abs(d))} % ${d > 0 ? "más caro" : "más barato"}` : "igual que YPF";
+    return `<td class="ix-c ${tono}" style="--h:${Math.round(t * 34)}%" tabindex="0" data-m="${esc(marca)}" data-g="${esc(g)}" title="Doble clic (o Enter) para ver el detalle de 90 días"
+      aria-label="${esc(`${marca}, ${subIx(g)}: índice ${dec1.format(r.indice)}, ${txt}. Doble clic o Enter para el detalle de 90 días`)}"><b class="ix-v">${dec1.format(r.indice)}</b><span class="ix-d">${esc(txt)}</span>${lit}${sp}</td>`;
   };
-  out.innerHTML = `<p class="nota">Último día con datos: <strong>${fechaAR(ultimo)}</strong>.</p><div class="tabla"><table>
-    <tr><th>Marca</th>${grupos.map(g => { const [seg, sae] = g.split("|"); return `<th>${esc(SEGMENTO[seg] || seg)}<br>${esc(sae || "sin SAE")}</th>`; }).join("")}</tr>
-    ${marcas.map(mk => `<tr${mk === "YPF" ? ' class="ypf"' : ""}><td>${esc(mk)}</td>${grupos.map(g => celda(mk, g)).join("")}</tr>`).join("")}</table></div>`;
+  const grupos = IX_GRUPOS.map(([n]) => [n, cols.filter(g => grupoIx(g.split("|")[0]) === n)]).filter(([, c]) => c.length);
+  const cab = `<thead><tr><th rowspan="2" scope="col">Marca</th>${grupos.map(([n, c]) => `<th class="ix-g" colspan="${c.length}" scope="colgroup">${esc(n)}</th>`).join("")}</tr>
+    <tr>${grupos.flatMap(([, c]) => c).map(g => `<th scope="col" title="${esc((SEGMENTO[g.split("|")[0]] || g.split("|")[0]) + (g.split("|")[1] ? " · " + g.split("|")[1] : ""))}">${esc(subIx(g))}</th>`).join("")}</tr></thead>`;
+  const fila = mk => `<tr${mk === "YPF" ? ' class="ix-ref"' : ""}><th scope="row">${esc(mk)}${mk === "YPF" ? '<span class="ix-sub mut">referencia = 100</span>' : ""}</th>${grupos.flatMap(([, c]) => c).map(g => celda(mk, g)).join("")}</tr>`;
+  out.innerHTML = `<div class="ix-ley"><b>100 = mismo precio por litro que YPF; 110 = 10 % más caro; 90 = 10 % más barato.</b>
+      <span class="ix-escala" aria-hidden="true"><span>más barato (70)</span><i></i><span>más caro (130)</span></span>
+      <span><span class="ix-sdsw" aria-hidden="true">–</span>sin dato (pasá el mouse o tocá para ver por qué)</span></div>
+    <p class="nota ix-pista">Doble clic (o doble toque, o Enter con la celda enfocada) sobre un valor para ver su evolución en 90 días. Último día con datos: <strong>${fechaAR(ultimo)}</strong>.</p>
+    ${aviso}<div class="tabla"><table class="ix-t">${cab}<tbody>${marcas.map(fila).join("")}</tbody></table></div>`;
 }
+
+// detalle de una celda: evolución de la marca contra YPF en los 90 días, $/L de ambos y links a las páginas de producto
+function ixDetalle(marca, g) {
+  const [seg, sae] = g.split("|"), dlg = $("#ix-dl");
+  const mk = (IX.hist[marca + "|" + g] || []), yp = (IX.hist["YPF|" + g] || []);
+  const idx = mk.filter(r => r.indice !== null).map(r => [r.fecha, r.indice]);
+  const lit = rs => rs.filter(r => r.mediana_litro).map(r => [r.fecha, r.mediana_litro]);
+  const ult = idx.at(-1), vals = idx.map(p => p[1]);
+  const nombre = `${marca} vs YPF · ${SEGMENTO[seg] || seg}${sae ? " · " + sae : ""}`;
+  $("#ix-tit").textContent = nombre;
+  const kp = (t, v) => `<div><b>${v}</b><span>${t}</span></div>`;
+  const lY = lit(yp).at(-1), lM = lit(mk).at(-1);
+  const prods = D.productos.filter(p => p.segmento === seg && p.sae === sae && (p.marca === marca || p.marca === "YPF") && p.producto_id.endsWith("-br") === (P.pais === "BR"));
+  const lista = m => prods.filter(p => p.marca === m).map(p => `<li><a href="#producto/${encodeURIComponent(p.producto_id)}">${esc(p.marca)} ${esc(`${p.linea} ${p.nombre}`.trim())}</a> <span class="mut">${esc(p.sae)}</span></li>`).join("");
+  $("#ix-cuerpo").innerHTML = `
+    <p class="nota">Cada punto es un día con precio de ambos. Un día sin dato corta la línea: no se interpola. Hasta el ${fechaAR(IX.ultimo)}, últimos 90 días.</p>
+    <div class="ix-kpis">${ult ? kp(`índice el ${fechaAR(ult[0])} (YPF = 100)`, dec1.format(ult[1])) : ""}
+      ${vals.length ? kp("mínimo de los 90 días", dec1.format(Math.min(...vals))) + kp("máximo de los 90 días", dec1.format(Math.max(...vals))) : ""}
+      ${lM ? kp(`${esc(marca)}, $/L el ${fechaAR(lM[0])}`, mon.format(lM[1])) : ""}${lY ? kp(`YPF, $/L el ${fechaAR(lY[0])}`, mon.format(lY[1])) : ""}</div>
+    <h3>Índice de ${esc(marca)} contra YPF</h3>
+    <p class="mut">Eje X: fecha. Eje Y: índice (100 = mismo precio por litro que YPF; arriba, más caro).</p>
+    <div class="graf">${idx.length > 1 ? grafico([{ color: "var(--c2)", nombre: marca, puntos: idx }], { W: 900, H: 320, ref: 100, refTxt: "100 = YPF", fmt: v => dec1.format(v), sufijo: "", label: `Índice de ${marca} contra YPF, últimos 90 días` })
+      : `<div class="vacio">Sin historia: hay menos de dos días con índice en los últimos 90.</div>`}</div>
+    <h3>Precio por litro de ambos</h3>
+    <div class="ley"><span><i style="background:var(--c1)"></i>YPF</span><span><i style="background:var(--c2)"></i>${esc(marca)}</span></div>
+    <p class="mut">Eje X: fecha. Eje Y: mediana de $/L del segmento y SAE.</p>
+    <div class="graf">${lit(yp).length + lit(mk).length > 1 ? grafico([{ color: "var(--c1)", nombre: "YPF", puntos: lit(yp) }, { color: "var(--c2)", nombre: marca, puntos: lit(mk) }], { W: 900, H: 320, label: `Precio por litro de ${marca} y de YPF, últimos 90 días` }) : `<div class="vacio">Sin precios por litro en los últimos 90 días.</div>`}</div>
+    <h3>Páginas de producto</h3>
+    <ul class="ix-links">${lista("YPF")}${lista(marca)}${prods.length ? "" : '<li class="vacio">Sin productos de este segmento y SAE en el catálogo.</li>'}</ul>`;
+  dlg.showModal();
+  $("#ix-cuerpo").scrollTop = 0;
+}
+$("#ind-out").addEventListener("dblclick", e => { const td = e.target.closest("td[data-m]"); if (td) { IX.foco = td; ixDetalle(td.dataset.m, td.dataset.g); } });
+$("#ind-out").addEventListener("keydown", e => { const td = e.key === "Enter" && e.target.closest?.("td[data-m]"); if (td) { e.preventDefault(); IX.foco = td; ixDetalle(td.dataset.m, td.dataset.g); } });
+$("#ix-x").onclick = () => $("#ix-dl").close();
+$("#ix-dl").addEventListener("click", e => { if (e.target === $("#ix-dl") || e.target.closest("a[href^='#producto']")) $("#ix-dl").close(); });
+$("#ix-dl").addEventListener("close", () => { const td = IX.foco && document.querySelector(`#ind-out td[data-m="${CSS.escape(IX.foco.dataset.m)}"][data-g="${CSS.escape(IX.foco.dataset.g)}"]`); IX.foco = null; if (td && !$("#indice").hidden) td.focus(); });
 
 function sparkline(filas, desde) {
   const W = 90, H = 22, pts = filas.filter(r => r.indice !== null);
@@ -1175,6 +1350,7 @@ async function cargarVitrina() {
   try { r = await apiP("vitrina"); }
   catch (e) { out.innerHTML = `<div class="explica">No se pudo leer el Visualizador (${esc(e.message)}). El resto de las pestañas sigue funcionando.</div>`; return; }
   VT.todos = r.productos || [];
+  if (!$("#producto").hidden) pintarTira();
   VT.ver = false;
   $("#vt-fecha").textContent = !r.fecha ? "" : P.pais === "BR"
     ? `Precios en reales (R$) del ${fechaAR(r.fecha)}, último día de cada fuente: tiendas online (Pitstop, Altese) y notas fiscales de Paraná (Nota Paraná). Sin mayoristas.`
@@ -1562,6 +1738,8 @@ function pintarMercado() {
   pintarFiltrosMercado();
   // el panel se alinea a la derecha si se saldría de la pantalla
   if (!window.__mkToggle) { window.__mkToggle = true; document.addEventListener("toggle", e => { const p = e.target.querySelector?.(".mk-multi-p"); if (!p || !e.target.open) return; p.classList.remove("der"); if (p.getBoundingClientRect().right > innerWidth - 8) p.classList.add("der"); }, true); }
+  // Escape cierra los desplegables abiertos y devuelve el foco a su summary (Enter y Espacio abren/cierran por ser un <summary> nativo)
+  if (!window.__mkEsc) { window.__mkEsc = true; document.addEventListener("keydown", e => { if (e.key !== "Escape") return; const ab = [...document.querySelectorAll(".mk-multi[open]")]; if (!ab.length) return; ab.forEach(d => d.open = false); ab[0].querySelector("summary")?.focus(); }); }
   if (!window.__mkCierra) { window.__mkCierra = true; document.addEventListener("click", e => document.querySelectorAll(".mk-multi[open]").forEach(d => { if (!d.contains(e.target)) d.open = false; })); }
   $("#mk-por").value = M.por;
   $("#mk-por").onchange = e => { M.por = e.target.value; pintarShare(); pintarGraficos($("#mk-share-in")); pedirPerdidas(); };
@@ -1662,7 +1840,8 @@ function pintarShare() {
   const canEt = M.canales.length > 1 ? "canales" : "canal", canCompleta = M.canales.join(" + "), faltan = canales.filter(c => !M.canales.includes(c));
   // con más de 3 canales el título resume (la lista completa va en el tooltip)
   const canLista = M.canales.length <= 3 ? canCompleta : faltan.length === 1 ? `(todos menos ${faltan[0]})` : `(${M.canales.length} de ${canales.length})`;
-  const meses = s.meses || [], emps = s.empresas || [], unidad = unidadSE(s.producto);
+  const meses = s.meses || [], empsT = s.empresas || [], unidad = unidadSE(s.producto);
+  const emps = SD.on ? empsT.filter(e => (e.serie || []).some(esNum)) : empsT, nOcEmp = empsT.length - emps.length;
   const nomProd = M.productos.map(k => (PRODUCTOS_SE[k] || k).toLowerCase()).join(" + ");
   if (!meses.length || !emps.length) {
     caja.innerHTML = `<div class="explica">La Secretaría de Energía no tiene ventas declaradas de lubricantes ${esc(nomProd)}${canLista ? ` en ${canEt === "canal" ? "el canal" : "los canales"} ${esc(canLista)}` : ""} en los últimos 36 meses.</div>${s.nota ? `<p class="nota mk-limite">${esc(s.nota)}</p>` : ""}`;
@@ -1728,7 +1907,9 @@ function pintarShare() {
     const A = pmeses[M.pm] || {}, B = pmeses[mesVs()] || {};
     const provs = Object.entries(A).sort((x, y) => y[1].volumen - x[1].volumen);
     if (!provs.length) return `<div class="explica">Sin apertura por provincia para esta selección.</div>`;
-    return `<div class="tabla mk-prov-caja"><table class="mk-prov">
+    const sinYpf = ([prov, a]) => !esNum(a.share_ypf) && !esNum(B[prov]?.share_ypf), nOcPv = SD.on ? provs.filter(sinYpf).length : 0;
+    if (nOcPv) provs.splice(0, provs.length, ...provs.filter(x => !sinYpf(x)));
+    return avisoSD([[nOcPv, "provincia sin share de YPF en ninguno de los dos meses", "provincias sin share de YPF en ninguno de los dos meses", "f"]]) + `<div class="tabla mk-prov-caja"><table class="mk-prov">
       <tr><th>Provincia</th><th class="n">Share YPF</th><th class="n mk-h12">${esc(rotVs())}</th><th class="n">Variación</th><th class="n">Volumen (${esc(unidad)})</th></tr>
       ${provs.map(([prov, a]) => { const b = B[prov]?.share_ypf, v = esNum(a.share_ypf) && esNum(b) ? Math.round((a.share_ypf - b) * 1e4) / 100 : null;
         return `<tr><td>${esc(prov)}</td>
@@ -1737,7 +1918,7 @@ function pintarShare() {
         <td class="n">${esNum(v) ? `<span class="${v > 0 ? "sube" : v < 0 ? "baja" : "neutro"}"><span aria-hidden="true">${flecha(v)} </span>${pp(v)}</span>` : '<span class="vacio" title="falta uno de los dos extremos">...</span>'}</td>
         <td class="n">${esNum(a.volumen) ? entero.format(Math.round(a.volumen)) : "..."}</td></tr>`; }).join("")}</table></div>`;
   };
-  caja.innerHTML = `<div class="mk-share">
+  caja.innerHTML = avisoSD([[nOcEmp, "empresa sin ningún dato", "empresas sin ningún dato", "f"]]) + `<div class="mk-share">
       <div>${kpi}${ctx}${rank}</div>
       <div class="graf"><div class="graf-cab"><h3${canCompleta !== canLista ? ` title="${esc("Canales: " + canCompleta)}"` : ""}>Share mensual de ${esc(nomProd)}${canLista ? `, ${canEt} ${esc(canLista)}` : ""}, últimos ${meses.length} meses</h3>${botonAmp("share", "Share mensual de " + nomProd + (canLista ? ", " + canEt + " " + canLista : ""))}</div>
         <div class="mk-svg" data-g="share"></div>
@@ -2609,8 +2790,11 @@ async function abrirCobertura() {
     <strong>${t.con_precio_7d}</strong> con precio en los últimos 7 días. Faltan ${t.productos_ypf - t.con_precio_7d} sin precio y ${t.productos_ypf - t.con_equivalencia} sin equivalente.</p></div>`;
   const pintar = () => {
     const falta = $("#cob-faltan").checked;
-    const ps = v.productos.filter(p => !falta || !p.fuentes_7d || !p.tiene_equivalencia).sort((a, b) => (a.fuentes_7d > 0) - (b.fuentes_7d > 0) || a.nombre.localeCompare(b.nombre, "es"));
-    $("#cob-out").innerHTML = `<div class="tabla"><table><tr><th>Producto</th><th>SAE</th><th>Segmento</th><th>Equivalentes</th><th>Fuentes (7 d)</th><th>Provincias (7 d)</th><th>Último precio</th></tr>` +
+    // «Solo los que faltan» pide justo lo incompleto: con esa casilla el interruptor no oculta nada
+    const vacioP = p => !p.fuentes_7d && !p.tiene_equivalencia && !p.ultima_fecha;
+    const todosP = v.productos.filter(p => !falta || !p.fuentes_7d || !p.tiene_equivalencia), nOc = SD.on && !falta ? todosP.filter(vacioP).length : 0;
+    const ps = todosP.filter(p => !nOc || !vacioP(p)).sort((a, b) => (a.fuentes_7d > 0) - (b.fuentes_7d > 0) || a.nombre.localeCompare(b.nombre, "es"));
+    $("#cob-out").innerHTML = avisoSD([[nOc, "producto sin precio, sin equivalente ni historia", "productos sin precio, sin equivalente ni historia", "m"]]) + `<div class="tabla"><table><tr><th>Producto</th><th>SAE</th><th>Segmento</th><th>Equivalentes</th><th>Fuentes (7 d)</th><th>Provincias (7 d)</th><th>Último precio</th></tr>` +
       ps.map(p => `<tr><td>${esc(p.linea)} ${esc(p.nombre)}</td><td>${esc(p.sae)}</td><td>${esc(SEGMENTO[p.segmento] || p.segmento)}</td>
         <td class="n">${p.tiene_equivalencia ? p.equivalencias : '<span class="mp-sin">sin equivalente</span>'}</td>
         <td class="n">${p.fuentes_7d || '<span class="mp-sin">sin precio</span>'}</td><td class="n">${p.fuentes_7d ? p.provincias_7d : ""}</td>
@@ -2621,7 +2805,32 @@ async function abrirCobertura() {
 }
 
 // ---------- Página de producto: de dónde sale cada precio ----------
-const PR = { pid: "", pais: "", dias: "", may: false, tok: 0, listo: false };
+const PR = { pid: "", pais: "", dias: "", may: false, tok: 0, listo: false, v: null, raiz: "" };
+// Fila de fotos de la página de producto: el YPF y sus equivalentes (los mismos datos del Visualizador, VT.todos). Cada foto es un link
+// a #producto/<id>: el hash cambia y los filtros (Ventana, mayoristas) quedan donde están. Un equivalente de más de un YPF no elige:
+// si no vino de uno de ellos, muestra a todos sus YPF.
+function pintarTira() {
+  const el = $("#pr-tira"), v = PR.v;
+  if (!el || !v) return;
+  const pid = v.producto.producto_id, equivs = x => (x.competencia?.equivalentes || []).filter(q => q.tipo !== "no_equivalente");
+  const deYpf = p => ({ id: p.producto_id, marca: "YPF", nombre: nombreVt(p), imagen: p.imagen });
+  const deEq = q => ({ id: q.producto_id, marca: q.marca, nombre: q.nombre, imagen: q.imagen });
+  let items = [];
+  const todos = VT.todos || [], raiz = todos.find(p => p.producto_id === pid);
+  if (raiz) { PR.raiz = pid; items = [deYpf(raiz), ...equivs(raiz).map(deEq)]; }
+  else if (v.producto.es_ypf) {  // el Visualizador todavía no llegó: la propia respuesta trae a sus equivalentes
+    PR.raiz = pid; items = [{ id: pid, marca: "YPF", nombre: nombreVt(v.producto), imagen: v.producto.imagen }, ...v.equivalentes.filter(e => e.tipo !== "no_equivalente").map(deEq)];
+  } else {
+    const dueños = todos.filter(p => equivs(p).some(q => q.producto_id === pid)), uno = dueños.find(p => p.producto_id === PR.raiz) || (dueños.length === 1 ? dueños[0] : null);
+    const yo = { id: pid, marca: v.producto.marca, nombre: v.producto.nombre, imagen: v.producto.imagen };
+    if (uno) { PR.raiz = uno.producto_id; items = [deYpf(uno), ...equivs(uno).map(deEq)]; }
+    else items = [yo, ...dueños.map(deYpf)];
+  }
+  if (items.length < 2) { el.innerHTML = ""; el.hidden = true; return; }
+  el.hidden = false;
+  el.innerHTML = `<p class="nota" id="pr-tira-t">${v.producto.es_ypf || items.some(i => i.id === PR.raiz && i.marca === "YPF") ? "El producto y sus equivalentes de la competencia" : "El producto y el YPF con el que se compara"}: tocá uno para ver sus publicaciones, con los mismos filtros.</p>
+    <ul aria-labelledby="pr-tira-t">${items.map(i => `<li><a href="#producto/${encodeURIComponent(i.id)}"${i.id === pid ? ' aria-current="page"' : ""}><span class="mini">${foto(i.imagen, `${i.marca} ${i.nombre}`, false)}</span><b>${esc(i.marca)}</b><span>${esc(i.nombre)}</span></a></li>`).join("")}</ul>`;
+}
 const MOTIVO = { sin_litros: "sin litros: no se puede calcular el $/L", mayorista: "mayorista: fuera del cálculo por defecto", grok_sin_verificar: "Grok sin verificar: fuera del cálculo",
   fuera_de_sanidad: "fuera de [mediana ÷ 2,5; mediana × 2,5]: envase mal leído", no_equivalente: "no equivalente: fuera de la comparación", fuera_de_rango: "mediana a más de 3 veces la de YPF: fuera de la comparación" };
 const canalTxt = x => x.fuente === "sepa" || x.fuente.startsWith("oficial_") ? "SEPA" : x.canal === "grok" ? "Grok" : x.canal === "mayorista" ? "mayorista" : "público";
@@ -2649,6 +2858,13 @@ function resumenPub(r) {
   const c = (t, v) => `<div><b>${v}</b><span>${t}</span></div>`;
   return `<div class="pr-res">${c("avisos en el cálculo", entero.format(r.n))}${c("mediana por litro", mon.format(r.mediana_litro))}${c("promedio por litro", mon.format(r.promedio_litro))}${c("mínimo", mon.format(r.min_litro))}${c("máximo", mon.format(r.max_litro))}${c("percentil 25", mon.format(r.p25_litro))}${c("percentil 75", mon.format(r.p75_litro))}</div>`;
 }
+// un producto de la competencia no tiene equivalentes propios: es el equivalente de uno o más YPF
+function sinYpf(p) {
+  if (!D.equivalencias) return "";  // los datos generales todavía no llegaron: cargarDatos() vuelve a pedir la página
+  const ys = (D.equivalencias || []).filter(e => e.comp_id === p.producto_id && e.tipo !== "no_equivalente");
+  return ys.length ? `<div class="pr-sec"><h3>Comparación con YPF</h3><p class="nota">Esta página muestra solo los precios de ${esc(p.marca)}. Para compararlo con YPF, abrí ${ys.map(e => `<a href="#producto/${encodeURIComponent(e.ypf_id)}">${esc(e.ypf_marca)} ${esc(e.ypf_nombre)}</a> (${esc(TIPO[e.tipo] || e.tipo)})`).join(" o ")}.</p></div>`
+    : `<p class="vt-vacio">Este producto no figura como equivalente de ningún YPF.</p>`;
+}
 function paginaProducto(v) {
   const p = v.producto, nom = `${p.linea} ${p.nombre}`.trim(), s = p.specs || {}, w = v.ventana, cmp = v.comparacion;
   const sd = x => x ? esc(x) : '<span class="vacio">sin dato</span>';
@@ -2659,13 +2875,13 @@ function paginaProducto(v) {
   return `<div class="pr-cab"><figure>${foto(p.imagen, nom, true)}</figure><div><h3 class="vt-nombre">${esc(p.marca)} ${esc(nom)}</h3>
       <ul class="vt-specs">${[p.sae && `<li class="sae">${esc(p.sae)}</li>`, BASE[p.base] && `<li>${BASE[p.base]}</li>`, p.segmento && `<li>${esc(SEGMENTO[p.segmento] || p.segmento)}</li>`].filter(Boolean).join("")}</ul>
       <dl class="pz-dl" style="margin-top:8px"><dt>API</dt><dd>${sd(s.api)}</dd><dt>ACEA</dt><dd>${sd(s.acea)}</dd><dt>ILSAC</dt><dd>${sd(s.ilsac)}</dd><dt>JASO</dt><dd>${sd(s.jaso)}</dd>
-      <dt>OEM</dt><dd>${s.oem?.length ? esc(s.oem.join(", ")) : '<span class="vacio">sin dato</span>'}</dd></dl></div></div>
-    <div class="pr-sec"><h3>${p.es_ypf ? "Precio de YPF según terceros que lo venden" : "Precio publicado"}</h3>
-      <p class="nota">YPF no publica precio en canales propios: estos son avisos de tiendas, supermercados, Mercado Libre y relevamientos de terceros. Ventana del ${fechaAR(w.desde)} al ${fechaAR(w.hasta)} (${w.dias} días). ${esc(v.nota)}</p>
+      <dt>OEM</dt><dd>${s.oem?.length ? esc(s.oem.join(", ")) : '<span class="vacio">sin dato</span>'}</dd></dl></div><div class="pr-tira" id="pr-tira" hidden></div></div>
+    <div class="pr-sec"><h3>${p.es_ypf ? "Precio de YPF según terceros que lo venden" : `Precio de ${esc(`${p.marca} ${p.linea && p.nombre.startsWith(p.linea) ? p.nombre : nom}`.replace(/\s+/g, " ").trim())} según quienes lo venden`}</h3>
+      <p class="nota">${p.es_ypf ? "YPF no publica precio en canales propios: estos son avisos" : "Son avisos"} de tiendas, supermercados, Mercado Libre y relevamientos de terceros. Ventana del ${fechaAR(w.desde)} al ${fechaAR(w.hasta)} (${w.dias} días). ${esc(v.nota)}</p>
       ${resumenPub(v.resumen)}${tablaPub(v.publicaciones)}</div>
     ${v.equivalentes.length ? `<div class="pr-sec"><h3>Comparación con la competencia</h3>${typeof dif === "number"
       ? `<p>Mediana de la competencia ${mon.format(cmp.mediana_comp_litro)}/L (${entero.format(cmp.n_comp)} avisos) contra ${mon.format(cmp.mediana_ypf_litro)}/L de YPF: <b>${pctTxt(dif)}</b> <span class="mut">(positivo: la competencia es más cara)</span>.</p>`
-      : `<p class="vt-vacio">Sin comparación: falta precio de ${cmp.mediana_ypf_litro === null ? "YPF" : "la competencia"} en la ventana.</p>`}</div>${eqs}` : `<p class="vt-vacio">Sin equivalentes cargados para este producto.</p>`}
+      : `<p class="vt-vacio">Sin comparación: falta precio de ${cmp.mediana_ypf_litro === null ? "YPF" : "la competencia"} en la ventana.</p>`}</div>${eqs}` : p.es_ypf ? `<p class="vt-vacio">Sin equivalentes cargados para este producto.</p>` : sinYpf(p)}
     <div class="pr-sec pr-como"><h3>Cómo se calcula</h3><ul>
       <li><b>Ventana.</b> Los últimos ${w.dias} días, terminando en el último día con datos (${fechaAR(w.hasta)}), no en hoy.</li>
       <li><b>Un aviso, una vez.</b> Cada aviso (fuente, link, EAN, título, vendedor, envase y provincia) cuenta una sola vez, con su observación más reciente de la ventana.</li>
@@ -2690,7 +2906,9 @@ async function abrirProducto(pid) {
   PR.listo = true;
   $("#pr-titulo").textContent = `${v.producto.marca} ${v.producto.linea} ${v.producto.nombre}`.replace(/\s+/g, " ").trim();
   $("#pr-fecha").textContent = `Datos hasta el ${fechaAR(v.ventana.hasta)}.`;
+  PR.v = v;
   out.innerHTML = paginaProducto(v);
+  pintarTira();
   scrollTo(0, 0);
 }
 $("#pr-dias").onchange = $("#pr-may").onchange = () => { if (!$("#producto").hidden) abrirProducto(PR.pid); };
@@ -2742,7 +2960,7 @@ async function cargarDatos() {
   barraPais();
   ir(location.hash.slice(1));
   cargarVitrina();
-  if (await cargarDatos()) ir(location.hash.slice(1));
+  if (await cargarDatos()) { PR.listo = false; ir(location.hash.slice(1)); }
 })();
 </script>
 </body>

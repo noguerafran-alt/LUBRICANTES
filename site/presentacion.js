@@ -49,7 +49,7 @@ export function abrir(lista, i0, origen, alCerrar) {
   S.inertes = [...document.body.children].filter(e => e !== dlg && !e.inert && e.tagName !== "SCRIPT");
   S.inertes.forEach(e => e.inert = true);
   if (R === null) R = iniciar3d() || false;
-  notaEl.textContent = R ? "Arrastrá para girar la escena. Tocá el producto para ver de dónde salen sus precios. Flechas o deslizar para cambiar de producto." : "Vista 2D: este navegador no tiene WebGL, se muestra la foto y la ficha completa.";
+  notaEl.textContent = R ? "Arrastrá para girar la escena. Tocá un envase o un podio para ver de dónde salen sus precios. Flechas o deslizar para cambiar de producto." : "Vista 2D: este navegador no tiene WebGL, se muestra la foto y la ficha completa. Tocá una foto para ver sus fuentes.";
   if (R) { ajustar(); R.setAnimationLoop(document.hidden ? null : cuadro); }
   mostrar(S.i, false);
   dlg.querySelector(".pz-cerrar").focus();
@@ -75,7 +75,9 @@ function armar() {
   dlg.querySelectorAll("[data-paso]").forEach(b => b.onclick = () => { pausar(); paso(+b.dataset.paso); });
   btnPlay.onclick = () => { if (reducido.matches) return; S.play = !S.play; programar(); };
   dlg.querySelector(".pz-cerrar").onclick = cerrar;
-  panel.addEventListener("click", e => { if (e.target.closest("[data-ver]")) { e.preventDefault(); verProducto(); } });
+  panel.addEventListener("click", e => { const a = e.target.closest("[data-ver]"); if (a) { e.preventDefault(); verProducto(a.dataset.ver); } });
+  // vista 2D: las fotos de los equivalentes también se tocan (son botones, entran por teclado)
+  escenaEl.addEventListener("click", e => { if (e.detail) return; const b = e.target.closest?.(".pz-2d [data-pid]"); if (b) verProducto(b.dataset.pid); });  // solo teclado: el toque lo resuelve soltarPuntero (con el puntero capturado el clic no llega al botón)
   dlg.addEventListener("keydown", e => {
     if (e.key === "Escape") { e.preventDefault(); cerrar(); }
     else if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && !e.target.closest?.("input, select, textarea")) { e.preventDefault(); pausar(); paso(e.key === "ArrowRight" ? 1 : -1); }
@@ -87,7 +89,7 @@ function armar() {
   // arrastre lento = girar; deslizamiento rápido horizontal = cambiar de producto (también en la vista 2D)
   escenaEl.addEventListener("pointerdown", e => { arrastre = { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, t: performance.now() }; escenaEl.setPointerCapture(e.pointerId); escenaEl.classList.add("agarra"); });
   escenaEl.addEventListener("pointermove", e => {
-    if (!arrastre) return;
+    if (!arrastre) { if (R && !e.buttons) escenaEl.style.cursor = sobreProducto(e) ? "pointer" : ""; return; }  // el cursor avisa qué se puede tocar
     if (hayGlb()) giro += (e.clientX - arrastre.x) * .01;  // con modelos reales el arrastre gira los modelos, sin tope
     else cam.tTh = clamp(cam.tTh - (e.clientX - arrastre.x) * .006, -1.1, 1.3);
     cam.tPh = clamp(cam.tPh - (e.clientY - arrastre.y) * .004, .9, 1.45);
@@ -98,7 +100,7 @@ function armar() {
     const dx = e.clientX - arrastre.x0, dy = e.clientY - arrastre.y0, dt = performance.now() - arrastre.t;
     arrastre = null; escenaEl.classList.remove("agarra");
     if (e.type === "pointerup" && Math.abs(dx) > 60 && dt < 350 && Math.abs(dx) > Math.abs(dy) * 1.5) { pausar(); paso(dx < 0 ? 1 : -1); }
-    else if (e.type === "pointerup" && Math.hypot(dx, dy) < 8 && dt < 500 && sobreProducto(e)) verProducto();  // un toque sin arrastre: no se abre al rotar el 3D
+    else if (e.type === "pointerup" && Math.hypot(dx, dy) < 8 && dt < 500) { const id = R ? sobreProducto(e) : document.elementFromPoint(e.clientX, e.clientY)?.closest(".pz-2d [data-pid]")?.dataset.pid; if (id) verProducto(id); }  // un toque sin arrastre: no se abre al rotar el 3D (sin WebGL se toca la foto)
   };
   escenaEl.addEventListener("pointerup", soltarPuntero);
   escenaEl.addEventListener("pointercancel", soltarPuntero);
@@ -106,17 +108,21 @@ function armar() {
   new ResizeObserver(() => { if (R && S.abierto) ajustar(); }).observe(escenaEl);
 }
 
-// ¿el toque cayó sobre el envase (o la foto en la vista 2D)? Rayo desde la cámara contra el grupo 3D.
+// ¿qué producto se tocó? Devuelve su producto_id o "". Primero los rótulos (son HTML con pointer-events:none, así que se prueba por
+// rectángulo) y después un rayo desde la cámara contra la escena: cada envase y podio lleva su id en userData.pid.
 function sobreProducto(e) {
-  if (!R || !grupo) return !!e.target.closest?.(".pz-2d");
+  if (!R || !grupo) return "";
+  const rot = rotulos.find(q => { const b = q.div.getBoundingClientRect(); return q.div.style.opacity !== "0" && e.clientX >= b.left && e.clientX <= b.right && e.clientY >= b.top && e.clientY <= b.bottom; });
+  if (rot) return rot.pid;
   const r = R.domElement.getBoundingClientRect(), rc = new THREE.Raycaster();
   rc.setFromCamera(new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), camara);
-  return rc.intersectObject(grupo, true).length > 0;
+  for (const h of rc.intersectObject(grupo, true)) for (let o = h.object; o && o !== grupo; o = o.parent) if (o.userData.pid) return o.userData.pid;
+  return "";
 }
 
-// cierra la presentación y abre la página del producto (#producto/<id>) con las fuentes y publicaciones de sus precios
-function verProducto() {
-  const id = S.lista[S.i]?.producto_id;
+// cierra la presentación y abre la página del producto (#producto/<id>) con las fuentes y publicaciones de sus precios;
+// sin id, el del producto que se está mostrando (el YPF). Un equivalente abre su propia página.
+function verProducto(id = S.lista[S.i]?.producto_id) {
   if (!id) return;
   cerrar();
   location.hash = "#producto/" + encodeURIComponent(id);
@@ -163,7 +169,8 @@ function mostrar(i, animar = true) {
   if (R) escena3d(p, animar && !reducido.matches);
   else {
     escenaEl.querySelector(".pz-2d")?.remove();
-    escenaEl.insertAdjacentHTML("afterbegin", `<figure class="pz-2d">${foto(p.imagen, nombreVt(p), true)}</figure>`);
+    const eq2 = (p.competencia?.equivalentes || []).filter(q => q.tipo !== "no_equivalente" && !q.excluido);
+    escenaEl.insertAdjacentHTML("afterbegin", `<figure class="pz-2d"><button type="button" class="pz-2d-p" data-pid="${esc(p.producto_id)}" aria-label="Ver fuentes de ${esc(nombreVt(p))}">${foto(p.imagen, nombreVt(p), true)}</button>${eq2.length ? `<ul class="pz-2d-eq" aria-label="Equivalentes de la competencia">${eq2.map(q => `<li><button type="button" data-pid="${esc(q.producto_id)}" aria-label="Ver fuentes de ${esc(q.marca)} ${esc(q.nombre)}">${foto(q.imagen, `${q.marca} ${q.nombre}`, false)}<span>${esc(q.marca)}</span></button></li>`).join("")}</ul>` : ""}</figure>`);
   }
   programar();
 }
@@ -187,7 +194,7 @@ function ficha(p) {
       ${typeof d !== "number" ? `<p class="vt-vacio">Sin diferencia: falta el precio YPF de hoy.</p>` : Math.abs(d) < .05 ? `<p class="vt-dif">Mismo precio por litro que YPF</p>`
         : `<p class="vt-dif ${d > 0 ? "barato" : "caro"}">${d > 0 ? `YPF ${dec1.format(d)} % más barato` : `YPF ${dec1.format(-d)} % más caro`}</p>`}`;
   const fuera = e => e.tipo === "no_equivalente" ? "no equivalente, fuera del promedio" : e.excluido === "fuera_de_rango" ? "precio fuera de rango, fuera del promedio" : "";
-  const filas = eqs.map(e => `<tr${e.en_promedio === false ? ' class="fuera"' : ""}><td>${esc(e.marca)} ${esc(e.nombre)}${fuera(e) ? `<span class="mut">${fuera(e)}</span>` : ""}</td>
+  const filas = eqs.map(e => `<tr${e.en_promedio === false ? ' class="fuera"' : ""}><td><a href="#producto/${encodeURIComponent(e.producto_id)}" data-ver="${esc(e.producto_id)}">${esc(e.marca)} ${esc(e.nombre)}</a>${fuera(e) ? `<span class="mut">${fuera(e)}</span>` : ""}</td>
       <td>${esc(TIPO[e.tipo] || e.tipo)}</td><td>${esc(e.evidencia)}</td>
       <td class="n">${typeof e.promedio_litro === "number" ? `${pesos.format(e.promedio_litro)}<span class="mut">${entero.format(e.n)} obs.</span>` : '<span class="vacio">sin precio hoy</span>'}</td></tr>`).join("");
   return `<p class="pz-linea">${esc(p.linea || "")}</p>
@@ -397,6 +404,7 @@ function escena3d(p, animar) {
   grupo = new THREE.Group();
   const col = colorLinea(p), litros = p.ypf?.presentacion_comun_l || 1;
   heroe = envase(litros, col, true);
+  heroe.userData.pid = p.producto_id;
   const e = heroe.userData.etiqueta;
   const lbl = new THREE.Mesh(new THREE.PlaneGeometry(e.lw, e.lh), new THREE.MeshStandardMaterial({ map: etiqueta(p, col, e.lw, e.lh), roughness: .5 }));
   lbl.position.set(0, e.y, e.z); heroe.add(lbl);
@@ -407,21 +415,21 @@ function escena3d(p, animar) {
   if (p.modelo) {
     pend.push(conGlb(p.modelo, tok, litros >= 3 ? ALTO_GRANDE.g : ALTO_GRANDE.c, m => {
       grupo.remove(heroe); soltar(heroe);
-      heroe = m; m.position.set(-1.2, 0, .7); grupo.add(m);
+      heroe = m; m.userData.pid = p.producto_id; m.position.set(-1.2, 0, .7); grupo.add(m);
     }, () => aviso("modelo 3D no disponible")));
   } else aviso("modelo 3D pendiente");
 
   // rótulos al pie de cada podio (misma línea de base para todos); cuadro() los reparte en filas para que no se pisen
   // podios: YPF y cada equivalente que entra al promedio; altura proporcional al $/L, sin precio = sin podio
   const eqs = (p.competencia?.equivalentes || []).filter(q => q.tipo !== "no_equivalente" && !q.excluido);
-  const items = [{ ypf: true, marca: "YPF", nombre: nombreVt(p), v: precio(p.ypf), modelo: p.modelo }, ...eqs.map(q => ({ marca: q.marca, nombre: q.nombre, v: precio(q), modelo: q.modelo }))]
+  const items = [{ ypf: true, pid: p.producto_id, marca: "YPF", nombre: nombreVt(p), v: precio(p.ypf), modelo: p.modelo }, ...eqs.map(q => ({ pid: q.producto_id, marca: q.marca, nombre: q.nombre, v: precio(q), modelo: q.modelo }))]
     .sort((a, b) => (a.v ?? Infinity) - (b.v ?? Infinity));
   const max = Math.max(...items.map(q => q.v || 0)) || 1, n = items.length, apretado = n > (escenaEl.clientWidth < 600 ? 3 : 5);
   const x0 = .15, x1 = 3.5, xc = (x0 + x1) / 2, sep = n > 1 ? (x1 - x0) / (n - 1) : 0;
   items.forEach((q, k) => {
     const x = n > 1 ? x0 + sep * k : xc, u = n > 1 ? (x - xc) / ((x1 - x0) / 2) : 0, z = -.75 + .4 * u * u;
     const h = q.v ? q.v / max * 1.15 : 0, ancla = new THREE.Group();
-    ancla.position.set(x, 0, z);
+    ancla.position.set(x, 0, z); ancla.userData.pid = q.pid;
     let barra = null;
     if (h) {
       barra = new THREE.Mesh(new THREE.BoxGeometry(.34, 1, .34).translate(0, .5, 0), q.ypf
@@ -437,7 +445,7 @@ function escena3d(p, animar) {
     div.className = "pz-rot" + (q.ypf ? " ypf" : "") + (apretado ? " apretado" : "");
     div.innerHTML = `<b>${esc(q.marca)}</b><span>${esc(q.nombre)}</span>${q.v ? `<span class="v">${pesos.format(q.v)}/L</span>` : '<span class="sin">sin precio hoy</span>'}`;
     rotulosEl.append(div);
-    const r = { div, ancla, barra, chico, h, k, sx: 0, sy: 0, w: 0, alto: 0, glb: false };
+    const r = { pid: q.pid, div, ancla, barra, chico, h, k, sx: 0, sy: 0, w: 0, alto: 0, glb: false };
     rotulos.push(r);
     if (q.modelo) pend.push(conGlb(q.modelo, tok, ALTO_CHICO, m => { ancla.remove(r.chico); soltar(r.chico); ancla.add(m); r.chico = m; r.glb = true; }));
   });
