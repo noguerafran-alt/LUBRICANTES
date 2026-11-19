@@ -4,6 +4,10 @@ Actualizado 2026-11-19 (share por marca en Mercado; share ampliado con la serie 
 
 
 
+
+## Mercado sin banner ni barra de país (2026-11-19)
+- A pedido del usuario, en la pestaña Mercado no se muestran el aviso de fuentes ni la barra País/USD (`ir()` les pone `display:none`, porque `.filtros` es flex y pisa a `hidden`; vuelven en las demás pestañas).
+
 ## Tabla de marcas plegada (2026-11-19)
 - A pedido del usuario, «Qué marca está dentro de qué empresa» (Mercado) va dentro de un `<details>` cerrado con ⓘ, no abierta de entrada. Verificado en el navegador: cerrada por defecto, 14 filas al abrir.
 
