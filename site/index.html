@@ -614,7 +614,7 @@ obs = pd.read_csv("<span class="origen"></span>/api/obs?mes=2026-11&amp;formato=
 const NOMBRE_FUENTE = { ypf_gql: "YPF catálogo", vtex_carrefour: "Carrefour", vtex_masonline: "Masonline", vtex_easy: "Easy",
   vtex_jumbo: "Jumbo", vtex_norauto: "Norauto", shopify_datri: "Tienda D'Atri", tn_lspalermo: "LS Palermo", tn_spch: "Casa González",
   sepa: "Precios Claros (SEPA)", ml_cat: "ML categorías", ml: "Mercado Libre", vtex_br_pitstop: "Pitstop (Brasil)", vtex_br_altese: "Altese (Brasil)",
-  oficial_br_notaparana: "Nota Paraná (Brasil, notas fiscales)", fx_bcb_ptax: "BCB PTAX (tipo de cambio)" };
+  helix_api: "Shell Helix combos (API helixturno, automática)", oficial_br_notaparana: "Nota Paraná (Brasil, notas fiscales)", fx_bcb_ptax: "BCB PTAX (tipo de cambio)" };
 const MAYORISTAS = ["shopify_datri"]; // precio por caja o tambor, IVA no verificado: el índice no los usa
 const SEGMENTO = { pcmo: "Autos (PCMO)", hddo: "Pesados (HDDO)", moto4t: "Moto 4T", moto2t: "Moto 2T", transmision: "Transmisión",
   grasa: "Grasa", industrial: "Industrial", marino: "Marino", gas: "Gas", otro: "Otro" };
@@ -910,7 +910,7 @@ function servicios() {
     `<div class="tabla"><table><tr><th>Fuente</th><th>Servicio</th><th>Precio</th><th>$/L</th><th>Detalle</th><th>Fecha</th><th></th></tr>
     ${D.servicios.map(r => `<tr><td>${nfh(r.fuente)}</td><td>${linkUrl(r.url, r.titulo)}</td>
       <td class="n">${pesos.format(r.precio)}${Number(r.precio_lista) > 0 ? `<br><span class="mut">lista ${pesos.format(r.precio_lista)}</span>` : ""}</td>
-      <td class="n">${r.precio_litro !== "" ? `${pesos.format(r.precio_litro)}<br><span class="mut">con colocación</span>` : `<span class="vacio">${Number(r.litros) > 0 ? "incluye filtros u otros" : "sin litros"}</span>`}</td>
+      <td class="n">${r.precio_litro !== "" ? `${pesos.format(r.precio_litro)}<br><span class="mut">con colocación</span>` : `<span class="vacio">${Number(r.litros) > 0 ? "no es solo aceite + colocación" : "sin litros"}</span>`}</td>
       <td>${esc(r.detalle) || '<span class="vacio">sin detalle</span>'}</td><td>${fechaAR(r.fecha)}</td><td>${sello(r.verificado)}</td></tr>`).join("")}</table></div>`;
 }
 
