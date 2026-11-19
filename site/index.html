@@ -584,20 +584,17 @@ body:has(#dl[open]) { overflow: hidden; }
     <p class="nota">Avisos con más de un candidato o ninguno. No se adivina: quedan afuera del comparador y del índice hasta que se agreguen a <code>seed/alias.csv</code>.</p>
     <div id="sm-out"></div>
     <h2 id="api">Cómo usar la API</h2>
-    <p class="nota">Todas las rutas <code>/api/*</code> piden la clave en el header <code>X-API-Key</code> (o Basic Auth, contraseña = clave). Nunca en la URL. Agregá <code>?formato=csv</code> para CSV. Rutas: <code>servicios</code>, <code>grok?mes=AAAA-MM</code>, <code>productos</code>, <code>equivalencias</code>, <code>ultimo</code>, <code>obs?mes=AAAA-MM</code>, <code>serie?p=producto_id</code>, <code>indice</code>, <code>fuentes</code>, <code>sin_match</code>, <code>oferta_ml</code>.</p>
+    <p class="nota">La lectura de <code>/api/*</code> es abierta: no pide clave. Agregá <code>?formato=csv</code> para CSV. Rutas: <code>servicios</code>, <code>grok?mes=AAAA-MM</code>, <code>productos</code>, <code>equivalencias</code>, <code>ultimo</code>, <code>obs?mes=AAAA-MM</code>, <code>serie?p=producto_id</code>, <code>indice</code>, <code>fuentes</code>, <code>sin_match</code>, <code>oferta_ml</code>.</p>
     <p class="nota">Python sin dependencias:</p>
-<pre>import csv, io, os, urllib.request
+<pre>import csv, io, urllib.request
 
-req = urllib.request.Request("<span class="origen"></span>/api/ultimo?formato=csv",
-                             headers={"X-API-Key": os.environ["LUB_CLAVE"]})
-with urllib.request.urlopen(req) as r:
+with urllib.request.urlopen("<span class="origen"></span>/api/ultimo?formato=csv") as r:
     filas = list(csv.DictReader(io.TextIOWrapper(r, encoding="utf-8")))
 print(filas[0])</pre>
     <p class="nota">pandas:</p>
-<pre>import os, pandas as pd
+<pre>import pandas as pd
 
-obs = pd.read_csv("<span class="origen"></span>/api/obs?mes=2026-11&amp;formato=csv",
-                  storage_options={"X-API-Key": os.environ["LUB_CLAVE"]})</pre>
+obs = pd.read_csv("<span class="origen"></span>/api/obs?mes=2026-11&amp;formato=csv")</pre>
   </section>
 </main>
 <dialog id="dl" aria-labelledby="dl-tit">

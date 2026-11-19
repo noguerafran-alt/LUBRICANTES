@@ -13,4 +13,4 @@ services:
       - key: PYTHON_VERSION
         value: 3.12.10
       - key: LUB_CLAVE
-        sync: false        # se carga a mano en el panel; sin ella el server no arranca
+        sync: false        # opcional desde 2026-11-19 (lectura abierta); solo habilita la carga con la clave principal

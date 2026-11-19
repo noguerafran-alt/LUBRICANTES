@@ -1194,11 +1194,12 @@ def a_csv(nombre, filas):
 
 # ---------- carga de relevamientos de Grok (POST /api/cargar) ----------
 def autorizado_carga(headers, clave, clave_carga):
-    """La clave de carga solo sirve para cargar; la principal también."""
+    """Única escritura: la lectura es abierta, esto no. La clave de carga solo sirve para cargar; la principal también.
+    Sin ninguna clave configurada no se carga (no hay modo abierto para escribir)."""
     k = headers.get("X-Carga-Clave")
     if clave_carga and k and hmac.compare_digest(k.encode(), clave_carga.encode()):
         return True
-    return autorizado(headers, clave)
+    return bool(clave) and autorizado(headers, clave)
 
 
 def pos(s):
@@ -1440,6 +1441,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Cache-Control", "no-store")
         self.send_header("Vary", "Accept-Encoding, Authorization, X-API-Key")
         self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Robots-Tag", "noindex, nofollow")
         for k, v in extra:
             self.send_header(k, v)
         self.end_headers()
@@ -1453,10 +1455,8 @@ class Handler(BaseHTTPRequestHandler):
         q = {k: v[0] for k, v in parse_qs(u.query).items()}
         if u.path == "/salud":
             return self.json(200, {"ok": True})
-        if not autorizado(self.headers, self.clave):
-            return self.enviar(401, b'{"error":"falta clave: header X-API-Key o Basic Auth"}',
-                               "application/json; charset=utf-8",
-                               [("WWW-Authenticate", 'Basic realm="LUBRICANTES", charset="UTF-8"')])
+        if u.path == "/robots.txt":  # lectura abierta (decisión 2026-11-19): que al menos no la indexen
+            return self.enviar(200, b"User-agent: *\nDisallow: /\n", "text/plain; charset=utf-8")
         if u.path in ("/", "/index.html"):  # solo se sirve este archivo: no hay path traversal posible
             return self.enviar(200, INDEX.read_bytes(), "text/html; charset=utf-8")
         if u.path.endswith((".js", ".mjs", ".glb")):  # resolve + is_relative_to contra traversal
@@ -2028,7 +2028,9 @@ def demo():
         except urllib.error.HTTPError as e:
             return e.code, e.read()
     assert get("/salud") == (200, b'{"ok": true}')
-    assert get("/api/ultimo")[0] == 401
+    assert get("/api/ultimo")[0] == 200 and get("/robots.txt")[1] == b"User-agent: *\nDisallow: /\n"
+    assert urllib.request.urlopen(base + "/api/ultimo").headers["X-Robots-Tag"] == "noindex, nofollow" and get("/api/ultimo", {"X-API-Key": "mala"})[0] == 200   # la clave vieja o errónea se ignora
+    assert get("/")[0] == 200
     st = urllib.request.urlopen(urllib.request.Request(base + "/vendor/three.module.min.js", headers={"X-API-Key": "s3cr3t"}))
     assert st.status == 200 and st.headers["Content-Type"].startswith("text/javascript") and "max-age=31536000" in st.headers["Cache-Control"]
     pr = urllib.request.urlopen(urllib.request.Request(base + "/presentacion.js", headers={"X-API-Key": "s3cr3t"}))
@@ -2048,7 +2050,7 @@ def demo():
         finally:
             MODELOS = previo
     assert modelo("ypf-a") is None
-    assert get("/vendor/three.module.min.js")[0] == 401 and get("/modelos/x.glb")[0] == 401 and get("/modelos/x.glb", {"X-API-Key": "s3cr3t"})[0] == 404 and get("/../server.py", {"X-API-Key": "s3cr3t"})[0] == 404 and get("/vendor/../../x.js", {"X-API-Key": "s3cr3t"})[0] == 404
+    assert get("/vendor/three.module.min.js")[0] == 200 and get("/modelos/x.glb")[0] == 404 and get("/modelos/x.glb", {"X-API-Key": "s3cr3t"})[0] == 404 and get("/../server.py", {"X-API-Key": "s3cr3t"})[0] == 404 and get("/vendor/../../x.js", {"X-API-Key": "s3cr3t"})[0] == 404
     assert get("/api/ultimo", {"X-API-Key": "s3cr3t"})[0] == 200
     assert get("/api/ultimo", b("x:s3cr3t"))[0] == 200
     assert get("/api/obs?mes=2026-11&formato=csv", {"X-API-Key": "s3cr3t"})[1].startswith(b"fecha,fuente,url")
@@ -2056,15 +2058,15 @@ def demo():
     assert json.loads(get("/api/indice", k)[1]) == c["indice"] and json.loads(get("/api/indice?mayoristas=1", k)[1]) == c["indice_con_mayoristas"]
     assert json.loads(get("/api/vitrina", k)[1]) == json.loads(json.dumps(c["vitrina"])) and c["vitrina"]["productos"][0]["producto_id"] == "ypf-a-10w40"
     assert json.loads(get("/api/vitrina?mayoristas=1", k)[1]) == json.loads(json.dumps(c["vitrina_con_mayoristas"]))
-    assert get("/api/vitrina?formato=csv", k)[1].startswith(b"fecha,producto_id,nombre,") and get("/api/vitrina")[0] == 401
-    assert get("/api/mercado")[0] == 401
+    assert get("/api/vitrina?formato=csv", k)[1].startswith(b"fecha,producto_id,nombre,") and get("/api/vitrina")[0] == 200
+    assert get("/api/mercado")[0] == 200
     # ---------- /api/bi/*: modelo estrella para Power BI ----------
     def bi(t):
         cod, cuerpo = get("/api/bi/" + t, k)
         assert cod == 200 and cuerpo.startswith(chr(0xFEFF).encode()), t  # BOM: Power BI/Excel leen bien los acentos
         return list(csv.DictReader(io.StringIO(cuerpo.decode("utf-8-sig"))))
     for t in ("precios", "productos", "equivalencias", "fuentes", "provincias"):
-        assert get("/api/bi/" + t)[0] == 401, t
+        assert get("/api/bi/" + t)[0] == 200, t
     assert get("/api/bi/nada", k)[0] == 404 and get("/api/bi/precios?desde=ayer", k)[0] == 400
     bp = bi("precios")
     assert len(bp) == 8 and all(r["producto_id"] and r["capturado"] == "" for r in bp)  # filas sin hora: vacío, nunca inventada
@@ -2113,13 +2115,13 @@ def demo():
     assert get("/api/mercado/share?formato=csv", k)[1].startswith(b"mes,empresa,volumen,total,share\n2025-09,YPF,120")
     pj = json.loads(get("/api/mercado/perdidas?ventana=mes&min=0", k)[1])
     assert pj["origenes"]["YPF"]["filas_url"] == "/api/mercado/filas?empresa=YPF" and pj["origenes"]["A"]["razones_sociales"] == ["A"]
-    assert pj["foco"]["delta_ypf"] == -10 and pj["fuente"]["dataset"].startswith("https://datos.energia.gob.ar/dataset/5bdc436c") and get("/api/mercado/perdidas")[0] == 401
+    assert pj["foco"]["delta_ypf"] == -10 and pj["fuente"]["dataset"].startswith("https://datos.energia.gob.ar/dataset/5bdc436c") and get("/api/mercado/perdidas")[0] == 200
     assert get("/api/mercado/perdidas?ventana=x", k)[0] == 400 and get("/api/mercado/perdidas?min=-1", k)[0] == 400 and get("/api/mercado/perdidas?producto=nada", k)[0] == 400
     assert get("/api/mercado/perdidas?canal=Nada", k)[0] == 404 and get("/api/mercado/perdidas?pais=BR", k)[0] == 400
     assert json.loads(get("/api/mercado/perdidas?ventana=mes&canal=Agro&provincia=C%C3%B3rdoba", k)[1])["foco"]["total_t"] == 10
     fc = get("/api/mercado/filas?producto=grasas", k)[1]
     assert fc.startswith(b"\xef\xbb\xbfmes,empresa,producto,canal,provincia,cantidad\n2026-09,YPF,Grasas(Ton),") and get("/api/mercado/filas?desde=2026-13", k)[0] == 400
-    assert get("/api/mercado/filas?empresa=YPF&canal=Agro&desde=2026-09&hasta=2026-09", k)[1].count(b"\n") == 2 and get("/api/mercado/filas")[0] == 401
+    assert get("/api/mercado/filas?empresa=YPF&canal=Agro&desde=2026-09&hasta=2026-09", k)[1].count(b"\n") == 2 and get("/api/mercado/filas")[0] == 200
     assert [x["id"] for x in json.loads(get("/api/macro", k)[1])][:3] == ["A", "B", "C"] and get("/api/macro?ids=A,zzz", k)[0] == 404
     ma = json.loads(get("/api/macro?ids=A,B", k)[1])
     assert [m["id"] for m in ma] == ["A", "B"] and ma[0]["serie"][1] == {"fecha": "2026-07-01", "valor": None, "signo": "..."}
@@ -2130,7 +2132,7 @@ def demo():
     assert get("/site/index.html", {"X-API-Key": "s3cr3t"})[0] == 404
     # ---------- /api/provincias, /api/reventa, /api/cobertura por HTTP: con y sin clave ----------
     for ruta in ("/api/provincias?producto_id=ypf-a-10w40", "/api/provincias", "/api/reventa?producto_id=ypf-a-10w40", "/api/cobertura"):
-        assert get(ruta)[0] == 401, ruta
+        assert get(ruta)[0] in (200, 400), ruta
     cod, cuerpo = get("/api/provincias?producto_id=ypf-a-10w40", k)
     assert cod == 200 and json.loads(cuerpo)["celdas"] == [] and json.loads(cuerpo)["n_sin_provincia"] > 0   # el CSV de prueba es de antes de la columna: sin provincia, sin celda
     assert get("/api/provincias?producto_id=nada", k)[0] == 404 and get("/api/provincias?dias=0", k)[0] == 400 and get("/api/provincias?dias=x", k)[0] == 400
@@ -2305,7 +2307,8 @@ def demo():
         except urllib.error.HTTPError as e:
             return e.code, json.loads(e.read())
     kc = {"X-Carga-Clave": "c4rga"}
-    assert get("/api/productos", kc)[0] == 401 and get("/api/ultimo", kc)[0] == 401   # la de carga no lee nada
+    assert get("/api/productos", kc)[0] == 200   # la lectura es abierta con o sin clave
+    assert not autorizado_carga({"X-Carga-Clave": "x"}, None, "") and not autorizado_carga({}, None, "") and autorizado_carga({"X-Carga-Clave": "c4rga"}, None, "c4rga")   # sin clave principal, solo la de carga
     assert post(csv_de(fila()), {})[0] == 401 and post(csv_de(fila()), {"X-Carga-Clave": "mala"})[0] == 401
     assert post(csv_de(fila()), kc, "application/json")[0] == 415
     cod, rsp = post(csv_de(fila(), fila(precio="0")), kc, "text/plain")
@@ -2351,10 +2354,8 @@ def main():
     if sys.argv[1:] == ["test"]:
         return demo()
     clave = os.environ.get("LUB_CLAVE", "")
-    if os.environ.get("RENDER") and not clave:
-        sys.exit("ERROR: falta LUB_CLAVE en Render; el server no arranca sin clave.")
-    if not clave:
-        print("AVISO: sin LUB_CLAVE, la API queda abierta (solo para uso local).", flush=True)
+    if not clave and not os.environ.get("LUB_CARGA_CLAVE"):
+        print("AVISO: sin LUB_CLAVE ni LUB_CARGA_CLAVE, la lectura es abierta y la carga (POST) queda cerrada.", flush=True)
     raiz = os.environ.get("LUB_DATOS") or RAIZ
     Handler.datos = cargar(raiz)
     Handler.calc = calcular(Handler.datos)
