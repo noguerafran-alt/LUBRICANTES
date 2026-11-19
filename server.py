@@ -678,7 +678,7 @@ ID_SALARIO, ID_TC = "149.1_SOR_PRIADO_OCTU_0_25", "92.2_TIPO_CAMBIION_0_0_21_24"
 ID_GASOIL_CARGA = "se_gasoil_carga"
 # ponytail: pesos supuestos del relevamiento, sin calibrar contra el volumen de la SE (regresión pendiente).
 PESOS_IDP = {ID_PEAJES: 0.5, ID_GASOIL_CARGA: 0.3, ID_AGRO: 0.2}
-FUENTE_SE = "Secretaría de Energía, Res. 1104"
+FUENTE_SE = "Secretaría de Energía, SESCO Downstream (datos.energia.gob.ar)"
 # Series que salen de data/macro/energia.csv: (id, nombre, grupo, prefijo de producto, canal o None = todos)
 DERIVADAS = [
     ("se_lub_automotrices", "Lubricantes automotrices vendidos", "demanda", "Lubricantes automotrices", None),
@@ -686,7 +686,7 @@ DERIVADAS = [
     (ID_GASOIL_CARGA, "Gasoil vendido a Transporte de Carga", "pesado", "Gasoil", "Transporte de Carga"),
     ("se_gasoil_agro", "Gasoil vendido al Agro", "agro", "Gasoil", "Agro"),
 ]
-NOTA_SHARE = ("Share entre las empresas que declaran (Res. SE 1104): Mobil, Castrol, Motul, Liqui Moly y los importadores chicos no figuran. "
+NOTA_SHARE = ("Share entre las empresas que declaran a la Secretaría de Energía (SESCO): Mobil, Castrol, Motul, Liqui Moly y los importadores chicos no figuran. "
               "Es el volumen que vende la empresa (sell-in), no lo que compra el consumidor final, y viene por empresa, no por marca "
               "comercial (Elaion, Helix). Una empresa sin fila ese mes se muestra sin dato, no como 0.")
 
@@ -834,10 +834,10 @@ FUENTE_PERDIDAS = {
     "recurso": "https://datos.energia.gob.ar/dataset/5bdc436c-60d4-4c86-98ab-59834d047700/resource/f0e4e10a-e4b8-44e6-bd16-763a43742107",
     "csv": "https://datos.energia.gob.ar/dataset/5bdc436c-60d4-4c86-98ab-59834d047700/resource/f0e4e10a-e4b8-44e6-bd16-763a43742107/download/ventas-excluye-ventas-a-empresas-del-sector-.csv",
     "dataset_nombre": "Refinación y Comercialización de petróleo, gas y derivados (Tablas Dinámicas)",
-    "recurso_nombre": "Ventas, excluye ventas a empresas del sector", "licencia": "CC-BY 4.0", "norma": "Res. SE 1104/2004",
+    "recurso_nombre": "Ventas, excluye ventas a empresas del sector", "licencia": "CC-BY 4.0", "tablas": "SESCO Downstream",
     "actualizacion": "se baja desde la PC (tools/sepa_pc.py) cuando pasan 28 días de la última bajada OK"}
 NOTA_PERDIDAS = {
-    "declarantes": "Share solo entre las empresas que declaran (Res. SE 1104): Mobil, Castrol, Motul, Liqui Moly y los importadores chicos no figuran, "
+    "declarantes": "Share solo entre las empresas que declaran a la Secretaría de Energía (SESCO): Mobil, Castrol, Motul, Liqui Moly y los importadores chicos no figuran, "
                    "así que una pérdida contra importadores aparece como un mercado que se achica o como ganancia de nadie.",
     "sell_in": "Es el volumen que vende la empresa (sell-in), no lo que compra el consumidor, y viene por empresa, no por marca.",
     "segmento": "La Secretaría no abre por viscosidad ni por línea (Elaion premium contra mineral): segmento = producto × canal × provincia.",
@@ -1053,7 +1053,7 @@ def origen(d, emp, agrupa=None):
     `agrupa` (solo 'Otras') = las etiquetas que junta."""
     dataset = FUENTE_PERDIDAS["dataset"]
     if agrupa is not None:
-        return {"fuente": "SE, Res. 1104 — suma de las demás empresas declarantes", "razones_sociales": agrupa, "marcas": [], "desde": None, "hasta": None,
+        return {"fuente": "SE (SESCO) — suma de las demás empresas declarantes", "razones_sociales": agrupa, "marcas": [], "desde": None, "hasta": None,
                 "filas_url": None, "dataset": dataset, "rotulos": [{"desde": "", "marca": "Otras", "precision": None}]}
     sp = _span(d).get(emp, (None, None))
     marcas = []
@@ -1063,7 +1063,7 @@ def origen(d, emp, agrupa=None):
                                        "inferida" if m["evidencia"] == "inferida" else "") if x)
             # una marca que declara sin fechas en el seed va sin calificar; con fechas del seed (Castrol desde 2019) las lleva
             marcas.append(m["marca"] + (f" ({q})" if q else ""))
-    return {"fuente": f"SE, Res. 1104 — empresa declarante {emp}", "razones_sociales": [p for p, c in macro.ETIQUETAS if c == emp] or [emp],
+    return {"fuente": f"SE (SESCO) — empresa declarante {emp}", "razones_sociales": [p for p, c in macro.ETIQUETAS if c == emp] or [emp],
             "marcas": marcas, "desde": sp[0], "hasta": sp[1], "filas_url": "/api/mercado/filas?empresa=" + urllib.parse.quote(emp), "dataset": dataset,
             "rotulos": rotulos(d, emp)}
 
@@ -2105,7 +2105,7 @@ def demo():
     mq = {m["marca"]: m for m in mj["marcas"]}
     assert (mq["YPF"]["desde"], mq["YPF"]["hasta"]) == ("2025-09", "2026-09") and mq["Gulf"]["hasta"] == "2023-01" and mq["Puma"]["empresa_se"] == "(no declara)"
     og = {e["empresa"]: e["origen"] for e in mj["share"]["empresas"]}
-    assert og["YPF"]["fuente"] == "SE, Res. 1104 — empresa declarante YPF" and og["YPF"]["razones_sociales"] == ["YPF"] and og["YPF"]["marcas"] == ["YPF"]
+    assert og["YPF"]["fuente"] == "SE (SESCO) — empresa declarante YPF" and og["YPF"]["razones_sociales"] == ["YPF"] and og["YPF"]["marcas"] == ["YPF"]
     assert og["Shell/Raízen"]["razones_sociales"] == ["SHELL", "RAIZEN"] and og["Shell/Raízen"]["marcas"] == ["Shell"]
     assert (og["YPF"]["desde"], og["YPF"]["hasta"]) == ("2025-09", "2026-09") and og["YPF"]["dataset"].endswith("5bdc436c-60d4-4c86-98ab-59834d047700")
     assert og["Otras"]["razones_sociales"] == ["F", "Z1", "Z2"] and og["Otras"]["filas_url"] is None

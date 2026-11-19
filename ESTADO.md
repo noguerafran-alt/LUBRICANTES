@@ -5,6 +5,10 @@ Actualizado 2026-11-19 (share por marca en Mercado; share ampliado con la serie 
 
 
 
+## Cita normativa corregida (2026-11-19)
+- El dataset de ventas (datos.energia.gob.ar, id 5bdc436c-60d4-4c86-98ab-59834d047700) es «Refinación y Comercialización de petróleo, gas y derivados (Tablas Dinámicas)», descripción «Tablas Dinámicas SESCO Downstream»; su ficha NO cita la Res. 1104. La Res. SE 1104/2004 trata de precios mayoristas de combustibles y no menciona lubricantes. No se encontró qué norma obliga a declarar: no se cita ninguna.
+- Ahora la fuente dice «Secretaría de Energía, SESCO Downstream (datos.energia.gob.ar)» y los declarantes son «las empresas que declaran a la Secretaría de Energía (SESCO)». En `/api` la fuente pierde `norma` y gana `tablas`; el visor muestra «Tablas». Ningún número ni cálculo cambió.
+
 ## Mercado sin banner ni barra de país (2026-11-19)
 - A pedido del usuario, en la pestaña Mercado no se muestran el aviso de fuentes ni la barra País/USD (`ir()` les pone `display:none`, porque `.filtros` es flex y pisa a `hidden`; vuelven en las demás pestañas).
 
@@ -19,7 +23,7 @@ Actualizado 2026-11-19 (share por marca en Mercado; share ampliado con la serie 
 - Tercera ventana `?ventana=anterior` (último mes contra el mes anterior; piso propio de 5, `MIN_DEFECTO`); los textos y el «filtro exacto» salen de `periodo_t/periodo_t0`, así que dicen los meses correctos.
 - Tabla nueva «Dónde pierde YPF (segmentos)», visible sin abrir filas: canal × provincia con share, volumen YPF y mercado del segmento antes → después, m3/Ton perdidos por share, quién ganó (top 2 con pp) y diagnóstico (`diagnostico` por segmento: YPF vendió menos / El mercado creció y YPF no acompañó / Cayó el mercado y YPF cayó más; solo donde YPF pierde share, sino vacío). Primeras 10 y «Ver todas».
 - En «¿Con quién?» cada empresa se despliega con los segmentos donde le ganó a YPF (`por_competidor[].segmentos`). Sin dato = «...».
-- Sin verificar con datos reales (solo el demo y el visor por sintaxis); no se tocó la tabla Share de YPF por provincia ni la cita Res. SE 1104.
+- Sin verificar con datos reales (solo el demo y el visor por sintaxis); no se tocó la tabla Share de YPF por provincia ni la cita de la fuente (corregida el 2026-11-19, ver abajo).
 
 ## helix_api: combos Shell por la API JSON de helixturno (2026-11-19, rama lub-helix)
 - **Pedido**: leer los combos de cambio de aceite Shell de helixturno.com.ar por su API pública en vez de depender de Grok, dentro de la Action diaria.
@@ -90,7 +94,7 @@ Actualizado 2026-11-19 (share por marca en Mercado; share ampliado con la serie 
 - **API**: `/api/mercado/perdidas` (descomposición exacta share + mercado de la variación de YPF por segmento producto × canal × provincia, ranking por m3 perdidos por share con piso de volumen, «con quién» por empresa del segmento, agregados por producto/canal/provincia/competidor) y `/api/mercado/filas` (CSV con BOM de las filas de `energia.csv` detrás de cada número). Contrato en `CLAUDE.md`, sección Mercado.
 - **Frase resumen** (`fraseResumen`): arranca por la pérdida (suma de celdas con pérdida y cantidad de segmentos), sigue con quién se la lleva (hasta 3 de `por_competidor`) y los 3 segmentos de mayor pérdida; el efecto del total del filtro va al final como contexto, con aviso de cambio de mezcla si el total no pierde. Una sola celda no dice «segmentos». Sin probar en navegador (pendiente lub-test).
 - **Pestaña Mercado**: sección nueva «¿Dónde perdemos share?» con selectores producto/canal/provincia/ventana/piso, frase resumen, «con quién» con los avisos al lado, tabla clickeable con detalle (descomposición, competidores, serie mensual), agregados y bloque «De dónde sale cada número» con links.
-- **Links verificados con curl (200)**: dataset, recurso y CSV en datos.energia.gob.ar. Res. SE 1104/2004 va como texto (no se encontró URL oficial que responda). Agregados a `docs/relevamiento/mercado.md`.
+- **Links verificados con curl (200)**: dataset, recurso y CSV en datos.energia.gob.ar. La cita «Res. SE 1104» del share era errónea (ver «Cita normativa corregida», 2026-11-19). Agregados a `docs/relevamiento/mercado.md`.
 - **Verificado**: asserts en `server.demo()` (identidad, nulos, entró/salió, Grasas en Ton, filas, 401/400/404); con los datos reales la identidad da 0 desvíos en 207 celdas; Chrome headless a 1280 y 375 px sin desborde horizontal (la tabla scrollea dentro de su caja). Dato real: automotrices 12 m, YPF 34,5 % → 37,3 % (+4.195 m3 por share en el agregado), pero pierde 1.310 m3 sumando solo las celdas donde cae (cambio de mezcla).
 - **No verificado**: con la clave real (se probó sin clave local); la Action a mano (no se corrió).
 - **Límites**: el piso de volumen (50 / 5) es un criterio mío, ajustable con `?min=`; el share es solo entre declarantes y por empresa, no por marca.

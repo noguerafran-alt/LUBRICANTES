@@ -1449,7 +1449,7 @@ function pintarShare() {
   AMP.specs.share = () => ({ titulo: `Share mensual de ${nomProd}${M.canal ? ", canal " + M.canal : ""}`, unidad: "% del volumen que declaran las empresas", frec: "M", pp: true, neutro: true, signos: false,
     fmt: pct, fmtEje: v => dec1.format(v * 100) + " %", series: orden.map(e => ({ nombre: nom(e), color: info[e.empresa].color, rotulo: porM && e.origen?.rotulos?.length > 1 ? x => nom(e, x.slice(0, 7)) : null })),
     filas: meses.map((m, i) => ({ x: m, v: orden.map(e => esNum(e.serie?.[i]) ? e.serie[i] : null) })),
-    fuente: "Secretaría de Energía, Res. SE 1104 (datos.energia.gob.ar)", links: [["Dataset de la Secretaría de Energía", DATASET_SE]], csv,
+    fuente: "Secretaría de Energía, SESCO Downstream (datos.energia.gob.ar)", links: [["Dataset de la Secretaría de Energía", DATASET_SE]], csv,
     // serie completa (desde el primer mes del archivo) con las mismas empresas que la tarjeta; mientras llega se ven los 36 meses
     completar: async () => {
       const q = `mercado/share?completo=1&producto=${encodeURIComponent(M.producto)}${M.canal ? "&canal=" + encodeURIComponent(M.canal) : ""}`;
@@ -1492,11 +1492,11 @@ function pintarShare() {
       <div>${kpi}${ctx}${rank}</div>
       <div class="graf"><div class="graf-cab"><h3>Share mensual de ${esc(nomProd)}, últimos ${meses.length} meses</h3>${botonAmp("share", "Share mensual de " + nomProd)}</div>
         <div class="mk-svg" data-g="share"></div>
-        <p class="mk-fuente">Fuente: Secretaría de Energía, Res. SE 1104 (datos.energia.gob.ar). Ventas en ${esc(unidad)}; excluye ventas a empresas del sector.</p>${datos}</div>
+        <p class="mk-fuente">Fuente: Secretaría de Energía, SESCO Downstream (datos.energia.gob.ar). Ventas en ${esc(unidad)}; excluye ventas a empresas del sector.</p>${datos}</div>
     </div>
     ${s.nota ? `<p class="nota mk-limite">${esc(s.nota)}</p>` : ""}
     <h3 class="mk-sub" id="mk-pv-tit">${tituloProv()}</h3>${ctlProv}<div id="mk-pv-tab">${tabProv()}</div>
-    <p class="mk-fuente">Fuente: Secretaría de Energía, Res. SE 1104. Variación en puntos porcentuales contra el mes de comparación elegido (por defecto, el mismo mes del año anterior).</p>
+    <p class="mk-fuente">Fuente: Secretaría de Energía, SESCO Downstream (datos.energia.gob.ar). Variación en puntos porcentuales contra el mes de comparación elegido (por defecto, el mismo mes del año anterior).</p>
     <h3 class="mk-sub">De dónde viene cada línea del share</h3>
     <ul class="mk-orig">${orden.map(e => e.origen ? origenLi(nom(e), e.origen) : "").join("")}</ul>
     ${tablaMarcas(M.r.marcas)}${sinDato(M.r.marcas)}`;
@@ -2025,7 +2025,7 @@ function pintarPerdidas() {
     <div class="mk-fuentes"><h3 class="mk-sub">De dónde sale cada número</h3><ul>
       <li>Dataset: <a href="${esc(r.fuente.dataset)}" target="_blank" rel="noopener">${esc(r.fuente.dataset_nombre)}</a>, Secretaría de Energía (datos.energia.gob.ar), ${esc(r.fuente.licencia)}.</li>
       <li>Recurso: <a href="${esc(r.fuente.recurso)}" target="_blank" rel="noopener">${esc(r.fuente.recurso_nombre)}</a> · <a href="${esc(r.fuente.csv)}" target="_blank" rel="noopener">descargar el CSV original</a> (770 MB).</li>
-      <li>Marco legal: ${esc(r.fuente.norma)} (declaración de ventas de lubricantes).</li>
+      <li>Tablas: ${esc(r.fuente.tablas)} (declaración de ventas de lubricantes).</li>
       <li>Último mes publicado: ${esc(mesLargo(r.ultimo_mes))}; ${esc(r.fuente.actualizacion)}.</li>
       <li>Las filas exactas detrás de cada número: enlaces «ver filas» (CSV con tildes, abre en Excel).</li></ul>
       <h3 class="mk-sub">De dónde viene cada empresa</h3>${listaOrigen(Object.keys(r.origenes || {}), r.origenes)}</div>`;
@@ -2058,7 +2058,7 @@ async function abrirDetalle(s) {
     tip: fl => `<b>${esc(mesLargo(fl.x))}</b>` + Y.map((y, k) => `<div class="f"><i style="background:${y.color}"></i><span>${esc(y.nombre)}</span><span>${pct(fl.v[k])}</span></div>`).join("") });
   AMP.specs.p_serie = () => ({ titulo: `Share mensual de YPF y los que ganaron: ${s.canal}, ${s.provincia}`, unidad: "% del volumen que declaran las empresas del segmento", frec: "M", pp: true, neutro: true, signos: false,
     fmt: pct, fmtEje: v => dec1.format(v * 100) + " %", series: Y, filas: filasG.map(f => ({ x: f.x, v: f.v.map(v => esNum(v) ? v : null) })),
-    fuente: "Secretaría de Energía, Res. SE 1104 (datos.energia.gob.ar)", links: [["Dataset de la Secretaría de Energía", DATASET_SE], ["Filas exactas (CSV)", ...[location.origin + filasUrl(ef())]]],
+    fuente: "Secretaría de Energía, SESCO Downstream (datos.energia.gob.ar)", links: [["Dataset de la Secretaría de Energía", DATASET_SE], ["Filas exactas (CSV)", ...[location.origin + filasUrl(ef())]]],
     nota: "Un mes sin fila de la empresa queda como hueco: no declaró, no es 0." });
   const filaComp = c => `<tr><td>${etq(c.empresa, r.origenes)}</td><td class="n">${pct(c.s_t0)} → ${pct(c.s_t)}</td><td class="n"><b class="${c.m3_eq > 0 ? "sube" : "baja"}">${pp(c.delta_pp)}</b></td>
     <td class="n">${m3s(c.m3_eq, u)}</td><td class="mk-h12">${verFilas(ef({ empresa: c.empresa }))}</td></tr>`;
@@ -2114,7 +2114,7 @@ function tarjeta(a) {
   }
   AMP.specs[clave] = () => ({ titulo: a.nombre, unidad: uTxt, frec: a.frec, diario: /^d/i.test(a.frec || ""), neutro, signos: true, fmt: num, fuente: a.fuente,
     series: [{ nombre: a.nombre, color: "var(--acento)" }], filas: serie.map(p => ({ x: p.fecha, v: [valorDe(p)], s: [p.signo] })), macroId: a.id,
-    nota: /^se_/.test(a.id) ? "Serie derivada por este visor: suma mensual de las ventas declaradas por las empresas a la Secretaría de Energía (Res. 1104); un mes sin fila es hueco, no 0." : "",
+    nota: /^se_/.test(a.id) ? "Serie derivada por este visor: suma mensual de las ventas declaradas por las empresas a la Secretaría de Energía (SESCO); un mes sin fila es hueco, no 0." : "",
     csv: `/api/macro?ids=${encodeURIComponent(a.id)}&formato=csv` });
   return `<article class="mk-ind" data-amp="${esc(clave)}">${conDato ? botonAmp(clave, a.nombre) : ""}<h4>${esc(a.nombre)}</h4>${val}
     <p class="mk-ind-meta"><span>${u.fecha ? esc(fechaInd(u.fecha, a.frec)) : ""}</span>${vi}</p>
@@ -2161,7 +2161,7 @@ function pintarCompuestos() {
   espec("c_real", "Precio real por litro (YPF y competencia)", YC, fPr, { unidad: `$ de ${base ? mesLargo(base) : "el primer mes con precio"} por litro`, fmt: pesos.format, fuente: PROPIO + " IPC: INDEC, vía datos.gob.ar (CC-BY 4.0)." });
   espec("c_usd", "Precio por litro en dólares (YPF y competencia)", YC, fPu, { unidad: "USD por litro", fmt: usd.format, diario: true, fuente: PROPIO + " Tipo de cambio: BCRA, vía datos.gob.ar (CC-BY 4.0)." });
   espec("c_ase", "Asequibilidad del lubricante YPF", [{ nombre: "Asequibilidad", color: "var(--ypf)" }], fAs, { unidad: "índice, base 100 = primer mes con precio YPF", fmt: dec1.format, base: 100, fuente: PROPIO + " Salarios: INDEC, vía datos.gob.ar (CC-BY 4.0)." });
-  espec("c_dem", "Demanda potencial de lubricantes", [{ nombre: "Demanda potencial", color: "var(--acento)" }], fDp, { unidad: "índice, base 2023 = 100 (pesos supuestos, sin calibrar)", fmt: dec1.format, base: 100, fuente: "Peajes y EMAE: INDEC, vía datos.gob.ar (CC-BY 4.0). Gasoil: Secretaría de Energía, Res. SE 1104." });
+  espec("c_dem", "Demanda potencial de lubricantes", [{ nombre: "Demanda potencial", color: "var(--acento)" }], fDp, { unidad: "índice, base 2023 = 100 (pesos supuestos, sin calibrar)", fmt: dec1.format, base: 100, fuente: "Peajes y EMAE: INDEC, vía datos.gob.ar (CC-BY 4.0). Gasoil: Secretaría de Energía, SESCO Downstream (datos.energia.gob.ar)." });
   const graf = (titulo, sub, clave, filas, nSeries, ley, pie, extra = "", sinDatos) => `<div class="graf"><div class="graf-cab"><h3>${titulo}</h3>${hay(filas, nSeries) ? botonAmp(clave, titulo) : ""}</div><p class="nota">${sub}</p>${extra}
     ${hay(filas, nSeries) ? ley + `<div class="mk-svg" data-g="${clave}"></div>` : vacio(sinDatos)}<p class="mk-fuente">${pie}</p></div>`;
   caja.innerHTML = `<div class="mk-comp">
@@ -2172,7 +2172,7 @@ function pintarCompuestos() {
     ${graf("Asequibilidad del lubricante YPF", `${notas.asequibilidad ? "" : "Precio YPF dividido por el índice de salarios del sector privado registrado. "}Base 100 =${as.length ? esc(mesLargo(as[0].mes)) : "primer mes"}; más de 100 es menos accesible.`, "c_ase", fAs, 1, "",
       `${PROPIO} Salarios: INDEC, vía datos.gob.ar (CC-BY 4.0).`, nota("asequibilidad"), "Todavía no hay un mes con precio YPF e índice de salarios publicados a la vez.")}
     ${graf("Demanda potencial de lubricantes", notas.demanda_potencial ? "Índice exploratorio, base 2023 = 100." : "0,5 × peajes + 0,3 × gasoil del transporte de carga + 0,2 × EMAE agro, cada uno con base 2023 = 100.", "c_dem", fDp, 1, "",
-      "Peajes y EMAE: INDEC, vía datos.gob.ar (CC-BY 4.0). Gasoil: Secretaría de Energía, Res. SE 1104.", notaDem, "Todavía no hay meses con las tres series publicadas.")}
+      "Peajes y EMAE: INDEC, vía datos.gob.ar (CC-BY 4.0). Gasoil: Secretaría de Energía, SESCO Downstream (datos.energia.gob.ar).", notaDem, "Todavía no hay meses con las tres series publicadas.")}
   </div>`;
 }
 

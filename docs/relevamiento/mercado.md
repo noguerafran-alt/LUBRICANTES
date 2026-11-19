@@ -4,7 +4,7 @@ Propuesta para sumar la pestaña "Mercado" a LUBRICANTES. Las series se probaron
 
 ## 0. Lo primero: market share oficial de la Secretaría de Energía (verificado)
 
-La Secretaría de Energía (Res. SE 1104) publica las **ventas de lubricantes por empresa, canal y provincia, por mes, desde 2010-01 hasta 2026-09**. Es el dato más valioso de todo el relevamiento: muestra cuánto vende YPF de verdad, y no solo cuánto cobra.
+La Secretaría de Energía (SESCO Downstream) publica las **ventas de lubricantes por empresa, canal y provincia, por mes, desde 2010-01 hasta 2026-09**. Es el dato más valioso de todo el relevamiento: muestra cuánto vende YPF de verdad, y no solo cuánto cobra.
 - **Fuente:** `http://datos.energia.gob.ar/dataset/5bdc436c-60d4-4c86-98ab-59834d047700/resource/f0e4e10a-e4b8-44e6-bd16-763a43742107/download/ventas-excluye-ventas-a-empresas-del-sector-.csv`. Respondió HTTP 200, pesa 769 MB, la última modificación es del 2026-10-26 y el servidor no acepta `Range` (no se puede bajar solo una parte).
 - **Productos que trae:** `Lubricantes automotrices(m3)`, `Lubricantes industriales(m3)`, `Lubricantes marinos(m3)`, `Bases Lubricantes(m3)` y `Grasas(Ton)`.
 - **Muestra real:** en 2026-09 se vendieron 13.430 m³ de automotrices. YPF tuvo 37,7%, Shell 23,6%, Total 13,4%, PAE (Axion) 11,5%, Petronas 9,0%, Fercol 4,0% y DAPSA 0,8%.
@@ -14,7 +14,7 @@ La Secretaría de Energía (Res. SE 1104) publica las **ventas de lubricantes po
 - Página del dataset (CC-BY 4.0): `https://datos.energia.gob.ar/dataset/5bdc436c-60d4-4c86-98ab-59834d047700`
 - Página del recurso «Ventas, excluye ventas a empresas del sector»: `https://datos.energia.gob.ar/dataset/5bdc436c-60d4-4c86-98ab-59834d047700/resource/f0e4e10a-e4b8-44e6-bd16-763a43742107` (redirige a `/archivo/`).
 - CSV: `https://datos.energia.gob.ar/dataset/5bdc436c-60d4-4c86-98ab-59834d047700/resource/f0e4e10a-e4b8-44e6-bd16-763a43742107/download/ventas-excluye-ventas-a-empresas-del-sector-.csv`
-- Res. SE 1104/2004: sin URL oficial verificada (infoleg dio 403 a curl); se cita como texto.
+- Hallazgo 2026-11-19: la ficha del dataset (id 5bdc436c-60d4-4c86-98ab-59834d047700, "Refinación y Comercialización de petróleo, gas y derivados (Tablas Dinámicas)", descripción "Tablas Dinámicas SESCO Downstream") NO cita la Res. 1104. La Res. SE 1104/2004 (argentina.gob.ar/normativa/nacional/norma-100848) trata del módulo de precios mayoristas de combustibles y no menciona lubricantes. No se encontró qué norma obliga a declarar al SESCO; se cita el dataset. Antes se citaba la Res. 1104 por error.
 
 **Cómo se arma el share:**
 - `share(e,m) = cantidad(e,m) / Σ cantidad(m)`, para cada producto.
@@ -91,7 +91,7 @@ Esta tabla está transcripta de la spec OpenAPI de api.indec.gob.ar:
 - Si el valor viene con `*`, `**`, `e`, `i` o `u`, se pone el sufijo junto al número y el punto va con trazo punteado.
 - datos.gob.ar devuelve null sin ningún signo. Ese caso se muestra como `...` con la leyenda "sin dato publicado a AAAA-MM-DD". Ejemplo real: el EMAE de 2026-08 viene vacío cuando se lo combina con otras series.
 - Las variaciones (interanuales, compuestos) se calculan solo si los dos extremos existen. Si falta alguno, el resultado es `...`.
-- Al pie de cada gráfico va "Fuente: INDEC, vía datos.gob.ar (CC-BY 4.0)" o "Fuente: Secretaría de Energía, Res. 1104".
+- Al pie de cada gráfico va "Fuente: INDEC, vía datos.gob.ar (CC-BY 4.0)" o "Fuente: Secretaría de Energía, SESCO Downstream (datos.energia.gob.ar)".
 - **No verificado:** que en la API de INDEC el signo viaje en el campo `observaciones` lo deduje del esquema, porque sin token no vi un dato real.
 
 ## 4. Diseño técnico mínimo (stdlib, igual que el resto del repo)
@@ -336,7 +336,7 @@ Devolvió 2026-06/07/08. El EMAE de 2026-08 viene vacío, así que al combinar s
 
 La Secretaría de Energía publica **ventas oficiales de lubricantes por empresa, provincia y canal, por mes**, de 2010-01 a **2026-09**. Con eso se puede armar un market share oficial. Todo lo que sigue lo probé con curl el 2026-11-05.
 
-## 1. El que sirve: "Ventas (excluye ventas a empresas del sector)", Res. SE 1104
+## 1. El que sirve: "Ventas (excluye ventas a empresas del sector)", SESCO Downstream
 
 - Portal CKAN: `http://datos.energia.gob.ar/api/3/action/package_show?id=refinacion-y-comercializacion-de-petroleo-gas-y-derivados-tablas-dinamicas` → HTTP 200.
 - CSV directo: `http://datos.energia.gob.ar/dataset/5bdc436c-60d4-4c86-98ab-59834d047700/resource/f0e4e10a-e4b8-44e6-bd16-763a43742107/download/ventas-excluye-ventas-a-empresas-del-sector-.csv`
@@ -392,7 +392,7 @@ Comparado con 2019-09, YPF bajó de 42,8% a 37,7%, Shell subió de 20,2% a 23,6%
 - Provincia, automotrices 2025: Buenos Aires 36,3%, Córdoba 9,3%, Santa Fe 9,2%, CABA 6,1%, S/D 4,9%, Tucumán 4,3%, Entre Ríos 3,8%, Neuquén 3,7%, Mendoza 3,7%.
 
 Hay dos límites para interpretar el share:
-- Solo declaran las empresas inscriptas en la Res. 1104. No figuran Mobil, Castrol, Motul, Liqui Moly ni los importadores chicos, así que es el **share entre las que declaran**, no el de todo el mercado. Estas marcas aparecen en otras tablas: Mobil Argentina en exportación y Fuchs en importación.
+- Solo declaran las empresas que declaran a la Secretaría de Energía (SESCO). No figuran Mobil, Castrol, Motul, Liqui Moly ni los importadores chicos, así que es el **share entre las que declaran**, no el de todo el mercado. Estas marcas aparecen en otras tablas: Mobil Argentina en exportación y Fuchs en importación.
 - Es volumen vendido por la petrolera (sell-in), no lo que compra el consumidor final.
 
 ## 2. Importación y exportación de lubricantes y bases (desde 2016)
