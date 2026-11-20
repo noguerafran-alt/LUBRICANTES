@@ -101,3 +101,11 @@ En el visor, pestaña **Fuentes**, hay una fila «Recolector de casa» con la fe
 - **No usar el celular para saltear bloqueos anti-bot.** Nota Paraná sigue pausada (la API devuelve datos señuelo) y Coto sigue diferido por sus términos de uso. Si una fuente nueva da 403 también desde casa, queda sin datos: no se esquiva.
 - **Mercado Libre no corre en el celular, y el celular nunca guarda sus credenciales**: el token vive solo en GitHub (secrets). El script saca del entorno todo `ML_*` y excluye `ml` de la corrida.
 - El clon `~/lub-casa` es solo del recolector: el script hace `git reset --hard origin/main` en cada corrida. No edites archivos ahí.
+
+## Qué mide `/salud` en el equipo (RAM, CPU, procesos)
+
+`equipo` suma `ram_mb` `{total, disponible}` (MemTotal/MemAvailable de `/proc/meminfo`), `cpu` `{nucleos, mhz_actual, mhz_max, total_pct, procesos_pct}` y `procesos` (hasta 8 `{nombre, cpu_pct, ram_mb}`). Todo lo que no se pueda leer es `null`, nunca un error.
+- `mhz_actual`/`mhz_max`: promedio de `scaling_cur_freq`/`cpuinfo_max_freq` de los núcleos que se leen (en el Galaxy A22 se leen).
+- `procesos_pct` y `cpu_pct`: CPU de los procesos propios en % de **toda** la capacidad (100 = los 8 núcleos al máximo), por delta contra la lectura anterior (entre 1 s y 10 min; si no hay, dos lecturas a 0,5 s). Un proceso nuevo cuenta 0 en su primera vuelta. Resultado cacheado 5 s.
+- `procesos`: solo los de la misma uid que el server, agrupados por nombre (`server.py`, `clipper.py`, `cloudflared`, `runsv`…). Nunca rutas ni argumentos.
+- **No se puede ver en Android 13** (medido en el A22 desde Termux): el CPU total del equipo (`/proc/stat` y `/proc/loadavg` dan `Permission denied`, por eso `total_pct` es `null`) y el uptime del equipo (`/proc/uptime`); Android restringe `/proc` a los procesos de la propia app desde la versión 8-10 (hidepid). En una PC Linux `total_pct` sí viene. En Windows no hay `/proc`: todo `null` y `procesos` vacío.

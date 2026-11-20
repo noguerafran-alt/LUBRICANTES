@@ -1,5 +1,10 @@
 # ESTADO
 
+## /salud con RAM, CPU y procesos (2026-11-19)
+
+- `server.py`: `equipo` suma `ram_mb`, `cpu` y `procesos` (`recursos()`, `_muestra`, `_calcular`; lectores con raíz de `/proc` y `/sys` como parámetro). CPU por delta con lock y caché de 5 s, solo procesos de la misma uid, nombres cortos sin rutas ni argumentos. Contrato en `CLAUDE.md`; qué no se ve en Android 13 en `docs/celular.md`. El visor no cambió (falta mostrarlo en la página de servidores).
+- Verificado: `python server.py test` OK con un `/proc` falso (MemTotal/MemAvailable, nombres, agrupado, %, filtro de uid, sin argumentos en el JSON); en Windows todo `null`. No verificado en el Galaxy A22 real ni `total_pct` en Linux real; `sv restart lub-server` no hace falta (reinicia solo).
+
 ## /salud con estado del equipo y auto-reinicio (2026-11-19, rama lub-salud-equipo)
 
 - `server.py`: `/salud` suma `equipo` (batería con caché de 60 s, disco, uptimes, tráfico de 24 h en memoria por hora con IPs solo como hash corto, clipper). El tráfico se cuenta en `Handler.enviar`. `vigilar` sale con `os._exit(0)` si `server.py` cambió, tiene más de 30 s y compila (`codigo_cambio`; solo con la bandera `EN_MAIN` que pone `main()`, nunca en tests ni Render). Contrato en `CLAUDE.md` y `docs/celular.md`.
