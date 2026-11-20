@@ -359,6 +359,127 @@ def bateria():
     return _BAT[1]
 
 
+_INTERPRETES = ("sh", "bash", "node")
+_RC = {"lk": threading.Lock(), "prev": None, "cache": (0.0, None)}  # prev = última muestra; cache = (cuándo, resultado) de 5 s
+
+
+def _sc(nombre, defecto):
+    try:
+        return os.sysconf(nombre)
+    except (AttributeError, ValueError, OSError):
+        return defecto
+
+
+def _nombre_proc(comm, cmdline):
+    """Solo un nombre corto: el script si es un intérprete, si no el comm. Nunca rutas ni argumentos."""
+    if comm in _INTERPRETES or comm.startswith("python"):
+        for a in cmdline.split("\0")[1:]:
+            if a.endswith((".py", ".sh", ".js")):
+                return os.path.basename(a.replace("\\", "/"))[:40]
+    return comm[:40]
+
+
+def _muestra(proc="/proc", uid=None, pagina=None):
+    """(t monotónico, ticks totales de /proc/stat o None, {pid: (nombre, ticks utime+stime, rss en bytes)}) de los procesos de `uid`."""
+    pagina = pagina or _sc("SC_PAGE_SIZE", 4096)
+    proc = Path(proc)
+    total = None
+    try:
+        v = [int(x) for x in (proc / "stat").read_text().split("\n")[0].split()[1:9]]
+        total = (sum(v), v[3] + v[4])
+    except (OSError, ValueError, IndexError):
+        pass
+    pids = {}
+    try:
+        carpetas = [d for d in proc.iterdir() if d.name.isdigit()]
+    except OSError:
+        carpetas = []
+    for d in carpetas:
+        try:
+            if uid is not None and d.stat().st_uid != uid:
+                continue
+            s = (d / "stat").read_text()
+            comm = s[s.index("(") + 1:s.rindex(")")]
+            f = s[s.rindex(")") + 1:].split()
+            try:
+                cmd = (d / "cmdline").read_bytes().decode("utf-8", "replace")
+            except OSError:
+                cmd = ""
+            pids[int(d.name)] = (_nombre_proc(comm, cmd), int(f[11]) + int(f[12]), int(f[21]) * pagina)
+        except (OSError, ValueError, IndexError):
+            continue  # el proceso murió o no se deja leer
+    return time.monotonic(), total, pids
+
+
+def _calcular(a, b, nucleos, clk):
+    """Con dos muestras: (cpu_total_pct o None, procesos_pct, lista de procesos agrupada por nombre)."""
+    dt = b[0] - a[0]
+    cap = dt * clk * (nucleos or 1)
+    total_pct = None
+    if a[1] and b[1] and b[1][0] > a[1][0]:
+        total_pct = round(100 * (1 - (b[1][1] - a[1][1]) / (b[1][0] - a[1][0])), 1)
+    grupos = {}
+    for pid, (nom, ticks, rss) in b[2].items():
+        d = max(ticks - a[2][pid][1], 0) if pid in a[2] else 0  # pid nuevo: 0 esta vuelta
+        g = grupos.setdefault(nom, [0, 0])
+        g[0] += d
+        g[1] += rss
+    pct = lambda t: round(100 * t / cap, 1) if cap > 0 else None
+    lista = sorted(({"nombre": n, "cpu_pct": pct(t), "ram_mb": round(r / 1048576, 1)} for n, (t, r) in grupos.items()),
+                   key=lambda x: (x["cpu_pct"] or 0, x["ram_mb"]), reverse=True)[:8]
+    return total_pct, pct(sum(g[0] for g in grupos.values())), lista
+
+
+def _ram(proc="/proc"):
+    try:
+        m = {}
+        for l in (Path(proc) / "meminfo").read_text().splitlines():
+            k, _, v = l.partition(":")
+            m[k] = int(v.split()[0])
+        return {"total": m["MemTotal"] // 1024, "disponible": m["MemAvailable"] // 1024}
+    except (OSError, ValueError, KeyError, IndexError):
+        return None
+
+
+def _mhz(sys_, archivo):
+    vs = []
+    try:
+        for p in Path(sys_, "devices/system/cpu").glob("cpu[0-9]*/cpufreq/" + archivo):
+            try:
+                vs.append(int(p.read_text()) // 1000)
+            except (OSError, ValueError):
+                pass
+    except OSError:
+        pass
+    return sum(vs) // len(vs) if vs else None
+
+
+def recursos(proc="/proc", sys_="/sys", uid=None, ahora=None):
+    """RAM, CPU y procesos del equipo para /salud. Sin lectura = null; nunca levanta. CPU por delta contra la lectura anterior (1 s a 10 min) o dos lecturas a 0,5 s."""
+    nucleos = os.cpu_count()
+    vacio = {"ram_mb": None, "cpu": {"nucleos": nucleos, "mhz_actual": None, "mhz_max": None, "total_pct": None, "procesos_pct": None}, "procesos": []}
+    try:
+        if uid is None and hasattr(os, "getuid"):
+            uid = os.getuid()
+        with _RC["lk"]:
+            t = time.monotonic()
+            if ahora is None and _RC["cache"][1] is not None and t - _RC["cache"][0] < 5:
+                return _RC["cache"][1]
+            prev, cur = _RC["prev"], _muestra(proc, uid)
+            if not (prev and 1 <= cur[0] - prev[0] <= 600):
+                time.sleep(0.5)
+                prev, cur = cur, _muestra(proc, uid)
+            _RC["prev"] = cur
+            tot, pp, lista = _calcular(prev, cur, nucleos, _sc("SC_CLK_TCK", 100))
+            out = {"ram_mb": _ram(proc), "cpu": {"nucleos": nucleos, "mhz_actual": _mhz(sys_, "scaling_cur_freq"),
+                   "mhz_max": _mhz(sys_, "cpuinfo_max_freq"), "total_pct": tot, "procesos_pct": pp if cur[2] else None},
+                   "procesos": lista}
+            _RC["cache"] = (t, out)
+            return out
+    except Exception:  # nunca un 500 por medir
+        return vacio
+
+
 def equipo():
     try:
         s = os.statvfs(Path.home())
@@ -376,7 +497,7 @@ def equipo():
         clipper = {"clips": len(fs), "mb": round(sum(f.st_size for f in fs) / 1048576, 1),
                    "ultimo": int(max((f.st_mtime for f in fs), default=0)) or None}
     return {"bateria": bateria(), "disco_gb": disco, "server_arriba_s": int(time.time() - ARRANQUE),
-            "equipo_arriba_s": up, "trafico_24h": trafico_24h(), "clipper": clipper}
+            "equipo_arriba_s": up, "trafico_24h": trafico_24h(), "clipper": clipper, **recursos()}
 
 
 def salud():
@@ -2674,7 +2795,44 @@ def demo():
     # equipo en /salud: contrato, tráfico, batería sin fuentes, auto-reinicio apagado en tests, sin IPs
     sj = json.loads(get("/salud", {"CF-Connecting-IP": "203.0.113.77"})[1])
     eq = sj["equipo"]
-    assert set(eq) == {"bateria", "disco_gb", "server_arriba_s", "equipo_arriba_s", "trafico_24h", "clipper"}
+    assert set(eq) == {"bateria", "disco_gb", "server_arriba_s", "equipo_arriba_s", "trafico_24h", "clipper", "ram_mb", "cpu", "procesos"}
+    assert set(eq["cpu"]) == {"nucleos", "mhz_actual", "mhz_max", "total_pct", "procesos_pct"} and isinstance(eq["procesos"], list)
+    # /proc y /sys falsos: RAM, nombres cortos, agrupado, % por delta, filtro por uid, sin rutas ni argumentos
+    _r = Path(tempfile.mkdtemp())
+    (_r / "proc").mkdir()
+    (_r / "proc" / "meminfo").write_text("MemTotal:        3145728 kB\nMemFree: 1 kB\nMemAvailable:    1048576 kB\n")
+    (_r / "proc" / "stat").write_text("cpu  100 0 100 700 100 0 0 0\n")
+
+    def _pid(n, comm, cmd, ticks, rss):
+        (_r / "proc" / str(n)).mkdir(exist_ok=True)
+        (_r / "proc" / str(n) / "stat").write_text(f"{n} ({comm}) S " + " ".join(["0"] * 10) + f" {ticks} 0 " + " ".join(["0"] * 8) + f" {rss} 0\n")
+        (_r / "proc" / str(n) / "cmdline").write_bytes(cmd.encode().replace(b" ", b"\0"))
+    _pid(10, "python3", "/data/usr/bin/python3 /home/u/lub/server.py --token=SECRETO", 0, 25600)
+    _pid(11, "cloudflared", "cloudflared tunnel run --token SECRETO", 0, 2560)
+    _pid(12, "runsv", "runsv a", 0, 100)
+    _pid(13, "runsv", "runsv b", 0, 100)
+    for k, f in enumerate((1000000, 2000000)):  # kHz
+        _dd = _r / "sys" / "devices" / "system" / "cpu" / f"cpu{k}" / "cpufreq"
+        _dd.mkdir(parents=True)
+        (_dd / "scaling_cur_freq").write_text(str(f))
+        (_dd / "cpuinfo_max_freq").write_text("2000000")
+    _u = (_r / "proc" / "10").stat().st_uid
+    assert _ram(_r / "proc") == {"total": 3072, "disponible": 1024} and _ram(_r / "nada") is None
+    assert _mhz(_r / "sys", "scaling_cur_freq") == 1500 and _mhz(_r / "sys", "cpuinfo_max_freq") == 2000
+    _ma = _muestra(_r / "proc", _u, 4096)
+    assert len(_ma[2]) == 4 and not _muestra(_r / "proc", _u + 1, 4096)[2]   # otra uid: no se ve
+    _pid(10, "python3", "python3 /h/server.py", 300, 25600)
+    _pid(11, "cloudflared", "x", 100, 2560)
+    _pid(12, "runsv", "x", 50, 100)
+    _pid(13, "runsv", "x", 50, 100)
+    (_r / "proc" / "stat").write_text("cpu  200 0 200 800 200 0 0 0\n")
+    _mb = list(_muestra(_r / "proc", _u, 4096))
+    _mb[0] = _ma[0] + 10
+    tot, pp, lis = _calcular(_ma, tuple(_mb), 4, 100)   # capacidad = 10 s x 100 ticks x 4 núcleos = 4000
+    assert tot == 50.0 and pp == 12.5, (tot, pp)
+    assert [p["nombre"] for p in lis] == ["server.py", "cloudflared", "runsv"] and len(lis) == 3
+    assert lis[0] == {"nombre": "server.py", "cpu_pct": 7.5, "ram_mb": 100.0} and lis[2]["cpu_pct"] == 2.5
+    assert "/home" not in json.dumps(lis) and "SECRETO" not in json.dumps(lis) and "token" not in json.dumps(lis)
     assert set(eq["trafico_24h"]) == {"pedidos", "e4xx", "e5xx", "mb", "ips", "por_hora"}
     assert len(eq["trafico_24h"]["por_hora"]) == 24 and eq["trafico_24h"]["pedidos"] >= 2 and eq["trafico_24h"]["ips"] >= 1
     assert "203.0.113.77" not in json.dumps(sj) and "127.0.0.1" not in json.dumps(sj)
