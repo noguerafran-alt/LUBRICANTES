@@ -1,5 +1,10 @@
 # ESTADO
 
+## /salud con estado del equipo y auto-reinicio (2026-11-19, rama lub-salud-equipo)
+
+- `server.py`: `/salud` suma `equipo` (batería con caché de 60 s, disco, uptimes, tráfico de 24 h en memoria por hora con IPs solo como hash corto, clipper). El tráfico se cuenta en `Handler.enviar`. `vigilar` sale con `os._exit(0)` si `server.py` cambió, tiene más de 30 s y compila (`codigo_cambio`; solo con la bandera `EN_MAIN` que pone `main()`, nunca en tests ni Render). Contrato en `CLAUDE.md` y `docs/celular.md`.
+- Verificado: `python server.py test` OK. No verificado: batería y `/proc/uptime` en el Galaxy A22 real; el auto-reinicio con runit. La primera vez hay que hacer `sv restart lub-server`.
+
 Actualizado 2026-11-19 (Visualizador, página de producto y `/api/producto`; share por marca en Mercado; share ampliado con la serie completa desde 2010; gráficos ampliables en Mercado; modelos 3D sin foto atrás y con malla cerrada; export a Power BI; modelos 3D con Blender y modo presentación con GLB; Brasil; antes: mercado: share de la SE y series de datos.gob.ar). Remoto privado `noguerafran-alt/LUBRICANTES`; la Action corre a diario.
 
 ## Jumbo dada de baja (2026-11-19, rama lub-jumbo)
