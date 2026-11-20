@@ -109,3 +109,9 @@ En el visor, pestaña **Fuentes**, hay una fila «Recolector de casa» con la fe
 - `procesos_pct` y `cpu_pct`: CPU de los procesos propios en % de **toda** la capacidad (100 = los 8 núcleos al máximo), por delta contra la lectura anterior (entre 1 s y 10 min; si no hay, dos lecturas a 0,5 s). Un proceso nuevo cuenta 0 en su primera vuelta. Resultado cacheado 5 s.
 - `procesos`: solo los de la misma uid que el server, agrupados por nombre (`server.py`, `clipper.py`, `cloudflared`, `runsv`…). Nunca rutas ni argumentos.
 - **No se puede ver en Android 13** (medido en el A22 desde Termux): el CPU total del equipo (`/proc/stat` y `/proc/loadavg` dan `Permission denied`, por eso `total_pct` es `null`) y el uptime del equipo (`/proc/uptime`); Android restringe `/proc` a los procesos de la propia app desde la versión 8-10 (hidepid). En una PC Linux `total_pct` sí viene. En Windows no hay `/proc`: todo `null` y `procesos` vacío.
+
+## Por qué red sale el equipo (`equipo.red`)
+
+`equipo.red` = `{tipo, desde}`. `tipo`: `wifi` (la IP de salida es la de `wlan0`), `movil` (hay salida pero no por `wlan0`: el celu perdió el WiFi de casa y sigue por datos, señal de corte de luz o del router), `sin_red` (el connect UDP falla) o `null` (no se puede determinar, p. ej. Windows sin `fcntl`). `desde` = epoch del último cambio de tipo que vio el proceso (en memoria; al arrancar, el arranque). Se mide en cada `/salud` y cada `LUB_RECARGA_MIN` minutos en `vigilar`.
+- Método (Android 13 le niega a Termux netlink, `ip route`, `/proc/net` y `/sys/class/net`): `ioctl SIOCGIFADDR` sobre `wlan0` y un `connect` UDP a `1.1.1.1:53` (no manda nada) para ver la IP de salida. Las IPs y los nombres de interfaz nunca salen en el JSON.
+- Si los datos móviles del celu están apagados, sin WiFi da `sin_red` y el server queda offline (no hay quién lo informe).
