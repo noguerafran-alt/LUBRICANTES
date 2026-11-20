@@ -269,18 +269,122 @@ def recargar(raiz):
     return True
 
 
+ARCHIVO = Path(__file__)
+ARRANQUE = time.time()
+EN_MAIN = False  # lo pone main(): en los tests el auto-reinicio nunca dispara
+try:
+    MTIME0 = ARCHIVO.stat().st_mtime
+except OSError:
+    MTIME0 = 0.0
+
+
+def codigo_cambio(ruta=ARCHIVO, mtime0=None):
+    """True si server.py cambió desde el arranque, el cambio tiene más de 30 s (el pull ya terminó) y el archivo nuevo compila."""
+    if not EN_MAIN:
+        return False
+    try:
+        m = ruta.stat().st_mtime
+        if m == (MTIME0 if mtime0 is None else mtime0) or time.time() - m < 30:
+            return False
+        compile(ruta.read_bytes(), str(ruta), "exec")
+        return True
+    except (OSError, SyntaxError, ValueError):
+        return False
+
+
 def vigilar(raiz, minutos):
     while True:
         time.sleep(minutos * 60)
         recargar(raiz)
+        if codigo_cambio():
+            print("server.py cambió: salgo para que runit me levante con el código nuevo", flush=True)
+            os._exit(0)
+
+
+# Tráfico en memoria: balde por hora epoch -> [pedidos, 4xx, 5xx, bytes, {hash de IP}]; ventana de 24 h.
+# ponytail: se pierde al reiniciar; si hace falta histórico, persistir a disco.
+_TRAF = {}
+_TRAF_LK = threading.Lock()
+
+
+def contar(codigo, nbytes, ip):
+    h = int(time.time() // 3600)
+    ip12 = __import__("hashlib").sha256(ip.encode()).hexdigest()[:12]
+    with _TRAF_LK:
+        b = _TRAF.setdefault(h, [0, 0, 0, 0, set()])
+        b[0] += 1
+        b[1] += 400 <= codigo < 500
+        b[2] += codigo >= 500
+        b[3] += nbytes
+        b[4].add(ip12)
+        for k in [k for k in _TRAF if k <= h - 24]:
+            del _TRAF[k]
+
+
+def trafico_24h():
+    h = int(time.time() // 3600)
+    with _TRAF_LK:
+        bs = [_TRAF.get(h - 23 + i) for i in range(24)]
+        ips = set().union(*(b[4] for b in bs if b))
+        return {"pedidos": sum(b[0] for b in bs if b), "e4xx": sum(b[1] for b in bs if b),
+                "e5xx": sum(b[2] for b in bs if b), "mb": round(sum(b[3] for b in bs if b) / 1048576, 1),
+                "ips": len(ips), "por_hora": [b[0] if b else 0 for b in bs]}
+
+
+_BAT = [0.0, None]  # [cuándo, valor]: caché de 60 s, también del fallo
+
+
+def _leer_bateria():
+    import shutil
+    if shutil.which("termux-battery-status"):
+        try:
+            p = subprocess.run(["termux-battery-status"], capture_output=True, text=True, timeout=5)
+            j = json.loads(p.stdout)
+            return {"pct": j.get("percentage"), "estado": j.get("status"), "temp_c": j.get("temperature")}
+        except (OSError, subprocess.SubprocessError, ValueError, AttributeError):
+            pass
+    d = Path("/sys/class/power_supply/battery")
+    try:
+        t = (d / "temp").read_text().strip()
+        return {"pct": int((d / "capacity").read_text()), "estado": (d / "status").read_text().strip(),
+                "temp_c": int(t) / 10 if t else None}
+    except (OSError, ValueError):
+        return None
+
+
+def bateria():
+    if time.time() - _BAT[0] > 60:
+        _BAT[1] = _leer_bateria()
+        _BAT[0] = time.time()
+    return _BAT[1]
+
+
+def equipo():
+    try:
+        s = os.statvfs(Path.home())
+        disco = {"total": round(s.f_blocks * s.f_frsize / 1e9, 1), "libre": round(s.f_bavail * s.f_frsize / 1e9, 1)}
+    except (OSError, AttributeError):
+        disco = None
+    try:
+        up = int(float(Path("/proc/uptime").read_text().split()[0]))
+    except (OSError, ValueError, IndexError):
+        up = None
+    out = Path.home() / "clipper" / "outbox"
+    clipper = None
+    if out.is_dir():
+        fs = [f.stat() for f in out.iterdir() if f.is_file()]
+        clipper = {"clips": len(fs), "mb": round(sum(f.st_size for f in fs) / 1048576, 1),
+                   "ultimo": int(max((f.st_mtime for f in fs), default=0)) or None}
+    return {"bateria": bateria(), "disco_gb": disco, "server_arriba_s": int(time.time() - ARRANQUE),
+            "equipo_arriba_s": up, "trafico_24h": trafico_24h(), "clipper": clipper}
 
 
 def salud():
-    """Sin secretos: solo qué versión de datos se sirve y la fecha de la última observación (Cloudera y el usuario ven si el celu está al día)."""
+    """Sin secretos: qué versión de datos se sirve, la fecha de la última observación y el estado del equipo (sin IPs, rutas ni env)."""
     obs = (Handler.datos or {}).get("obs") or []
     f = Handler.firma or ""
     return {"ok": True, "commit": "" if f.startswith("mtime:") else f[:12],
-            "ultimo_dato": max((r["fecha"] for r in obs), default="")}
+            "ultimo_dato": max((r["fecha"] for r in obs), default=""), "equipo": equipo()}
 
 
 def integrar_grok(d):
@@ -1799,6 +1903,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header(k, v)
         self.end_headers()
         self.wfile.write(cuerpo)
+        contar(codigo, len(cuerpo), self.headers.get("CF-Connecting-IP") or self.client_address[0])
 
     def json(self, codigo, obj):
         self.enviar(codigo, json.dumps(obj, ensure_ascii=False).encode(), "application/json; charset=utf-8")
@@ -2082,6 +2187,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def demo():
+    global EN_MAIN
     import shutil
     import tempfile
     import urllib.parse
@@ -2565,6 +2671,36 @@ def demo():
         except urllib.error.HTTPError as e:
             return e.code, e.read()
     assert get("/salud")[0] == 200 and json.loads(get("/salud")[1])["ok"] is True
+    # equipo en /salud: contrato, tráfico, batería sin fuentes, auto-reinicio apagado en tests, sin IPs
+    sj = json.loads(get("/salud", {"CF-Connecting-IP": "203.0.113.77"})[1])
+    eq = sj["equipo"]
+    assert set(eq) == {"bateria", "disco_gb", "server_arriba_s", "equipo_arriba_s", "trafico_24h", "clipper"}
+    assert set(eq["trafico_24h"]) == {"pedidos", "e4xx", "e5xx", "mb", "ips", "por_hora"}
+    assert len(eq["trafico_24h"]["por_hora"]) == 24 and eq["trafico_24h"]["pedidos"] >= 2 and eq["trafico_24h"]["ips"] >= 1
+    assert "203.0.113.77" not in json.dumps(sj) and "127.0.0.1" not in json.dumps(sj)
+    _p = Path
+    try:
+        import shutil as _sh
+        _w, _sh.which = _sh.which, lambda *a, **k: None
+        globals()["Path"] = lambda *a: _p("/no/existe/lub")
+        assert _leer_bateria() is None
+    finally:
+        _sh.which = _w
+        globals()["Path"] = _p
+    _f = Path(tempfile.mkdtemp()) / "s.py"
+    _f.write_text("x = 1\n")
+    os.utime(_f, (time.time() - 120, time.time() - 120))
+    assert not EN_MAIN and not codigo_cambio(_f, mtime0=0)   # fuera de main() nunca dispara
+    EN_MAIN = True
+    try:
+        assert codigo_cambio(_f, mtime0=0) and not codigo_cambio(_f, mtime0=_f.stat().st_mtime)
+        _f.write_text("def (:\n")
+        os.utime(_f, (time.time() - 120, time.time() - 120))
+        assert not codigo_cambio(_f, mtime0=0)   # no compila: no sale
+        _f.write_text("x = 1\n")
+        assert not codigo_cambio(_f, mtime0=0)   # mtime reciente: pull a medio escribir
+    finally:
+        EN_MAIN = False
     assert get("/api/ultimo")[0] == 200 and get("/robots.txt")[1] == b"User-agent: *\nDisallow: /\n"
     assert urllib.request.urlopen(base + "/api/ultimo").headers["X-Robots-Tag"] == "noindex, nofollow" and get("/api/ultimo", {"X-API-Key": "mala"})[0] == 200   # la clave vieja o errónea se ignora
     assert get("/")[0] == 200
@@ -2973,6 +3109,8 @@ def demo():
 def main():
     if sys.argv[1:] == ["test"]:
         return demo()
+    global EN_MAIN
+    EN_MAIN = True
     clave = os.environ.get("LUB_CLAVE", "")
     if not clave and not os.environ.get("LUB_CARGA_CLAVE"):
         print("AVISO: sin LUB_CLAVE ni LUB_CARGA_CLAVE, la lectura es abierta y la carga (POST) queda cerrada.", flush=True)
