@@ -2,6 +2,13 @@
 
 Actualizado 2026-11-19 (Visualizador, página de producto y `/api/producto`; share por marca en Mercado; share ampliado con la serie completa desde 2010; gráficos ampliables en Mercado; modelos 3D sin foto atrás y con malla cerrada; export a Power BI; modelos 3D con Blender y modo presentación con GLB; Brasil; antes: mercado: share de la SE y series de datos.gob.ar). Remoto privado `noguerafran-alt/LUBRICANTES`; la Action corre a diario.
 
+## Jumbo dada de baja (2026-11-19, rama lub-jumbo)
+
+- Motivo (verificado en vivo): Jumbo ya no vende aceite de motor online; la categoría `C:/16/126/412/` son fichas discontinuadas, siempre sin stock y con precios basura (probado con `sc=32` y `regionId` de CABA; el intelligent-search solo da WD-40). Desde el 2026-11-03: 224 ítems, 0 con precio.
+- `recolectar.py`: `vtex_jumbo` fuera de `VTEX`; se borró `CENCOSUD` y su uso (`precio_lista` ya no se blanquea por fuente). `server.BAJA` (fuente → fecha, motivo): `fuentes()` la salta, así que no aparece en la pestaña Fuentes, ni en el (i) del encabezado, ni como alerta ni como «sin stock». `NOMBRE_FUENTE` conserva 'Jumbo' para el histórico, que en `data/` no se tocó.
+- Asserts de `pais_fuente`/`pais_de_fuente` pasan a `vtex_easy`; el de «todo sin stock no es falla» usa una fuente ficticia, y uno nuevo comprueba que una fuente en `BAJA` no sale de `fuentes()`.
+- Verificado: `normalizar`, `server`, `sepa` y `recolectar` `test` OK. No corrí el visor en navegador (el cambio es solo del lado server: el visor ya no recibe la fila).
+
 ## Archivo de zips de SEPA con rotación (2026-11-19, rama lub-sepa-archivo)
 
 - Decisión del usuario: el celu tiene 100 GB libres y SEPA publica pocos días hacia atrás; guardar el zip permite reprocesar el pasado si se suman productos al seed.

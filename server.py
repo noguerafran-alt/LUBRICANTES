@@ -384,12 +384,18 @@ def pais_de_fuente(f):
     return "BR" if f.startswith("fx_bcb") else pais_fuente(f)[0]
 
 
+# Fuentes que se dejaron de recolectar para siempre (distinto de PAUSADAS, que se muestran): fuente → (fecha, motivo). No salen en /api/fuentes ni en avisos.
+BAJA = {"vtex_jumbo": ("2026-11-19", "Jumbo ya no vende aceite de motor online: la categoría son fichas discontinuadas, siempre sin stock y con precios basura")}
+
+
 def fuentes(d, hoy):
     por_fuente = defaultdict(list)
     for r in d["fuentes"]:
         por_fuente[r["fuente"]].append(r)
     out = []
     for fuente, filas in sorted(por_fuente.items()):
+        if fuente in BAJA:
+            continue  # dada de baja: ni fila en Fuentes ni aviso; su histórico queda en data/
         filas.sort(key=lambda r: r["fecha"])  # estable: la última corrida del día queda al final
         # error vacío = corrida OK (recolectar.py ya marca n_items == 0 con HTTP 200 como error)
         oks = [r["fecha"] for r in filas if not r["error"]]
@@ -2153,7 +2159,8 @@ def demo():
             base["fuentes"].append({**dict.fromkeys(FUENTES_F, ""), "http": "200", "n_items": "5", "n_con_precio": "0", "n_sin_stock": "5",
                                     "n_sin_match": "0", "n_descartados": "0", **dict(zip(("fecha", "fuente", "error"), x))})
         return {r["fuente"]: r for r in fuentes(base, hoy)}
-    assert not _av([("2026-11-19", "vtex_jumbo", "")])["vtex_jumbo"]["alerta"]   # todo sin stock pero responde bien: no es falla
+    assert not _av([("2026-11-19", "vtex_x", "")])["vtex_x"]["alerta"]   # todo sin stock pero responde bien: no es falla
+    assert "vtex_jumbo" not in _av([("2026-11-03", "vtex_jumbo", ""), ("2026-11-19", "vtex_easy", "")])   # dada de baja: ni fila ni alerta
     g_ = {"fecha": "2026-10-01", "fuente": "grok_helix", "cargado": "2026-10-01T10:00", "producto_id": "", "provincia": "", "pais": "AR", "moneda": "ARS"}
     assert not _av([("2026-11-19", "helix_api", "")], grok=[dict(g_, fecha="2026-11-04")])["grok_helix"]["alerta"]
     h_ = _av([("2026-11-19", "helix_api", "")], grok=[g_])["grok_helix"]   # 49 días: alertaría, pero helix_api lo cubre
@@ -2543,7 +2550,7 @@ def demo():
     assert [u["precio_litro_usd"] for u in con_usd(ultimo(db["obs"]), "ARS", db["fx_tabla"]) if u["producto_id"] == "ypf-x"] == [1.0] and "precio_usd" not in ultimo(db["obs"])[0]
     vu = con_usd(vb, "BRL", db["fx_tabla"])["productos"][0]["ypf"]["mas_barato"]
     assert vu["precio_litro_usd"] == 8.0 and vu["fx_fecha"] == "2026-11-17" and "precio_usd" in vu
-    assert pais_de_fuente("vtex_br_pitstop") == "BR" and pais_de_fuente("fx_bcb_ptax") == "BR" and pais_de_fuente("vtex_jumbo") == "AR"
+    assert pais_de_fuente("vtex_br_pitstop") == "BR" and pais_de_fuente("fx_bcb_ptax") == "BR" and pais_de_fuente("vtex_easy") == "AR"
 
     Handler.datos, Handler.calc, Handler.clave = d, c, "s3cr3t"
     srv = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
