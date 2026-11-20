@@ -33,7 +33,6 @@ VTEX = {
     "vtex_carrefour": ("www.carrefour.com.ar", "C:/635/640/642/"),
     "vtex_masonline": ("www.masonline.com.ar", "C:/1000039/2000174/3000496/"),
     "vtex_easy": ("www.easy.com.ar", "C:/9/68/321/"),
-    "vtex_jumbo": ("www.jumbo.com.ar", "C:/16/126/412/"),
     # C:/3/20/ = aceites sueltos. NO C:/4/24/: son combos de cambio con colocación (precio de servicio).
     # AvailableQuantity=99999 es relleno ("hay stock"), no cantidad.
     "vtex_norauto": ("www.norauto.com.ar", "C:/3/20/"),
@@ -41,7 +40,6 @@ VTEX = {
     "vtex_br_pitstop": ("www.pitstop.com.br", None),
     "vtex_br_altese": ("www.altese.com.br", None),
 }
-CENCOSUD = {"vtex_jumbo"}  # ListPrice inflado ~82 veces: no se guarda
 # AvailableQuantity que es relleno ("hay stock") y no una cantidad: la fuente guarda stock vacío. Norauto 99999 (las demás
 # argentinas, igual); Pitstop y Altese también ponen 100 en casi todo.
 RELLENO_STOCK = {"vtex_br_pitstop": {99999, 100}, "vtex_br_altese": {99999, 100}}
@@ -225,7 +223,7 @@ def avisos_vtex(fuente, productos, vistos=None):
             o = s["commertialOffer"] if s else {}
             a = dict(url=p.get("link", ""), ean=it.get("ean") or "", titulo=titulo,
                      marca_cruda=p.get("brand", ""), precio=o.get("Price") or 0,
-                     precio_lista="" if fuente in CENCOSUD else o.get("ListPrice"),
+                     precio_lista=o.get("ListPrice"),
                      stock=None if o.get("AvailableQuantity") in relleno else o.get("AvailableQuantity", 0),
                      vendedor=s.get("sellerName", "") if s else "",
                      imagen=ml.https(((it.get("images") or [{}])[0]).get("imageUrl"), f"https://{host}/"))
@@ -577,7 +575,7 @@ def demo():
     assert all(f["provincia"] == "online" and f["pais"] == "AR" and f["moneda"] == "ARS" for f in filas) and OBS[-4:] == ["provincia", "pais", "moneda", "capturado"]
     assert all(re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ", f["capturado"]) for f in filas)
     # ---- Brasil ----
-    assert pais_fuente("vtex_br_pitstop") == ("BR", "BRL") and pais_fuente("oficial_br_notaparana") == ("BR", "BRL") and pais_fuente("vtex_jumbo") == ("AR", "ARS")
+    assert pais_fuente("vtex_br_pitstop") == ("BR", "BRL") and pais_fuente("oficial_br_notaparana") == ("BR", "BRL") and pais_fuente("vtex_easy") == ("AR", "ARS")
     # VTEX Brasil: relleno 100/99999 = stock vacío; stock 0 = sin stock; lotes/kits fuera; dedupe por itemId entre términos; 24X1L = 24 × 1 L
     def vp(item, nombre, ean, precio, q, link="https://www.pitstop.com.br/x/p"):
         return {"link": link, "brand": "Elaion", "productName": nombre, "items": [{"itemId": item, "ean": ean, "nameComplete": nombre,

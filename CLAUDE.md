@@ -118,7 +118,6 @@ data/macro/energia.csv # ventas de lubricantes y gasoil de la Secretaría de Ene
 - `fecha` ISO `AAAA-MM-DD`. `precio` en ARS. `stock` entero o vacío.
 - `match`: `ean|texto|none`.
 - Si `stock == 0` o `precio <= 0`, no se escribe fila (se cuenta en `fuentes.csv`).
-- Cencosud (Jumbo/Disco/Vea): `ListPrice` viene inflado, va vacío en `precio_lista`.
 - **Fuentes mayoristas** (hoy `shopify_datri`, lista `MAYORISTAS` en `tiendas.py`): el precio es por caja o tambor
   y no se verificó si incluye IVA. `litros` es por unidad y `unidades` las de la caja (CAJA 12X1L → 1 y 12;
   TAMBOR 205L → 205 y 1; si el título habla en litros y la variante en quarts, `litros` vacío), así que
@@ -156,7 +155,7 @@ data/macro/energia.csv # ventas de lubricantes y gasoil de la Secretaría de Ene
   si también `n_descartados` está vacío o es 0. En `ml` los productos ajenos se descartan antes de pedir sus publicaciones y
   no figuran en ninguno de los contadores (el log de la corrida dice cuántos).
 - `n_items == 0` con HTTP 200 es error: `"categoria vacia, revisar fq"` (Nota Paraná: `"API devolvió 0 productos (¿bloqueo de IP?)"`).
-- `n_items > 0` y `n_con_precio == 0` sin error (Jumbo, todo sin stock): no es caída;
+- `n_items > 0` y `n_con_precio == 0` sin error (todo sin stock): no es caída;
   el visor dice "sin precios con stock" solo si `n_sin_stock == n_items`; si hay `n_descartados` muestra "n guardados · m descartados" (no aplica a `ypf_gql` ni `ml_cat`, que no traen precio).
 
 **data/ml_oferta.csv** — `fecha,categoria_id,categoria,total_items`
@@ -213,7 +212,7 @@ Tarea de Windows (alternativa): `schtasks /Create /TN LUBRICANTES-SEPA /SC DAILY
 | `vtex_carrefour` | `https://www.carrefour.com.ar/api/catalog_system/pub/products/search?fq=C:/635/640/642/&_from=&_to=` |
 | `vtex_masonline` | `https://www.masonline.com.ar/...` `fq=C:/1000039/2000174/3000496/` |
 | `vtex_easy` | `https://www.easy.com.ar/...` `fq=C:/9/68/321/` |
-| `vtex_jumbo` | `https://www.jumbo.com.ar/...` `fq=C:/16/126/412/` — precio solo con `AvailableQuantity>0` |
+| `vtex_jumbo` | **DADA DE BAJA el 2026-11-19** (sacada de `recolectar.VTEX`). Jumbo ya no vende aceite de motor online: `fq=C:/16/126/412/` son fichas discontinuadas, siempre `AvailableQuantity` 0 y precios basura; probado con `sc=32` (único canal activo) y `regionId` de CABA, el intelligent-search no devuelve ningún aceite de motor (solo WD-40). Desde 2026-11-03 daba 224 ítems y 0 con precio. Histórico en `data/` intacto; `server.BAJA` la oculta de `/api/fuentes` y los avisos |
 | `sepa` | CKAN `package_show?id=sepa-precios` → zip del día |
 | `vtex_norauto` | `https://www.norauto.com.ar/...` `fq=C:/3/20/` (aceites sueltos; NO `C:/4/24/`: combos con colocación). `AvailableQuantity=99999` es relleno: `stock` queda vacío. `ListPrice` = `Price` (verificado 2026-11-04), se guarda |
 | `shopify_datri` | `https://tiendadatri.com.ar/products.json?limit=250&page=N` hasta página vacía; `product_type` LUBRICANTES, SINTÉTICO, SEMISINTÉTICO, MINERAL, MULTIGRADO, MONOGRADO. **Mayorista.** Marca solo si el título la dice (`vendor` es D'ATRI) |
@@ -234,7 +233,7 @@ VTEX pagina de a 50 (`_from`/`_to`, máximo 2500). 1 request/s por host,
 ## Fuentes: en uso y candidatas
 
 **En uso** (todas las de la tabla de arriba, más Grok; Brasil: Pitstop, Altese y Nota Paraná, la última **con cautela**): Mercado Libre (API con token) · SEPA/Precios Claros · Carrefour,
-Más Online, Easy, Jumbo, Norauto (VTEX) · D'Atri (Shopify, mayorista) · LS Palermo y Casa González (Tiendanube) ·
+Más Online, Easy, Norauto (VTEX; Jumbo dada de baja el 2026-11-19) · D'Atri (Shopify, mayorista) · LS Palermo y Casa González (Tiendanube) ·
 catálogo YPF (GraphQL, sin precios) · categorías ML · helixturno.com.ar: API JSON automática (`helix_api`, combos como servicios) y, aparte, vía Grok (`grok_helix`).
 
 **Candidatas, NO en uso:** relevamiento del 2026-11-04 en `docs/relevamiento/fuentes-candidatas.md` (61 sitios, 37 con
