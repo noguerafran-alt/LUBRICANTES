@@ -295,6 +295,7 @@ def codigo_cambio(ruta=ARCHIVO, mtime0=None):
 def vigilar(raiz, minutos):
     while True:
         time.sleep(minutos * 60)
+        red_actualizar()  # que `desde` no dependa de que alguien pida /salud
         recargar(raiz)
         if codigo_cambio():
             print("server.py cambió: salgo para que runit me levante con el código nuevo", flush=True)
@@ -480,6 +481,55 @@ def recursos(proc="/proc", sys_="/sys", uid=None, ahora=None):
         return vacio
 
 
+_RED = {"lk": threading.Lock(), "tipo": None, "desde": None}
+
+
+def red_tipo(ip_wlan, ip_salida, salida_ok=True):
+    """Pura. wifi: sale por wlan0; movil: sale por otra interfaz; sin_red: el connect UDP falló; None: no se sabe."""
+    if not salida_ok:
+        return "sin_red"
+    if not ip_salida:
+        return None
+    return "wifi" if ip_wlan and ip_salida == ip_wlan else "movil"
+
+
+def _leer_red():
+    """(ip_wlan0 o None, ip_salida o None, salida_ok) del sistema; sin fcntl (Windows) = (None, None, True) y el tipo queda None. Las IPs no salen de acá hacia el JSON."""
+    try:
+        import fcntl, socket, struct
+    except ImportError:
+        return None, None, True
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.settimeout(2)
+        try:
+            try:
+                ip_wlan = socket.inet_ntoa(fcntl.ioctl(s.fileno(), 0x8915, struct.pack("256s", b"wlan0"))[20:24])
+            except OSError:
+                ip_wlan = None  # wlan0 sin IP o sin la interfaz
+            try:
+                s.connect(("1.1.1.1", 53))  # UDP: no manda nada, solo elige la ruta
+            except OSError:
+                return ip_wlan, None, False
+            return ip_wlan, s.getsockname()[0], True
+        finally:
+            s.close()
+    except Exception:
+        return None, None, True
+
+
+def red_actualizar(leer=None, ahora=None):
+    """Mide la red y, si el tipo cambió respecto de lo que vio el proceso, anota `desde`. Devuelve {tipo, desde}; nunca levanta ni expone IPs."""
+    try:
+        tipo = red_tipo(*(leer or _leer_red)())
+    except Exception:
+        tipo = None
+    with _RED["lk"]:
+        if _RED["desde"] is None or tipo != _RED["tipo"]:
+            _RED["tipo"], _RED["desde"] = tipo, int(time.time() if ahora is None else ahora)
+        return {"tipo": _RED["tipo"], "desde": _RED["desde"]}
+
+
 def equipo():
     try:
         s = os.statvfs(Path.home())
@@ -497,7 +547,7 @@ def equipo():
         clipper = {"clips": len(fs), "mb": round(sum(f.st_size for f in fs) / 1048576, 1),
                    "ultimo": int(max((f.st_mtime for f in fs), default=0)) or None}
     return {"bateria": bateria(), "disco_gb": disco, "server_arriba_s": int(time.time() - ARRANQUE),
-            "equipo_arriba_s": up, "trafico_24h": trafico_24h(), "clipper": clipper, **recursos()}
+            "equipo_arriba_s": up, "trafico_24h": trafico_24h(), "clipper": clipper, "red": red_actualizar(), **recursos()}
 
 
 def salud():
@@ -2795,7 +2845,21 @@ def demo():
     # equipo en /salud: contrato, tráfico, batería sin fuentes, auto-reinicio apagado en tests, sin IPs
     sj = json.loads(get("/salud", {"CF-Connecting-IP": "203.0.113.77"})[1])
     eq = sj["equipo"]
-    assert set(eq) == {"bateria", "disco_gb", "server_arriba_s", "equipo_arriba_s", "trafico_24h", "clipper", "ram_mb", "cpu", "procesos"}
+    assert set(eq) == {"bateria", "disco_gb", "server_arriba_s", "equipo_arriba_s", "trafico_24h", "clipper", "red", "ram_mb", "cpu", "procesos"}
+    # red: función pura, cambio de tipo (con `desde`), Windows = null, sin IPs en el JSON (IPs falsas inyectadas)
+    assert [red_tipo(*a) for a in (("192.0.2.5", "192.0.2.5"), ("192.0.2.5", "198.51.100.9"), (None, "198.51.100.9"), ("192.0.2.5", None, False), (None, None))] == ["wifi", "movil", "movil", "sin_red", None]
+    assert set(eq["red"]) == {"tipo", "desde"} and isinstance(eq["red"]["desde"], int)
+    if os.name == "nt":
+        assert eq["red"]["tipo"] is None
+    _g = (_RED["tipo"], _RED["desde"])
+    _RED["tipo"] = _RED["desde"] = None
+    assert red_actualizar(lambda: ("192.0.2.5", "192.0.2.5", True), 100) == {"tipo": "wifi", "desde": 100}
+    assert red_actualizar(lambda: ("192.0.2.5", "192.0.2.5", True), 200)["desde"] == 100  # mismo tipo: no cambia
+    _rj = red_actualizar(lambda: (None, "198.51.100.9", True), 300)
+    assert _rj == {"tipo": "movil", "desde": 300}
+    assert "192.0.2" not in json.dumps(_rj) and "198.51.100" not in json.dumps(_rj) and "wlan" not in json.dumps(eq["red"])
+    assert red_actualizar(lambda: 1 / 0, 400) == {"tipo": None, "desde": 400}
+    _RED["tipo"], _RED["desde"] = _g
     assert set(eq["cpu"]) == {"nucleos", "mhz_actual", "mhz_max", "total_pct", "procesos_pct"} and isinstance(eq["procesos"], list)
     # /proc y /sys falsos: RAM, nombres cortos, agrupado, % por delta, filtro por uid, sin rutas ni argumentos
     _r = Path(tempfile.mkdtemp())
@@ -3277,6 +3341,7 @@ def main():
     Handler.datos = cargar(raiz)
     Handler.calc = calcular(Handler.datos)
     Handler.clave, Handler.raiz = clave, Path(raiz)
+    red_actualizar()  # fija el tipo inicial y su `desde` = arranque
     minutos = float(os.environ.get("LUB_RECARGA_MIN", "5"))  # en Render los datos cambian con el redeploy: sin hilo
     if minutos > 0 and not os.environ.get("RENDER"):
         threading.Thread(target=vigilar, args=(raiz, minutos), daemon=True).start()

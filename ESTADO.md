@@ -1,5 +1,10 @@
 # ESTADO
 
+## /salud con la red de salida (2026-11-19)
+
+- `server.py`: `equipo.red = {tipo: wifi|movil|sin_red|null, desde}` (`red_tipo` pura, `_leer_red`, `red_actualizar` con lock). Se mide en cada `/salud`, en `main()` y en el bucle `vigilar`. Sin IPs ni interfaces en el JSON. Contrato en `CLAUDE.md` y `docs/celular.md` (incluye: datos móviles apagados + sin WiFi = `sin_red` y server offline). El visor no cambió (falta el aviso en la página de servidores).
+- Verificado: `python server.py test` OK (pura, cambio de tipo, null en Windows, sin IPs con IPs falsas). No verificado en el Galaxy A22 real (ioctl a `wlan0`).
+
 ## /salud con RAM, CPU y procesos (2026-11-19)
 
 - `server.py`: `equipo` suma `ram_mb`, `cpu` y `procesos` (`recursos()`, `_muestra`, `_calcular`; lectores con raíz de `/proc` y `/sys` como parámetro). CPU por delta con lock y caché de 5 s, solo procesos de la misma uid, nombres cortos sin rutas ni argumentos. Contrato en `CLAUDE.md`; qué no se ve en Android 13 en `docs/celular.md`. El visor no cambió (falta mostrarlo en la página de servidores).
