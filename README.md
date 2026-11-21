@@ -36,7 +36,7 @@ Una Task diaria de SuperGrok devuelve un CSV que se pega en la pestaña **Cargar
 2. Secrets del repo: `ML_CLIENT_ID`, `ML_CLIENT_SECRET`, `ML_REFRESH_TOKEN` y `GH_PAT` (PAT que puede escribir secrets: el refresh token rota en cada corrida y la Action guarda el nuevo).
 
 ## Fuentes
-`python recolectar.py --solo <fuente>` corre una (`vtex_norauto`, `shopify_datri`, `tn_lspalermo`, `tn_spch`, …); `--solo helix_api` lee los combos Shell de helixturno (van a `data/grok/` como servicios); `python tiendas.py test` prueba los lectores Shopify/Tiendanube sin red.
+`python recolectar.py --solo <fuente>` corre una (`vtex_norauto`, `shopify_datri`, `tn_lspalermo`, `tn_rano`, `woo_ceridono`, …); `--solo helix_api` lee los combos Shell de helixturno (van a `data/grok/` como servicios); `python tiendas.py test` prueba los lectores Shopify/Tiendanube/WooCommerce sin red.
 
 ## Reglas de matcheo
 Si cambia `seed/`, correr `python recolectar.py --renormalizar`.
