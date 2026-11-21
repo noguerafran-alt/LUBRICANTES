@@ -686,7 +686,10 @@ def fuentes(d, hoy):
 CADENCIA = {"macro_energia": "mensual", "oficial_br_notaparana": "pausada"}
 MENSUAL_DIAS, MANUAL_DIAS = 45, 30  # tope de antigüedad de la última bajada buena (la SE publica una vez por mes) / de una carga manual
 # fuente → la que la cubre: si la cubridora está al día, la cubierta no es un aviso (la carga manual alternativa, la serie que ya no es la fuente del dato)
-CUBIERTA = {"grok_helix": "helix_api", "macro_92_2_tipo_cambiion_0_0_21_24": "fx_bcra"}
+CUBIERTA = {"grok_helix": "helix_api", "macro_92_2_tipo_cambiion_0_0_21_24": "fx_bcra",
+            # sitios que Grok cargaba y desde 2026-11-21 lee el recolector: su histórico grok_* no alerta a los 30 días
+            **{f"grok_{s}": f"tn_{s}" for s in ("rano", "olafil", "lubrimaster", "lubricentrodg", "exporepuestos", "netrenault", "gramaglia", "torooils")},
+            "grok_larutaok": "woo_larutaok", "grok_ceridono": "woo_ceridono"}
 
 
 def cadencia(f):
@@ -1082,6 +1085,9 @@ def aplanar_reventa(v):
 # ---------- /api/producto: lo que muestra la página de producto del visor (y lo que consume el agente de sobreprecios) ----------
 NOMBRE_FUENTE = {"ypf_gql": "YPF catálogo", "vtex_carrefour": "Carrefour", "vtex_masonline": "Masonline", "vtex_easy": "Easy", "vtex_jumbo": "Jumbo",
                  "vtex_norauto": "Norauto", "shopify_datri": "Tienda D'Atri", "tn_lspalermo": "LS Palermo", "tn_spch": "Casa González",
+                 "tn_rano": "Repuestos Rano", "tn_olafil": "Olafil", "tn_lubrimaster": "Lubrimaster", "tn_lubricentrodg": "Lubricentro DG",
+                 "tn_exporepuestos": "Exporepuestos", "tn_netrenault": "Net Renault", "tn_gramaglia": "Gramaglia Repuestos", "tn_torooils": "Toro Oils",
+                 "woo_larutaok": "Neumáticos La Ruta OK", "woo_ceridono": "Ceridono",
                  "sepa": "Precios Claros (SEPA)", "ml": "Mercado Libre", "vtex_br_pitstop": "Pitstop (Brasil)", "vtex_br_altese": "Altese (Brasil)",
                  "oficial_br_notaparana": "Nota Paraná (Brasil, notas fiscales)"}
 METODO = ("Cada aviso (fuente + url + ean + título + vendedor + envase + provincia) cuenta una vez, con su observación más reciente de la ventana "

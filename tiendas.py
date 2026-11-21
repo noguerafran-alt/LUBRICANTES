@@ -1,4 +1,4 @@
-"""Tiendas sin catálogo VTEX: Shopify (D'Atri, mayorista) y Tiendanube (LS Palermo, Casa González).
+"""Tiendas sin catálogo VTEX: Shopify (D'Atri, mayorista), Tiendanube y WooCommerce (Store API).
 
 Cada lector devuelve (http, avisos, error) como `recolectar.vtex`. Respeta robots.txt de cada host
 (urllib.robotparser) y usa ml.pedir: 1 req/s por host y el User-Agent honesto de ml.UA.
@@ -18,7 +18,13 @@ import ml
 from normalizar import sae_de, texto
 
 SHOPIFY = {"shopify_datri": "https://tiendadatri.com.ar"}
-TIENDANUBE = {"tn_lspalermo": "https://lspalermo.com.ar", "tn_spch": "https://spch.com.ar"}
+TIENDANUBE = {"tn_lspalermo": "https://lspalermo.com.ar", "tn_spch": "https://spch.com.ar",
+              "tn_rano": "https://repuestosrano.com.ar", "tn_olafil": "https://www.olafil.com.ar",
+              "tn_lubrimaster": "https://lubrimaster.mitiendanube.com", "tn_lubricentrodg": "https://lubricentrodg.mitiendanube.com",
+              "tn_exporepuestos": "https://www.exporepuestos.com", "tn_netrenault": "https://www.netrenault.com.ar",
+              "tn_gramaglia": "https://gramagliarepuestos.com.ar", "tn_torooils": "https://lubricentrotorooils.mitiendanube.com"}
+WOOCOMMERCE = {"woo_larutaok": "https://neumaticoslarutaok.com", "woo_ceridono": "https://ceridono.ar"}
+TERMINOS_WOO = ("aceite", "lubricante")
 MAYORISTAS = {"shopify_datri"}  # precio por caja/tambor, IVA no verificado: /api/indice los excluye
 
 # product_type de D'Atri que son lubricantes de motor, transmisión o industriales (el resto es repuesto).
@@ -179,6 +185,51 @@ def tiendanube(fuente, fecha):
     return http, avisos, ""
 
 
+# ---------- WooCommerce (Store API pública) ----------
+def avisos_woo(productos):
+    """Productos de /wp-json/wc/store/v1/products → avisos. price viene en unidades menores (currency_minor_unit)."""
+    out = []
+    for p in productos:
+        pr = p.get("prices") or {}
+        div = 10 ** int(pr.get("currency_minor_unit", 2))
+        try:
+            precio = int(pr.get("price") or 0) / div
+            lista = int(pr.get("regular_price") or 0) / div
+        except ValueError:
+            continue
+        titulo = html.unescape(p.get("name") or "").strip()
+        if not titulo or NO_ACEITE.search(texto(titulo)):
+            continue
+        sku = (p.get("sku") or "").strip()
+        a = dict(url=p.get("permalink") or "", ean=sku if re.fullmatch(r"\d{13}", sku) else "", titulo=titulo, marca_cruda="",
+                 precio=precio, precio_lista=lista if lista > precio else "", stock=None if p.get("is_in_stock") else 0, vendedor="",
+                 imagen=ml.https(((p.get("images") or [{}])[0]).get("src")))
+        e = envase(titulo)
+        if e:
+            a["litros"], a["unidades"] = e
+        out.append(a)
+    return out
+
+
+def woocommerce(fuente, fecha):
+    base = WOOCOMMERCE[fuente]
+    api = base + "/wp-json/wc/store/v1/products"
+    if not permitido(api):
+        return 0, [], "robots.txt no deja leer /wp-json/wc/store/v1/products"
+    vistos, avisos, http = set(), [], 0
+    for t in TERMINOS_WOO:
+        for pag in range(1, 11):
+            http, d = ml.pedir(f"{api}?per_page=100&page={pag}&search={t}")
+            if not isinstance(d, list):
+                return http, [], f"HTTP {http} en search={t} page={pag}"
+            nuevos = [p for p in d if p.get("id") not in vistos]
+            vistos.update(p.get("id") for p in d)
+            avisos += avisos_woo(nuevos)
+            if len(d) < 100:
+                break
+    return http, avisos, ""
+
+
 def demo():
     # litros de caja y tambor
     assert envase("EDGE PROF E 0W-30 (CAJA 12X1L)") == (1.0, 12)
@@ -229,6 +280,17 @@ def demo():
     assert parsear_tn('<meta property="og:image" content="//cdn.t.com/p.jpg">' + pag, "https://t.com/productos/p/")["imagen"] == "https://cdn.t.com/p.jpg"
     assert parsear_tn(pag.replace("}];", "},{}];"), "u") is None  # dos variantes: no se adivina
     assert parsear_tn("<html>sin variantes</html>", "u") is None
+    # WooCommerce: precio en unidades menores, regular_price → precio_lista, sin stock, EAN en sku, filtros fuera
+    P = lambda pr, rp: dict(price=str(pr), regular_price=str(rp), currency_minor_unit=2)
+    pw = [dict(id=1, name="Aceite Valvoline 10w40 4 Litros", prices=P(4375000, 5000000), is_in_stock=True, sku="7790000012345",
+               permalink="https://w.com/product/a/", images=[dict(src="https://w.com/a.jpg")]),
+          dict(id=2, name="Aceite Shell &amp; Co 5w30 1 Litro", prices=P(1800000, 1800000), is_in_stock=False, sku="abc", permalink="https://w.com/product/b/"),
+          dict(id=3, name="Filtro de aceite Gol", prices=P(100, 100), is_in_stock=True, sku="", permalink="u"),
+          dict(id=4, name="Aceite 0 decimales", prices=dict(price="999", regular_price="999", currency_minor_unit=0), is_in_stock=True, sku="", permalink="u")]
+    w = avisos_woo(pw)
+    assert len(w) == 3 and w[0]["precio"] == 43750.0 and w[0]["precio_lista"] == 50000.0 and w[0]["ean"] == "7790000012345" and w[0]["stock"] is None
+    assert w[0]["imagen"] == "https://w.com/a.jpg" and w[0]["url"] == "https://w.com/product/a/" and w[0]["vendedor"] == ""
+    assert w[1]["stock"] == 0 and w[1]["precio_lista"] == "" and w[1]["ean"] == "" and w[1]["titulo"] == "Aceite Shell & Co 5w30 1 Litro" and w[2]["precio"] == 999.0
     # rotación determinística: todo el conjunto se cubre en k días, sin repetir dentro del ciclo
     urls = [f"https://t.com/productos/aceite-{i}/" for i in range(250)]
     d1, c1 = elegir(urls, "2026-11-04")

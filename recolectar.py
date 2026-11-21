@@ -471,6 +471,8 @@ def correr(fuente, fecha, rel=None, imgs=None):
             fila["http"], avisos, fila["error"] = tiendas.shopify(fuente)
         elif fuente in tiendas.TIENDANUBE:
             fila["http"], avisos, fila["error"] = tiendas.tiendanube(fuente, fecha)
+        elif fuente in tiendas.WOOCOMMERCE:
+            fila["http"], avisos, fila["error"] = tiendas.woocommerce(fuente, fecha)
         elif fuente == "oficial_br_notaparana":
             fila["http"], avisos, fila["error"] = notaparana()
         else:
@@ -495,7 +497,7 @@ PAUSADAS = {"oficial_br_notaparana"}  # desde 2026-11-18: la API devuelve datos 
 
 
 def fuentes_por_defecto(env=os.environ):
-    todas = ["ypf_gql", *VTEX, *tiendas.SHOPIFY, *tiendas.TIENDANUBE, "oficial_br_notaparana", "helix_api", "ml_cat", "ml"]
+    todas = ["ypf_gql", *VTEX, *tiendas.SHOPIFY, *tiendas.TIENDANUBE, *tiendas.WOOCOMMERCE, "oficial_br_notaparana", "helix_api", "ml_cat", "ml"]
     return [f for f in todas if f not in PAUSADAS and not (env.get("GITHUB_ACTIONS") == "true" and f in FUENTES_PC)]
 
 
