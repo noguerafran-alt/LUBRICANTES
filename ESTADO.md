@@ -1,5 +1,12 @@
 # ESTADO
 
+## Página de producto = Visualizador (2026-11-21, rama prodvit)
+
+- Discrepancia: el Visualizador daba 19 observaciones y promedio $ 39.562/L para Elaion Auro D1 530 y la página de producto 93 avisos y mediana $ 45.000. Causas: ventana (vitrina 3 días, producto 30), clave de aviso (producto sumaba la provincia: SEPA contaba un comercio por provincia, y las filas viejas sin provincia duplicaban a las nuevas) y número destacado (promedio vs mediana). Sanidad, mayoristas, Grok sin verificar y avisos sin litros ya coincidían.
+- `server.py`: `vitrina` ahora usa `_avisos(..., prov_en_url=None)` y `_validos` (la misma función que `/api/producto`); `producto()` usa clave sin provincia, ventana por defecto `VENTANA_DIAS` (3; `dias`, `desde`, `hasta` siguen) y un solo competidor por `comp_id`. `comparacion` suma `promedio_ypf_litro`, `promedio_comp_litro`, `dif_pct_promedio_comp_vs_ypf` (los campos de mediana siguen). `/api/provincias` y `/api/reventa` no cambian. Un detalle: el «último día con datos» de la vitrina ahora cuenta cualquier observación con producto, no solo las con litros.
+- `site/index.html`: el selector Ventana arranca en «3 días»; la primera tarjeta es el promedio por litro; la comparación usa promedio.
+- Verificado: `python server.py test` OK (assert vitrina == producto, con SEPA en dos provincias); contra los datos reales, 116 productos y sus equivalentes: 0 diferencias de n/promedio/mediana/comparación. En el navegador sobre el server local, Auro D1 530: 19 avisos, promedio $ 39.562, mediana $ 43.461 en la vitrina y en la página de producto. Quien usaba `/api/producto` sin `dias` ahora recibe 3 días (pasar `dias=30`).
+
 ## /salud con la red de salida (2026-11-19)
 
 - `server.py`: `equipo.red = {tipo: wifi|movil|sin_red|null, desde}` (`red_tipo` pura, `_leer_red`, `red_actualizar` con lock). Se mide en cada `/salud`, en `main()` y en el bucle `vigilar`. Sin IPs ni interfaces en el JSON. Contrato en `CLAUDE.md` y `docs/celular.md` (incluye: datos móviles apagados + sin WiFi = `sin_red` y server offline). El visor no cambió (falta el aviso en la página de servidores).
