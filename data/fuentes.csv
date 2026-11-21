@@ -244,6 +244,7 @@ fecha,fuente,http,n_items,n_con_precio,n_sin_stock,n_sin_match,error,n_descartad
 2026-11-20,casa,,4,4,0,0,,0
 2026-11-19,sepa,200,1186,879,0,0,,307
 2026-11-20,ml,200,1873,1873,0,0,,0
+2026-11-20,sepa,200,1185,879,0,0,,306
 2026-11-21,ypf_gql,200,69,0,0,0,,0
 2026-11-21,vtex_carrefour,200,185,12,115,0,,58
 2026-11-21,vtex_masonline,200,61,36,5,0,,20
@@ -256,7 +257,7 @@ fecha,fuente,http,n_items,n_con_precio,n_sin_stock,n_sin_match,error,n_descartad
 2026-11-21,tn_spch,200,63,26,5,0,,32
 2026-11-21,helix_api,200,8,8,0,0,,0
 2026-11-21,ml_cat,200,4,0,0,0,,0
-2026-11-20,sepa,200,1185,879,0,0,,306
+2026-11-21,sepa,200,1185,879,0,0,,306
 2026-11-21,macro_series,200,15,15,0,0,,0
 2026-11-21,fx_bcb_ptax,200,7,7,0,0,,0
 2026-11-21,fx_bcra,200,8,8,0,0,,0
