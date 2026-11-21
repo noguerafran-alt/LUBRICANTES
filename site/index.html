@@ -662,7 +662,7 @@ body:has(#dl[open]), body:has(#ix-dl[open]) { overflow: hidden; }
       <div><h2 class="vt-titulo" id="pr-titulo">Producto</h2><p class="nota" id="pr-fecha"></p></div>
       <div class="vt-filtro">
         <a class="vt-toggle" href="#visualizador">&larr; Volver al Visualizador</a>
-        <label>Ventana <select id="pr-dias"><option value="7">7 días</option><option value="30" selected>30 días</option><option value="90">90 días</option><option value="366">1 año</option><option value="custom" hidden>Personalizado</option></select></label>
+        <label>Ventana <select id="pr-dias"><option value="3" selected>3 días</option><option value="7">7 días</option><option value="30">30 días</option><option value="90">90 días</option><option value="366">1 año</option><option value="custom" hidden>Personalizado</option></select></label>
         <label>Desde <input type="date" id="pr-desde"></label>
         <label>Hasta <input type="date" id="pr-hasta"></label>
         <label class="chk"><span><input type="checkbox" id="pr-may"> Sumar mayoristas al cálculo</span></label>
@@ -2935,7 +2935,7 @@ function tablaPub(ps) {
 function resumenPub(r) {
   if (!r.n) return `<p class="vt-vacio">Ningún aviso entra al cálculo en esta ventana: no hay mediana ni promedio.</p>`;
   const c = (t, v) => `<div><b>${v}</b><span>${t}</span></div>`;
-  return `<div class="pr-res">${c("avisos en el cálculo", entero.format(r.n))}${c("mediana por litro", mon.format(r.mediana_litro))}${c("promedio por litro", mon.format(r.promedio_litro))}${c("mínimo", mon.format(r.min_litro))}${c("máximo", mon.format(r.max_litro))}${c("percentil 25", mon.format(r.p25_litro))}${c("percentil 75", mon.format(r.p75_litro))}</div>`;
+  return `<div class="pr-res">${c("promedio por litro", mon.format(r.promedio_litro))}${c("avisos en el cálculo", entero.format(r.n))}${c("mediana por litro", mon.format(r.mediana_litro))}${c("mínimo", mon.format(r.min_litro))}${c("máximo", mon.format(r.max_litro))}${c("percentil 25", mon.format(r.p25_litro))}${c("percentil 75", mon.format(r.p75_litro))}</div>`;
 }
 // un producto de la competencia no tiene equivalentes propios: es el equivalente de uno o más YPF
 function sinYpf(p) {
@@ -2950,7 +2950,7 @@ function paginaProducto(v) {
   const eqs = v.equivalentes.map(e => `<div class="pr-sec"><h3>${esc(nombreCompleto(e.marca, e.nombre))}</h3>
       <p class="nota">${esc(TIPO[e.tipo] || e.tipo)}, evidencia ${esc(e.evidencia)}. ${e.en_comparacion ? "Entra a la comparación con YPF." : `Fuera de la comparación: ${esc(MOTIVO[e.motivo_exclusion] || e.motivo_exclusion)}.`}</p>
       ${resumenPub(e.resumen)}${tablaPub(e.publicaciones)}</div>`).join("");
-  const dif = cmp.dif_pct_mediana_comp_vs_ypf;
+  const dif = cmp.dif_pct_promedio_comp_vs_ypf;
   return `<div class="pr-cab"><figure>${foto(p.imagen, nom, true)}</figure><div><h3 class="vt-nombre">${esc(nombreCompleto(p.marca, nom))}</h3>
       <ul class="vt-specs">${[p.sae && `<li class="sae">${esc(p.sae)}</li>`, BASE[p.base] && `<li>${BASE[p.base]}</li>`, p.segmento && `<li>${esc(SEGMENTO[p.segmento] || p.segmento)}</li>`].filter(Boolean).join("")}</ul>
       <dl class="pz-dl" style="margin-top:8px"><dt>API</dt><dd>${sd(s.api)}</dd><dt>ACEA</dt><dd>${sd(s.acea)}</dd><dt>ILSAC</dt><dd>${sd(s.ilsac)}</dd><dt>JASO</dt><dd>${sd(s.jaso)}</dd>
@@ -2959,16 +2959,16 @@ function paginaProducto(v) {
       <p class="nota">${p.es_ypf ? "YPF no publica precio en canales propios: estos son avisos" : "Son avisos"} de tiendas, supermercados, Mercado Libre y relevamientos de terceros. Ventana del ${fechaAR(w.desde)} al ${fechaAR(w.hasta)} (${w.dias} días). ${esc(v.nota)}</p>
       ${resumenPub(v.resumen)}${tablaPub(v.publicaciones)}</div>
     ${v.equivalentes.length ? `<div class="pr-sec"><h3>Comparación con la competencia</h3>${typeof dif === "number"
-      ? `<p>Mediana de la competencia ${mon.format(cmp.mediana_comp_litro)}/L (${entero.format(cmp.n_comp)} avisos) contra ${mon.format(cmp.mediana_ypf_litro)}/L de YPF: <b>${pctTxt(dif)}</b> <span class="mut">(positivo: la competencia es más cara)</span>.</p>`
-      : `<p class="vt-vacio">Sin comparación: falta precio de ${cmp.mediana_ypf_litro === null ? "YPF" : "la competencia"} en la ventana.</p>`}</div>${eqs}` : p.es_ypf ? `<p class="vt-vacio">Sin equivalentes cargados para este producto.</p>` : sinYpf(p)}
+      ? `<p>Promedio de la competencia ${mon.format(cmp.promedio_comp_litro)}/L (${entero.format(cmp.n_comp)} avisos) contra ${mon.format(cmp.promedio_ypf_litro)}/L de YPF: <b>${pctTxt(dif)}</b> <span class="mut">(positivo: la competencia es más cara)</span>.</p>`
+      : `<p class="vt-vacio">Sin comparación: falta precio de ${cmp.promedio_ypf_litro === null ? "YPF" : "la competencia"} en la ventana.</p>`}</div>${eqs}` : p.es_ypf ? `<p class="vt-vacio">Sin equivalentes cargados para este producto.</p>` : sinYpf(p)}
     <div class="pr-sec pr-como"><h3>Cómo se calcula</h3><ul>
       <li><b>Ventana.</b> ${$("#pr-dias").value === "custom" ? `Del ${fechaAR(w.desde)} al ${fechaAR(w.hasta)} (${w.dias} días), las fechas que elegiste.` : `Los últimos ${w.dias} días, terminando en el último día con datos (${fechaAR(w.hasta)}), no en hoy.`}</li>
-      <li><b>Un aviso, una vez.</b> Cada aviso (fuente, link, EAN, título, vendedor, envase y provincia) cuenta una sola vez, con su observación más reciente de la ventana.</li>
+      <li><b>Un aviso, una vez.</b> Cada aviso (fuente, link, EAN, título, vendedor y envase; la provincia no entra) cuenta una sola vez, con su observación más reciente de la ventana.</li>
       <li><b>$/L.</b> Precio dividido por (litros × unidades del envase): una caja de 12 × 1 L son 12 L.</li>
       <li><b>Sanidad.</b> Un aviso con $/L fuera de [mediana ÷ 2,5; mediana × 2,5] del producto no cuenta: es casi seguro un envase mal leído (una caja como bidón).</li>
       <li><b>No cuentan.</b> Mayoristas (precio por caja o tambor, IVA sin verificar; se pueden sumar con el tilde de arriba), Grok sin verificar, avisos sin litros y los servicios (combos con mano de obra). Siguen listados en la tabla, atenuados y con el motivo.</li>
-      <li><b>Promedio y mediana.</b> El promedio es la media simple y lo mueve un aviso extremo; la mediana es el valor central y no. El desvío de cada fila es contra la mediana del propio producto.</li>
-      <li><b>Comparación.</b> Mediana de todos los avisos de los equivalentes incluidos contra la mediana de YPF; no entran los no equivalentes ni los de mediana a más de 3 veces la de YPF.</li>
+      <li><b>Promedio y mediana.</b> Lo destacado es el promedio por litro, como en el Visualizador (que usa los últimos 3 días: con esa ventana los números coinciden). El promedio es la media simple y lo mueve un aviso extremo; la mediana es el valor central y no. El desvío de cada fila es contra la mediana del propio producto.</li>
+      <li><b>Comparación.</b> Promedio de todos los avisos de los equivalentes incluidos contra el promedio de YPF (el mismo cálculo que el Visualizador); no entran los no equivalentes ni los de mediana a más de 3 veces la de YPF.</li>
       <li><b>Sin umbral.</b> La página no declara ningún precio como sobreprecio: muestra los datos y quien los consulta decide. Las publicaciones son de terceros y los links llevan a sus sitios. No es tiempo real.</li>
     </ul><p class="nota">Los mismos datos, en JSON o CSV: <a href="/api/producto?producto_id=${encodeURIComponent(p.producto_id)}${$("#pr-dias").value === "custom" ? `&desde=${w.desde}&hasta=${w.hasta}` : `&dias=${w.dias}`}${v.mayoristas_incluidos ? "&mayoristas=1" : ""}" target="_blank" rel="noopener">/api/producto</a>.</p></div>`;
 }

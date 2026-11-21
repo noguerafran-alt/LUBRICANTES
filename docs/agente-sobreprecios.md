@@ -18,14 +18,14 @@ GET /api/producto?producto_id=<id>[&dias=N][&desde=AAAA-MM-DD][&hasta=AAAA-MM-DD
 
 - Lectura abierta, sin clave ni header. La URL del visor equivalente es `#producto/<producto_id>`.
 - `producto_id`: slug del catálogo (`/api/productos`), por ejemplo `ypf-elaion-ts1040-10w40`. Los YPF y sus equivalentes están en `/api/bi/productos` (`es_ypf`).
-- `dias`: 1 a 366, por defecto 30.
+- `dias`: 1 a 366, por defecto **3** (la misma ventana y lógica que el Visualizador del visor, así los números coinciden). Para ventanas largas, `dias=30`.
 - `mayoristas=1`: suma los mayoristas (precio por caja o tambor, IVA sin verificar) al cálculo. Por defecto quedan listados pero fuera.
 - `umbral`: opcional y **sin valor por defecto**. Un porcentaje N: cada publicación trae `sobre_umbral = desvio_pct_vs_mediana >= N`. Si no se manda, el campo no existe.
 - Errores: 400 si `producto_id` falta o no existe, si `dias` no es un entero entre 1 y 366 o si `umbral` no es un número.
 
 `desde`/`hasta` (inclusivos) mandan sobre `dias`; máximo 366 días; `ventana` en la respuesta muestra el rango real.
 
-Ejemplo: `GET /api/producto?producto_id=ypf-elaion-ts1040-10w40&dias=30&umbral=15`
+Ejemplo (30 días): `GET /api/producto?producto_id=ypf-elaion-ts1040-10w40&dias=30&umbral=15`
 
 ## Respuesta (JSON)
 
@@ -39,7 +39,7 @@ Ejemplo: `GET /api/producto?producto_id=ypf-elaion-ts1040-10w40&dias=30&umbral=1
 | `resumen` | `{n, mediana_litro, promedio_litro, min_litro, max_litro, p25_litro, p75_litro}` solo con las publicaciones **en cálculo**; con `n = 0` los demás son `null` |
 | `publicaciones[]` | una por aviso (ver abajo) |
 | `equivalentes[]` | los competidores de `seed/equivalencias.csv`: `{producto_id, marca, nombre, tipo, evidencia, specs, imagen, en_comparacion, motivo_exclusion, resumen, publicaciones[]}` |
-| `comparacion` | `{mediana_ypf_litro, mediana_comp_litro, n_comp, dif_pct_mediana_comp_vs_ypf}` |
+| `comparacion` | `{mediana_ypf_litro, mediana_comp_litro, n_comp, dif_pct_mediana_comp_vs_ypf, promedio_ypf_litro, promedio_comp_litro, dif_pct_promedio_comp_vs_ypf}` (el promedio es el que usa el Visualizador) |
 | `umbral_pct` | solo si se mandó `umbral` |
 
 `publicaciones[]`: `fuente`, `fuente_nombre` (legible), `canal` (`publico`, `mayorista` o `grok`), `vendedor`, `sucursal`, `provincia` (ISO 3166-2, `online` o `null`), `fecha`, `capturado` (hora ISO UTC; `null` en filas anteriores a esa columna),
@@ -50,12 +50,12 @@ Vienen primero las que cuentan, de más cara a más barata por litro.
 ## Cómo se calcula
 
 1. **Ventana**: `dias` días terminando en el último día con datos.
-2. **Un aviso, una vez**: la clave es fuente + url + ean + título + vendedor + envase + provincia, con su observación más reciente de la ventana.
+2. **Un aviso, una vez**: la clave es fuente + url + ean + título + vendedor + envase (sin provincia), con su observación más reciente de la ventana.
 3. **$/L** = precio / (litros × unidades). Una caja de 12 × 1 L son 12 L.
 4. **Sanidad**: un aviso con $/L fuera de [mediana ÷ 2,5; mediana × 2,5] del producto no cuenta (envase mal leído).
 5. **Fuera del cálculo** (siguen listados con su motivo): sin litros, mayoristas, Grok sin verificar y los de la sanidad. Los servicios (combos con mano de obra) nunca entran.
 6. **Promedio vs mediana**: el promedio es la media simple y lo mueve un aviso extremo; la mediana es el valor central. El desvío de cada publicación es contra la **mediana** del propio producto: `(precio_litro / mediana_litro - 1) × 100`.
-7. **Comparación**: mediana de todos los avisos de los equivalentes incluidos (se excluyen los `no_equivalente` y los de mediana a más de 3 veces la de YPF) contra la mediana de YPF. Positivo: la competencia es más cara.
+7. **Comparación**: mediana de todos los avisos de los equivalentes incluidos (se excluyen los `no_equivalente` y los de mediana a más de 3 veces la de YPF) contra la mediana de YPF (`dif_pct_mediana_comp_vs_ypf`), o promedio contra promedio (`dif_pct_promedio_comp_vs_ypf`, como el Visualizador). Positivo: la competencia es más cara.
 
 ## Cómo usarlo bien
 
