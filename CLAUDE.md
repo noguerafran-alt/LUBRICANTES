@@ -118,7 +118,7 @@ data/macro/energia.csv # ventas de lubricantes y gasoil de la Secretaría de Ene
 - `fecha` ISO `AAAA-MM-DD`. `precio` en ARS. `stock` entero o vacío.
 - `match`: `ean|texto|none`.
 - Si `stock == 0` o `precio <= 0`, no se escribe fila (se cuenta en `fuentes.csv`).
-- **Fuentes mayoristas** (hoy `shopify_datri`, lista `MAYORISTAS` en `tiendas.py`): el precio es por caja o tambor
+- **Fuentes mayoristas** (hoy `shopify_datri`, `tn_olafil` —distribuidor— y `woo_ceridono` —tambores de 205 L—, decisión del usuario 2026-11-21; lista `MAYORISTAS` en `tiendas.py`): el precio es por caja o tambor
   y no se verificó si incluye IVA. `litros` es por unidad y `unidades` las de la caja (CAJA 12X1L → 1 y 12;
   TAMBOR 205L → 205 y 1; si el título habla en litros y la variante en quarts, `litros` vacío), así que
   `precio_litro` sigue siendo `precio / (litros × unidades)`. `/api/indice` las **excluye** por defecto y las suma con
