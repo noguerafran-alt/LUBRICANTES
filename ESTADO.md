@@ -1,6 +1,11 @@
 # ESTADO
 
 
+## Los 92 GLB regenerados con el generador nuevo (2026-11-22, rama feat/glb-regenerados)
+- Corrida `modelos3d.yml` de LUB-MODELOS3D con `forzar` (run 45041489661, OK): 104 fotos, 92 GLB regenerados (commit `585d157`) y 12 descartes (los mismos de `DESCARTES`). Foto solo en el frente casi plano (`FRENTE` .9, `FRENTE_BALDE` .5) y manija de caño en los bidones.
+- Acá solo se mueve el submódulo `site/modelos` de `6cbe919` a `585d157`: cambian los bytes, así que cambia cada `?v=` y el `immutable` no deja versiones viejas en cache.
+- En el celu, el submódulo va por `submodule.site/modelos.url` = alias SSH `github-modelos` en `~/lub-casa/.git/config`; el `url.insteadOf` no alcanzaba (el clone del submódulo no lo lee: 403). Queda en `termux_setup.sh` de CELU-SERVIDOR.
+
 ## El estado del equipo sale a CELU-SERVIDOR (2026-11-22, rama feat/sin-equipo)
 - Pedido del usuario: lo que es infraestructura del celu A22 no es de lubricantes. Repo privado nuevo `noguerafran-alt/CELU-SERVIDOR` con `celu.py` (servicio `celu-servidor`, 127.0.0.1:8092, `GET /salud` → `{ok, equipo}`), `termux_setup.sh` y `docs/celular.md`.
 - **Desplegado y verificado en el celu antes de esta PR**: clon `~/celu-servidor` (deploy key de solo lectura, alias SSH `github-celu`), servicio runit arriba, pull horario en el minuto 25, `python celu.py test` OK en el celu, `/salud` del servicio con batería, disco, RAM/CPU, procesos, red y CLIPPER. Prueba funcional del vigía: se tocó el mtime de `~/lub-casa/server.py` y al minuto hizo `sv restart lub-server` rc=0; la página pública volvió.
@@ -23,7 +28,7 @@
 ## GLB con `?v=<hash>` y manijas en el generador (2026-11-22, rama wip/glb-hash-version)
 - `server.modelo()` devuelve `modelos/<id>.glb?v=<sha1 corto del contenido>` (cache por mtime+tamaño, no relee en cada pedido); el `.glb` con `v=` sale `immutable` de un año, sin `v=` `max-age=3600`. El visor y `presentacion.js` usan la URL tal cual viene de la API. Assert en `demo()` (cambian los bytes → cambia `v`).
 - `tools/modelos3d.py`: la foto solo en el frente casi plano (`FRENTE` .5 → .9, `FRENTE_BALDE` .25 → .5) y la manija de los bidones como caño redondo del ancho del brazo (`manija`, `distancia`, `suavizar`), con su assert en el self-test (OK con Blender 5.3 local).
-- **Pendiente**: los 92 GLB de `site/modelos/` siguen siendo de la versión anterior hasta que se regeneren (`modelos3d.yml` con `forzar`).
+- Los 92 GLB se regeneraron el mismo día (ver «Los 92 GLB regenerados»).
 
 ## Período en provincias y reventa; atajos de calendario en la página de producto (2026-11-22, rama feat/fechas-provincias)
 - Cierra la rama WIP `wip/filtros-fecha-api` (lub-fechas): lo de `/api/producto` y Desde/Hasta del visor ya había entrado con #73 con otro contrato (default 3 días, extremos sueltos); la WIP se descartó y se portó solo lo que faltaba, con el contrato de main.
