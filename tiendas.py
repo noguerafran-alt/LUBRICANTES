@@ -25,7 +25,7 @@ TIENDANUBE = {"tn_lspalermo": "https://lspalermo.com.ar", "tn_spch": "https://sp
               "tn_gramaglia": "https://gramagliarepuestos.com.ar", "tn_torooils": "https://lubricentrotorooils.mitiendanube.com"}
 WOOCOMMERCE = {"woo_larutaok": "https://neumaticoslarutaok.com", "woo_ceridono": "https://ceridono.ar"}
 TERMINOS_WOO = ("aceite", "lubricante")
-MAYORISTAS = {"shopify_datri"}  # precio por caja/tambor, IVA no verificado: /api/indice los excluye
+MAYORISTAS = {"shopify_datri", "tn_olafil", "woo_ceridono"}  # precio por caja/tambor, IVA no verificado: /api/indice los excluye
 
 # product_type de D'Atri que son lubricantes de motor, transmisión o industriales (el resto es repuesto).
 TIPOS_DATRI = {"LUBRICANTES", "LUBRICANTE", "SINTÉTICO", "SEMISINTÉTICO", "MINERAL", "MULTIGRADO", "MONOGRADO"}
