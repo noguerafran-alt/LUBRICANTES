@@ -8,6 +8,7 @@ Uso: python server.py         (PORT, LUB_CLAVE, LUB_DATOS, LUB_RECARGA_MIN opcio
 import base64
 import csv
 import gzip
+import hashlib
 import hmac
 import io
 import json
@@ -806,9 +807,20 @@ def cuerdos(xs):
     return [x for x in xs if m / SANIDAD <= x[0] <= m * SANIDAD]
 
 
+_HASH_GLB = {}  # (ruta, mtime, tamaño) → sha1 corto: no se relee el archivo en cada pedido
+
+
 def modelo(pid):
-    """Ruta relativa al sitio del GLB del producto, o None si todavía no se generó (nunca se inventa)."""
-    return f"modelos/{pid}.glb" if (MODELOS / f"{pid}.glb").is_file() else None
+    """URL relativa al sitio del GLB del producto con `?v=<hash del contenido>` (la URL cambia cuando se regenera el
+    archivo, así el navegador no muestra uno viejo), o None si todavía no se generó (nunca se inventa)."""
+    f = MODELOS / f"{pid}.glb"
+    if not f.is_file():
+        return None
+    st = f.stat()
+    k = (str(f), st.st_mtime_ns, st.st_size)
+    if k not in _HASH_GLB:
+        _HASH_GLB[k] = hashlib.sha1(f.read_bytes()).hexdigest()[:10]
+    return f"modelos/{pid}.glb?v={_HASH_GLB[k]}"
 
 
 def vitrina(d, mayoristas=False, pais="AR"):
@@ -2130,8 +2142,9 @@ class Handler(BaseHTTPRequestHandler):
         if u.path.endswith((".js", ".mjs", ".glb")):  # resolve + is_relative_to contra traversal
             f = (SITE / u.path.lstrip("/")).resolve()
             if f.is_file() and f.is_relative_to(SITE.resolve()):
-                if f.suffix == ".glb":  # un modelo se puede regenerar: cache de un día, sin immutable
-                    return self.enviar(200, f.read_bytes(), "model/gltf-binary", [("Cache-Control", "public, max-age=86400")])
+                if f.suffix == ".glb":  # con ?v=<hash> la URL cambia si el archivo cambia: immutable; sin ella, poco cache
+                    cc = "public, max-age=31536000, immutable" if q.get("v") else "public, max-age=3600"
+                    return self.enviar(200, f.read_bytes(), "model/gltf-binary", [("Cache-Control", cc)])
                 # immutable solo en vendor/ (versión fijada); el resto revalida pronto, así no hace falta versionar la URL
                 cc = "public, max-age=31536000, immutable" if f.is_relative_to((SITE / "vendor").resolve()) else "public, max-age=60, must-revalidate"
                 return self.enviar(200, f.read_bytes(), "text/javascript; charset=utf-8", [("Cache-Control", cc)])
@@ -2988,9 +3001,13 @@ def demo():
         try:
             assert modelo("ypf-a") is None
             (MODELOS / "ypf-a.glb").write_bytes(b"glTF")
-            assert modelo("ypf-a") == "modelos/ypf-a.glb" and modelo("otro") is None
+            m1 = modelo("ypf-a")
+            assert re.fullmatch(r"modelos/ypf-a\.glb\?v=[0-9a-f]{10}", m1) and modelo("otro") is None
+            (MODELOS / "ypf-a.glb").write_bytes(b"glTF-otro")
+            assert modelo("ypf-a") != m1, "cambian los bytes → cambia ?v="
+            (MODELOS / "ypf-a.glb").write_bytes(b"glTF")
             vm = vitrina(dv)["productos"][0]
-            assert vm["producto_id"] == "ypf-a" and vm["modelo"] == "modelos/ypf-a.glb"
+            assert vm["producto_id"] == "ypf-a" and vm["modelo"] == m1
             assert all("modelo" in e and e["modelo"] is None for e in vm["competencia"]["equivalentes"])
             (MODELOS / "shell-s.glb").write_bytes(b"glTF")
             assert any(e["modelo"] for e in vitrina(dv)["productos"][0]["competencia"]["equivalentes"] if e["producto_id"] == "shell-s")
