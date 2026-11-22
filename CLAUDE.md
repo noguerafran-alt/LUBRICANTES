@@ -307,7 +307,7 @@ objeto (en la vitrina, la del último día con datos); sin cotización ese día 
 `seed/grok_sitios.csv` o de los datos: la "corrida" es la última carga, `ultimo_ok` la fecha del último dato.
 
 ### Precio de reventa por provincia — `/api/provincias`, `/api/reventa`, `/api/cobertura`
-Calculados por pedido sobre `obs` (Grok `verificado=0` se muestra marcado, no se oculta). La ventana `dias` (1 a 366, default 30) termina en el **último día con datos**, no en hoy. Todas las
+Calculados por pedido sobre `obs` (Grok `verificado=0` se muestra marcado, no se oculta). La ventana `dias` (1 a 366, default 30) termina en el **último día con datos**, no en hoy; `desde`/`hasta` (AAAA-MM-DD) mandan sobre `dias` con el mismo contrato que `/api/producto` (`server.rango_pedido`: solo `desde` = hasta el último día con datos, solo `hasta` = `dias` días hacia atrás; inválido, invertido o más de 366 días = 400) y la respuesta suma `desde` (con rango, `dias` = su largo real). Todas las
 respuestas llevan `hasta` y `nota` ("no es tiempo real: recolección diaria, SEPA con ~1 día de atraso"). `?formato=csv` aplana. Una mediana **nunca mezcla fuentes**. Cada aviso (fuente + url + ean + título + vendedor + envase + provincia)
 cuenta una vez, con su observación más reciente de la ventana; `$/L = precio / (litros × unidades)`, igual que `/api/indice`; avisos sin litros no entran.
 - `GET /api/provincias?producto_id=<id>[&fuente=][&mayoristas=1][&dias=N]` → `{producto_id, dias, hasta, nota, celdas[], regiones[], n_sin_provincia}`.

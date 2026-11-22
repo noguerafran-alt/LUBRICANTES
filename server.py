@@ -1016,11 +1016,40 @@ def _celda(rs, **clave):
             "cargado": (ult.get("cargado") or "") if grok else ""}
 
 
-def provincias(d, pid, dias=30, fuente="", mayoristas=False, pais="AR"):
+def rango_pedido(d, dias, q):
+    """?desde/?hasta (AAAA-MM-DD, opcionales, mandan sobre `dias`) de /api/producto, /api/provincias y /api/reventa → (desde, hasta, error del 400 o None).
+    Los extremos que falten se resuelven como en `desde_hasta`; el rango resuelto no puede invertirse ni pasar de 366 días."""
+    desde, hasta = q.get("desde") or None, q.get("hasta") or None
+    for nombre_, f in (("desde", desde), ("hasta", hasta)):
+        try:
+            if f and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", f):
+                raise ValueError
+            f and date.fromisoformat(f)
+        except ValueError:
+            return None, None, f"{nombre_} tiene que ser una fecha AAAA-MM-DD válida"
+    if desde or hasta:
+        rd, rh = desde_hasta(d, dias, desde, hasta)
+        if rd and rh:
+            if rd > rh:
+                return None, None, f"desde ({rd}) no puede ser posterior a hasta ({rh})"
+            if (date.fromisoformat(rh) - date.fromisoformat(rd)).days + 1 > 366:
+                return None, None, "el rango no puede pasar de 366 días"
+    return desde, hasta, None
+
+
+def _rango(dias, desde, hasta):
+    """`dias` (largo real del rango, inclusive), `desde` y `hasta` de la respuesta: con rango explícito `dias` es su largo, igual que /api/producto."""
+    if desde and hasta:
+        dias = (date.fromisoformat(hasta) - date.fromisoformat(desde)).days + 1
+    return {"dias": dias, "desde": desde, "hasta": hasta}
+
+
+def provincias(d, pid, dias=30, fuente="", mayoristas=False, pais="AR", desde=None, hasta=None):
     """Celdas por (provincia, fuente) y por (región, fuente) de un producto. Una celda nunca mezcla fuentes; `online` no es provincia
     (va en `celdas` con region vacía y no entra a `regiones`); los avisos sin provincia solo se cuentan en `n_sin_provincia`."""
     d, validas = de_pais(d, pais), subdivisiones(pais)
-    hasta, por = _avisos(d, dias, {pid})
+    desde, hasta = desde_hasta(d, dias, desde, hasta)
+    hasta, por = _avisos(d, dias, {pid}, True, desde, hasta)
     rs = _filtrar(por.get(pid, []), fuente, mayoristas)
     por_prov, por_reg = defaultdict(list), defaultdict(list)
     for r in rs:
@@ -1029,36 +1058,37 @@ def provincias(d, pid, dias=30, fuente="", mayoristas=False, pais="AR"):
             por_prov[(prov, r["fuente"])].append(r)
         if prov in REGIONES and pais == "AR":  # las regiones INDEC son solo argentinas: Brasil no tiene regiones acá
             por_reg[(REGIONES[prov], r["fuente"])].append(r)
-    return {"producto_id": pid, "pais": pais, "moneda": PAISES[pais][1], "dias": dias, "hasta": hasta, "nota": NOTA_FRESCURA,
+    return {"producto_id": pid, "pais": pais, "moneda": PAISES[pais][1], **_rango(dias, desde, hasta), "nota": NOTA_FRESCURA,
             "celdas": [_celda(g, provincia=p, region=REGIONES.get(p, "")) for (p, _), g in sorted(por_prov.items())],
             "regiones": [_celda(g, region=rg, provincias=sorted({r["provincia"] for r in g})) for (rg, _), g in sorted(por_reg.items())],
             "n_sin_provincia": sum(1 for r in rs if r.get("provincia", "") not in validas and r.get("provincia", "") != ONLINE)}
 
 
-def provincias_resumen(d, dias=30, fuente="", mayoristas=False, pais="AR"):
+def provincias_resumen(d, dias=30, fuente="", mayoristas=False, pais="AR", desde=None, hasta=None):
     """Sin producto_id: por cada producto YPF y fuente, $/L mediano, avisos, cuántas provincias distintas y fecha (sin detalle por provincia)."""
     d = de_pais(d, pais)
     ypf = productos_de(d, pais)
-    hasta, por = _avisos(d, dias, {p["producto_id"] for p in ypf})
+    desde, hasta = desde_hasta(d, dias, desde, hasta)
+    hasta, por = _avisos(d, dias, {p["producto_id"] for p in ypf}, True, desde, hasta)
     out = []
     for p in ypf:
         rs = _filtrar(por.get(p["producto_id"], []), fuente, mayoristas)
         out.append({"producto_id": p["producto_id"], "nombre": p["nombre"], "fuentes": [
             _celda(g, provincias=len({r.get("provincia") for r in g} & set(subdivisiones(pais))))
             for f in sorted({r["fuente"] for r in rs}) for g in [[r for r in rs if r["fuente"] == f]]]})
-    return {"pais": pais, "moneda": PAISES[pais][1], "dias": dias, "hasta": hasta, "nota": NOTA_FRESCURA, "productos": out}
+    return {"pais": pais, "moneda": PAISES[pais][1], **_rango(dias, desde, hasta), "nota": NOTA_FRESCURA, "productos": out}
 
 
-def reventa(d, pid, dias=30, pais="AR"):
+def reventa(d, pid, dias=30, pais="AR", desde=None, hasta=None):
     """Observaciones del período (todas, no solo la última por aviso) del producto YPF y de cada equivalente que no sea no_equivalente."""
     d = de_pais(d, pais)
-    desde, hasta = desde_hasta(d, dias)
+    desde, hasta = desde_hasta(d, dias, desde, hasta)
     prod = {p["producto_id"]: p for p in d["productos"]}
     eqs = [e for e in d["equivalencias"] if e["ypf_id"] == pid and e["tipo"] != "no_equivalente"]
     ids = {pid} | {e["comp_id"] for e in eqs}
     por = defaultdict(list)
     for r in d["obs"]:
-        if r["producto_id"] in ids and r["fecha"] >= desde:
+        if r["producto_id"] in ids and desde <= r["fecha"] <= hasta:
             pl, prov = precio_litro(r), r.get("provincia", "")
             por[r["producto_id"]].append({
                 "fecha": r["fecha"], "fuente": r["fuente"], "canal": canal(r["fuente"]), "vendedor": r["vendedor"], "provincia": prov,
@@ -1067,7 +1097,7 @@ def reventa(d, pid, dias=30, pais="AR"):
                 "verificado": r.get("verificado") or "", "cargado": r.get("cargado") or "", "moneda": moneda_r(r)})
     obs = lambda i: sorted(por.get(i, []), key=lambda o: (o["fecha"], o["fuente"]), reverse=True)
     ficha = lambda i: {"producto_id": i, "marca": prod.get(i, {}).get("marca", ""), "nombre": prod.get(i, {}).get("nombre", ""), "observaciones": obs(i)}
-    return {"producto_id": pid, "pais": pais, "moneda": PAISES[pais][1], "dias": dias, "hasta": hasta, "nota": NOTA_FRESCURA, "ypf": ficha(pid),
+    return {"producto_id": pid, "pais": pais, "moneda": PAISES[pais][1], **_rango(dias, desde, hasta), "nota": NOTA_FRESCURA, "ypf": ficha(pid),
             "equivalentes": [{**ficha(e["comp_id"]), "tipo": e["tipo"], "evidencia": e["evidencia"]} for e in eqs]}
 
 
@@ -2184,6 +2214,9 @@ class Handler(BaseHTTPRequestHandler):
             dias = 0
         if not 1 <= dias <= 366:
             return self.json(400, {"error": "dias tiene que ser un entero entre 1 y 366"})
+        desde, hasta, err = rango_pedido(de_pais(d, self.pais), dias, q)
+        if err:
+            return self.json(400, {"error": err})
         pid = q.get("producto_id", "")
         marca = {p["producto_id"]: p["marca"] for p in d["productos"]}
         if pid and pid not in marca:
@@ -2198,14 +2231,14 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json(400, {"error": "falta producto_id (un producto de marca YPF)"})
             if marca[pid] != "YPF":
                 return self.json(400, {"error": f"{pid} no es un producto YPF: /api/reventa parte de un YPF y trae sus equivalentes"})
-            v = reventa(d, pid, dias, pais)
+            v = reventa(d, pid, dias, pais, desde, hasta)
             return self.enviar(200, a_csv("reventa", aplanar_reventa(v)), "text/csv; charset=utf-8") if csv_ else self.salida(v)
         fuente, may = q.get("fuente", ""), q.get("mayoristas") == "1"
         if pid:
-            v = provincias(d, pid, dias, fuente, may, pais)
+            v = provincias(d, pid, dias, fuente, may, pais, desde, hasta)
             filas = [{**c, "producto_id": pid, "vendedores": ";".join(c["vendedores"])} for c in v["celdas"]]
         else:
-            v = provincias_resumen(d, dias, fuente, may, pais)
+            v = provincias_resumen(d, dias, fuente, may, pais, desde, hasta)
             filas = [{**c, "producto_id": p["producto_id"], "nombre": p["nombre"], "vendedores": ";".join(c["vendedores"])}
                      for p in v["productos"] for c in p["fuentes"]]
         filas = [{**f, "pais": pais, "moneda": v["moneda"]} for f in filas]
@@ -2230,22 +2263,9 @@ class Handler(BaseHTTPRequestHandler):
                 umbral = math.nan
             if not math.isfinite(umbral):
                 return self.json(400, {"error": "umbral tiene que ser un número (porcentaje de desvío contra la mediana)"})
-        desde, hasta = q.get("desde") or None, q.get("hasta") or None
-        try:
-            for nombre_, f in (("desde", desde), ("hasta", hasta)):
-                if f:
-                    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", f):
-                        raise ValueError
-                    date.fromisoformat(f)
-        except ValueError:
-            return self.json(400, {"error": f"{nombre_} tiene que ser una fecha AAAA-MM-DD válida"})
-        if desde or hasta:  # el rango manda sobre `dias`; el mismo cálculo que usa producto() para resolver los extremos que falten
-            rd, rh = desde_hasta(de_pais(d, self.pais), dias, desde, hasta)
-            if rd and rh:
-                if rd > rh:
-                    return self.json(400, {"error": f"desde ({rd}) no puede ser posterior a hasta ({rh})"})
-                if (date.fromisoformat(rh) - date.fromisoformat(rd)).days + 1 > 366:
-                    return self.json(400, {"error": "el rango no puede pasar de 366 días"})
+        desde, hasta, err = rango_pedido(de_pais(d, self.pais), dias, q)
+        if err:
+            return self.json(400, {"error": err})
         v = producto(d, pid, dias, q.get("mayoristas") == "1", umbral, self.pais, desde, hasta)
         if q.get("formato") == "csv":
             return self.enviar(200, a_csv("producto", aplanar_producto(v)), "text/csv; charset=utf-8")
@@ -2755,6 +2775,12 @@ def demo():
     assert rv["ypf"]["observaciones"][0]["fecha"] == "2026-11-05" and len(aplanar_reventa(rv)) == 12 and aplanar_reventa(rv)[-1]["rol"] == "equivalente"
     assert a_csv("reventa", aplanar_reventa(rv)).decode().startswith("rol,producto_id,marca,nombre,tipo,fecha,fuente,canal,vendedor,provincia,region,url,precio,")
     assert [canal(f) for f in ("sepa", "shopify_datri", "grok_x")] == ["publico", "mayorista", "grok"]
+    # desde/hasta en provincias y reventa: el mismo contrato que /api/producto (rango inclusive; solo desde = hasta el último día con datos)
+    rr = reventa(dp, "ypf-a", desde="2026-11-01", hasta="2026-11-03")
+    assert (rr["dias"], rr["desde"], rr["hasta"]) == (3, "2026-11-01", "2026-11-03") and all("2026-11-01" <= o["fecha"] <= "2026-11-03" for o in rr["ypf"]["observaciones"])
+    assert len(rr["ypf"]["observaciones"]) < len(rv["ypf"]["observaciones"]) and reventa(dp, "ypf-a", desde="2026-11-04")["hasta"] == "2026-11-05"
+    assert provincias(dp, "ypf-a", desde="2026-11-05", hasta="2026-11-05")["dias"] == 1 and provincias_resumen(dp, hasta="2026-11-04", dias=2)["desde"] == "2026-11-03"
+    assert rango_pedido(dp, 30, {"desde": "2026-11-05", "hasta": "2026-11-01"})[2] and rango_pedido(dp, 30, {"desde": "2026-1-5"})[2] and rango_pedido(dp, 30, {})[2] is None
     # ---------- /api/producto: una fila por aviso, con motivo de exclusión y desvío contra la mediana; sin umbral por defecto ----------
     pr = producto(dp, "ypf-a")
     mot = {x["url"]: x["motivo_exclusion"] for x in pr["publicaciones"]}
@@ -3088,6 +3114,10 @@ def demo():
     cod, cuerpo = get("/api/cobertura", k)
     assert cod == 200 and json.loads(cuerpo)["total"]["productos_ypf"] == 1 and get("/api/cobertura?formato=csv", k)[1].startswith(b"producto_id,nombre")
     assert get("/api/provincias?producto_id=ypf-a-10w40&formato=csv", k)[1].startswith(b"producto_id,provincia,region,")
+    assert json.loads(get("/api/reventa?producto_id=ypf-a-10w40&desde=2026-11-01&hasta=2026-11-05", k)[1])["dias"] == 5
+    assert json.loads(get("/api/provincias?desde=2026-11-01&hasta=2026-11-05", k)[1])["dias"] == 5
+    for mal in ("&desde=2026-11-05&hasta=2026-11-01", "&desde=x", "&desde=2024-01-01&hasta=2026-01-01"):
+        assert get("/api/provincias?producto_id=ypf-a-10w40" + mal, k)[0] == 400 and get("/api/reventa?producto_id=ypf-a-10w40" + mal, k)[0] == 400, mal
     cod, cuerpo = get("/api/producto?producto_id=ypf-a-10w40")  # lectura abierta
     pj_ = json.loads(cuerpo)
     assert cod == 200 and pj_["producto"]["es_ypf"] and [e["producto_id"] for e in pj_["equivalentes"]] == ["shell-b-10w40"] and pj_["publicaciones"] and "metodo" in pj_
