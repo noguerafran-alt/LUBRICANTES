@@ -1,5 +1,11 @@
 # ESTADO
 
+
+## GLB con `?v=<hash>` y manijas en el generador (2026-11-22, rama wip/glb-hash-version)
+- `server.modelo()` devuelve `modelos/<id>.glb?v=<sha1 corto del contenido>` (cache por mtime+tamaño, no relee en cada pedido); el `.glb` con `v=` sale `immutable` de un año, sin `v=` `max-age=3600`. El visor y `presentacion.js` usan la URL tal cual viene de la API. Assert en `demo()` (cambian los bytes → cambia `v`).
+- `tools/modelos3d.py`: la foto solo en el frente casi plano (`FRENTE` .5 → .9, `FRENTE_BALDE` .25 → .5) y la manija de los bidones como caño redondo del ancho del brazo (`manija`, `distancia`, `suavizar`), con su assert en el self-test (OK con Blender 5.3 local).
+- **Pendiente**: los 92 GLB de `site/modelos/` siguen siendo de la versión anterior hasta que se regeneren (`modelos3d.yml` con `forzar`).
+
 ## Página de producto = Visualizador (2026-11-21, rama prodvit)
 
 - Discrepancia: el Visualizador daba 19 observaciones y promedio $ 39.562/L para Elaion Auro D1 530 y la página de producto 93 avisos y mediana $ 45.000. Causas: ventana (vitrina 3 días, producto 30), clave de aviso (producto sumaba la provincia: SEPA contaba un comercio por provincia, y las filas viejas sin provincia duplicaban a las nuevas) y número destacado (promedio vs mediana). Sanidad, mayoristas, Grok sin verificar y avisos sin litros ya coincidían.
