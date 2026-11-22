@@ -370,7 +370,7 @@ function liberarGlb() {
   })));
 }
 
-// Orientación de tools/modelos3d.py (glTF): Y arriba, base en y=0, frente a +Z (ya mira a la cámara, sin rotar);
+// Orientación del generador de LUB-MODELOS3D (tools/modelos3d.py, glTF): Y arriba, base en y=0, frente a +Z (ya mira a la cámara, sin rotar);
 // se centra por caja y se apoya en el piso a la altura pedida. Devuelve un grupo que gira sobre su eje vertical.
 function instancia(plantilla, alto) {
   const g = new THREE.Group(), pivote = new THREE.Group(), m = plantilla.clone(true);
