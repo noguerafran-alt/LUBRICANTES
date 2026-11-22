@@ -8,10 +8,20 @@
 - Acá: `site/modelos/` pasa a gitlink + `.gitmodules`; se borran `tools/modelos3d.py` y `.github/workflows/modelos3d.yml`. El histórico de los GLB sigue en la historia de git (no se reescribió).
 - Orden: después de #75 (base de esta rama) y de #78 (el pull de casa actualiza submódulos), que tiene que haber llegado al celu antes.
 
+## El pull del clon de casa actualiza submódulos (2026-11-22, rama feat/submodulo-pull)
+- Paso previo para sacar los modelos 3D a LUB-MODELOS3D (submódulo en `site/modelos`): `recolector_casa.actualizar` (corrida y `--solo-pull`) suma `git submodule update --init --recursive` después del `reset --hard`, que no mueve submódulos. Si falla (red, deploy key) no frena la recolección: queda un aviso en el log y la página sigue sin 3D.
+- Sin `.gitmodules` (hoy) es un no-op. Assert en `demo()` con un submódulo local. En el celu ya está la deploy key de solo lectura de LUB-MODELOS3D (alias SSH `github-modelos`) y el `url.insteadOf` en `~/lub-casa/.git/config` (`git ls-remote` OK).
+- Tiene que llegar al celu **antes** que la PR que convierte `site/modelos` en submódulo.
+
 ## GLB con `?v=<hash>` y manijas en el generador (2026-11-22, rama wip/glb-hash-version)
 - `server.modelo()` devuelve `modelos/<id>.glb?v=<sha1 corto del contenido>` (cache por mtime+tamaño, no relee en cada pedido); el `.glb` con `v=` sale `immutable` de un año, sin `v=` `max-age=3600`. El visor y `presentacion.js` usan la URL tal cual viene de la API. Assert en `demo()` (cambian los bytes → cambia `v`).
 - `tools/modelos3d.py`: la foto solo en el frente casi plano (`FRENTE` .5 → .9, `FRENTE_BALDE` .25 → .5) y la manija de los bidones como caño redondo del ancho del brazo (`manija`, `distancia`, `suavizar`), con su assert en el self-test (OK con Blender 5.3 local).
 - **Pendiente**: los 92 GLB de `site/modelos/` siguen siendo de la versión anterior hasta que se regeneren (`modelos3d.yml` con `forzar`).
+
+## Período en provincias y reventa; atajos de calendario en la página de producto (2026-11-22, rama feat/fechas-provincias)
+- Cierra la rama WIP `wip/filtros-fecha-api` (lub-fechas): lo de `/api/producto` y Desde/Hasta del visor ya había entrado con #73 con otro contrato (default 3 días, extremos sueltos); la WIP se descartó y se portó solo lo que faltaba, con el contrato de main.
+- API: `/api/provincias` (con y sin `producto_id`) y `/api/reventa` aceptan `desde`/`hasta` igual que `/api/producto`; la validación es una sola función (`server.rango_pedido`, la usan los tres). `reventa` ahora corta también por `hasta` (antes solo `fecha >= desde`). Respuesta: suma `desde`; con rango, `dias` = largo real. Asserts en `demo()`.
+- Visor (página de producto): Ventana suma «Este mes», «Mes anterior», «Este año» y un selector Mes; se cuentan contra el último día con datos y se recortan a los días con datos. No se portó de la WIP: tipo de cambio por Mes/Año ni fechas cercanas sin cotización (el selector de main ya ofrece solo fechas con cotización).
 
 ## Página de producto = Visualizador (2026-11-21, rama prodvit)
 

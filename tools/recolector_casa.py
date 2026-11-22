@@ -88,7 +88,10 @@ def actualizar(raiz):
         rc, s = git(raiz, *args)
         if rc:
             return rc, s
-    return 0, ""
+    # reset --hard no mueve los submódulos (site/modelos = LUB-MODELOS3D): sin esto el celu serviría GLB viejos o ninguno.
+    # Si falla (red, deploy key) no frena la recolección: sin GLB la página anda igual, sin 3D.
+    rc, s = git(raiz, "submodule", "update", "--init", "--recursive")
+    return 0, "" if not rc else f"aviso: submodule update rc={rc}: {s[-200:]}"
 
 
 LOCK = ".casa.lock"
@@ -288,6 +291,21 @@ def demo():
         soltar_lock(c)
         rc, s = solo_pull(c)
         assert rc == 0 and (c / "x.txt").read_text() == "2" and "dos" in s and not (c / LOCK).exists(), s
+        # submódulo: el pull lo trae al commit que fija el padre (reset --hard solo no lo hace)
+        sub, subw = Path(d) / "sub.git", Path(d) / "subw"
+        g("init", "-q", "--bare", "-b", "main", str(sub))
+        g("clone", "-q", str(sub), str(subw))
+        (subw / "m.glb").write_text("v1")
+        g("add", ".", cwd=subw), g("commit", "-qm", "m1", cwd=subw), g("push", "-q", "origin", "HEAD:main", cwd=subw)
+        g("-c", "protocol.file.allow=always", "submodule", "add", "-q", str(sub), "modelos", cwd=otro)
+        g("commit", "-qm", "con submodulo", cwd=otro), g("push", "-q", "origin", "HEAD:main", cwd=otro)
+        os.environ.update(GIT_CONFIG_COUNT="1", GIT_CONFIG_KEY_0="protocol.file.allow", GIT_CONFIG_VALUE_0="always")  # submódulo local en el test
+        try:
+            rc, s = solo_pull(c)
+        finally:
+            for k in ("GIT_CONFIG_COUNT", "GIT_CONFIG_KEY_0", "GIT_CONFIG_VALUE_0"):
+                os.environ.pop(k)
+        assert rc == 0 and (c / "modelos" / "m.glb").read_text() == "v1", s
     assert push_rechazado(1, "! [rejected] main -> main (fetch first)")
     assert push_rechazado(1, "Updates were rejected because the tip is behind (non-fast-forward)")
     assert not push_rechazado(1, "fatal: unable to access: Could not resolve host")
