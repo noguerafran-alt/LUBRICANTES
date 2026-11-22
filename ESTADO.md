@@ -1,5 +1,11 @@
 # ESTADO
 
+
+## El pull del clon de casa actualiza submódulos (2026-11-22, rama feat/submodulo-pull)
+- Paso previo para sacar los modelos 3D a LUB-MODELOS3D (submódulo en `site/modelos`): `recolector_casa.actualizar` (corrida y `--solo-pull`) suma `git submodule update --init --recursive` después del `reset --hard`, que no mueve submódulos. Si falla (red, deploy key) no frena la recolección: queda un aviso en el log y la página sigue sin 3D.
+- Sin `.gitmodules` (hoy) es un no-op. Assert en `demo()` con un submódulo local. En el celu ya está la deploy key de solo lectura de LUB-MODELOS3D (alias SSH `github-modelos`) y el `url.insteadOf` en `~/lub-casa/.git/config` (`git ls-remote` OK).
+- Tiene que llegar al celu **antes** que la PR que convierte `site/modelos` en submódulo.
+
 ## Página de producto = Visualizador (2026-11-21, rama prodvit)
 
 - Discrepancia: el Visualizador daba 19 observaciones y promedio $ 39.562/L para Elaion Auro D1 530 y la página de producto 93 avisos y mediana $ 45.000. Causas: ventana (vitrina 3 días, producto 30), clave de aviso (producto sumaba la provincia: SEPA contaba un comercio por provincia, y las filas viejas sin provincia duplicaban a las nuevas) y número destacado (promedio vs mediana). Sanidad, mayoristas, Grok sin verificar y avisos sin litros ya coincidían.
