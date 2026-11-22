@@ -1,6 +1,13 @@
 # ESTADO
 
 
+## El estado del equipo sale a CELU-SERVIDOR (2026-11-22, rama feat/sin-equipo)
+- Pedido del usuario: lo que es infraestructura del celu A22 no es de lubricantes. Repo privado nuevo `noguerafran-alt/CELU-SERVIDOR` con `celu.py` (servicio `celu-servidor`, 127.0.0.1:8092, `GET /salud` → `{ok, equipo}`), `termux_setup.sh` y `docs/celular.md`.
+- **Desplegado y verificado en el celu antes de esta PR**: clon `~/celu-servidor` (deploy key de solo lectura, alias SSH `github-celu`), servicio runit arriba, pull horario en el minuto 25, `python celu.py test` OK en el celu, `/salud` del servicio con batería, disco, RAM/CPU, procesos, red y CLIPPER. Prueba funcional del vigía: se tocó el mtime de `~/lub-casa/server.py` y al minuto hizo `sv restart lub-server` rc=0; la página pública volvió.
+- Acá: `/salud` queda `{ok, commit, ultimo_dato}`; se fueron `equipo()` y lo que mide (batería, RAM/CPU, procesos, red, tráfico en memoria, CLIPPER), el auto-reinicio (`codigo_cambio`/`os._exit`: ahora lo hace el vigía de CELU-SERVIDOR con `sv restart lub-server`), `tools/termux_setup.sh` y `docs/celular.md`. `vigilar` solo recarga datos.
+- Cambios de contrato: `server_arriba_s` pasa a salir de `sv status lub-server`; `trafico_24h` se cuenta del log de LUBRICANTES (`logs/server.log`), así que `mb` e `ips` quedan `null` (el log no los trae y todo entra por el túnel). Cloudera, si leía `equipo` de `lubricantes.fln-data-analysis.com/salud`, deja de verlo: el servicio nuevo solo escucha en loopback (no se publicó por túnel; decidirlo aparte).
+- Orden de despliegue: esta PR se mergea **después** de que el vigía corre en el celu (ya corre). Si se mergeara sin él, el celu seguiría sirviendo el `server.py` viejo sin error.
+
 
 ## Los modelos 3D salen a LUB-MODELOS3D, como submódulo (2026-11-22, rama feat/modelos-submodulo)
 - Pedido del usuario: repo propio privado para los GLB (24 MB, 92 archivos) y el pipeline. `noguerafran-alt/LUB-MODELOS3D`: los `.glb` en la raíz, `tools/modelos3d.py` (con `?v` y manijas de #75) y la Action `modelos3d.yml` (comitea allá). El generador ya no lee `data/imagenes.csv`: arma la lista desde `/api/vitrina?pais=AR|BR` pública (comparado contra `data/imagenes.csv`: 104 = 104, 0 URLs distintas), así la Action no necesita credenciales de este repo.

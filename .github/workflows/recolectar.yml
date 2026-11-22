@@ -87,5 +87,5 @@ jobs:
           exit 1
 
   # SEPA y las ventas de la SE (macro.py energia, ~770 MB) no corren acá: bloquean IP de datacenter (SEPA 403, datos.energia.gob.ar timeout).
-  # Las corre el recolector de casa (tools/recolector_casa.py, celular con Termux o PC; ver CLAUDE.md y docs/celular.md). Nota Paraná está pausada y
+  # Las corre el recolector de casa (tools/recolector_casa.py, celular con Termux o PC; ver CLAUDE.md y docs/celular.md de CELU-SERVIDOR). Nota Paraná está pausada y
   # además se saltea sola en este recorrido (recolectar.FUENTES_PC con GITHUB_ACTIONS=true).

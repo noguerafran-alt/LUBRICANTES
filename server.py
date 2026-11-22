@@ -270,293 +270,19 @@ def recargar(raiz):
     return True
 
 
-ARCHIVO = Path(__file__)
-ARRANQUE = time.time()
-EN_MAIN = False  # lo pone main(): en los tests el auto-reinicio nunca dispara
-try:
-    MTIME0 = ARCHIVO.stat().st_mtime
-except OSError:
-    MTIME0 = 0.0
-
-
-def codigo_cambio(ruta=ARCHIVO, mtime0=None):
-    """True si server.py cambió desde el arranque, el cambio tiene más de 30 s (el pull ya terminó) y el archivo nuevo compila."""
-    if not EN_MAIN:
-        return False
-    try:
-        m = ruta.stat().st_mtime
-        if m == (MTIME0 if mtime0 is None else mtime0) or time.time() - m < 30:
-            return False
-        compile(ruta.read_bytes(), str(ruta), "exec")
-        return True
-    except (OSError, SyntaxError, ValueError):
-        return False
-
-
 def vigilar(raiz, minutos):
+    """Recarga los datos si cambió el commit. El redeploy del código en el celu lo hace el vigía de CELU-SERVIDOR (`sv restart lub-server`)."""
     while True:
         time.sleep(minutos * 60)
-        red_actualizar()  # que `desde` no dependa de que alguien pida /salud
         recargar(raiz)
-        if codigo_cambio():
-            print("server.py cambió: salgo para que runit me levante con el código nuevo", flush=True)
-            os._exit(0)
-
-
-# Tráfico en memoria: balde por hora epoch -> [pedidos, 4xx, 5xx, bytes, {hash de IP}]; ventana de 24 h.
-# ponytail: se pierde al reiniciar; si hace falta histórico, persistir a disco.
-_TRAF = {}
-_TRAF_LK = threading.Lock()
-
-
-def contar(codigo, nbytes, ip):
-    h = int(time.time() // 3600)
-    ip12 = __import__("hashlib").sha256(ip.encode()).hexdigest()[:12]
-    with _TRAF_LK:
-        b = _TRAF.setdefault(h, [0, 0, 0, 0, set()])
-        b[0] += 1
-        b[1] += 400 <= codigo < 500
-        b[2] += codigo >= 500
-        b[3] += nbytes
-        b[4].add(ip12)
-        for k in [k for k in _TRAF if k <= h - 24]:
-            del _TRAF[k]
-
-
-def trafico_24h():
-    h = int(time.time() // 3600)
-    with _TRAF_LK:
-        bs = [_TRAF.get(h - 23 + i) for i in range(24)]
-        ips = set().union(*(b[4] for b in bs if b))
-        return {"pedidos": sum(b[0] for b in bs if b), "e4xx": sum(b[1] for b in bs if b),
-                "e5xx": sum(b[2] for b in bs if b), "mb": round(sum(b[3] for b in bs if b) / 1048576, 1),
-                "ips": len(ips), "por_hora": [b[0] if b else 0 for b in bs]}
-
-
-_BAT = [0.0, None]  # [cuándo, valor]: caché de 60 s, también del fallo
-
-
-def _leer_bateria():
-    import shutil
-    if shutil.which("termux-battery-status"):
-        try:
-            p = subprocess.run(["termux-battery-status"], capture_output=True, text=True, timeout=5)
-            j = json.loads(p.stdout)
-            return {"pct": j.get("percentage"), "estado": j.get("status"), "temp_c": j.get("temperature")}
-        except (OSError, subprocess.SubprocessError, ValueError, AttributeError):
-            pass
-    d = Path("/sys/class/power_supply/battery")
-    try:
-        t = (d / "temp").read_text().strip()
-        return {"pct": int((d / "capacity").read_text()), "estado": (d / "status").read_text().strip(),
-                "temp_c": int(t) / 10 if t else None}
-    except (OSError, ValueError):
-        return None
-
-
-def bateria():
-    if time.time() - _BAT[0] > 60:
-        _BAT[1] = _leer_bateria()
-        _BAT[0] = time.time()
-    return _BAT[1]
-
-
-_INTERPRETES = ("sh", "bash", "node")
-_RC = {"lk": threading.Lock(), "prev": None, "cache": (0.0, None)}  # prev = última muestra; cache = (cuándo, resultado) de 5 s
-
-
-def _sc(nombre, defecto):
-    try:
-        return os.sysconf(nombre)
-    except (AttributeError, ValueError, OSError):
-        return defecto
-
-
-def _nombre_proc(comm, cmdline):
-    """Solo un nombre corto: el script si es un intérprete, si no el comm. Nunca rutas ni argumentos."""
-    if comm in _INTERPRETES or comm.startswith("python"):
-        for a in cmdline.split("\0")[1:]:
-            if a.endswith((".py", ".sh", ".js")):
-                return os.path.basename(a.replace("\\", "/"))[:40]
-    return comm[:40]
-
-
-def _muestra(proc="/proc", uid=None, pagina=None):
-    """(t monotónico, ticks totales de /proc/stat o None, {pid: (nombre, ticks utime+stime, rss en bytes)}) de los procesos de `uid`."""
-    pagina = pagina or _sc("SC_PAGE_SIZE", 4096)
-    proc = Path(proc)
-    total = None
-    try:
-        v = [int(x) for x in (proc / "stat").read_text().split("\n")[0].split()[1:9]]
-        total = (sum(v), v[3] + v[4])
-    except (OSError, ValueError, IndexError):
-        pass
-    pids = {}
-    try:
-        carpetas = [d for d in proc.iterdir() if d.name.isdigit()]
-    except OSError:
-        carpetas = []
-    for d in carpetas:
-        try:
-            if uid is not None and d.stat().st_uid != uid:
-                continue
-            s = (d / "stat").read_text()
-            comm = s[s.index("(") + 1:s.rindex(")")]
-            f = s[s.rindex(")") + 1:].split()
-            try:
-                cmd = (d / "cmdline").read_bytes().decode("utf-8", "replace")
-            except OSError:
-                cmd = ""
-            pids[int(d.name)] = (_nombre_proc(comm, cmd), int(f[11]) + int(f[12]), int(f[21]) * pagina)
-        except (OSError, ValueError, IndexError):
-            continue  # el proceso murió o no se deja leer
-    return time.monotonic(), total, pids
-
-
-def _calcular(a, b, nucleos, clk):
-    """Con dos muestras: (cpu_total_pct o None, procesos_pct, lista de procesos agrupada por nombre)."""
-    dt = b[0] - a[0]
-    cap = dt * clk * (nucleos or 1)
-    total_pct = None
-    if a[1] and b[1] and b[1][0] > a[1][0]:
-        total_pct = round(100 * (1 - (b[1][1] - a[1][1]) / (b[1][0] - a[1][0])), 1)
-    grupos = {}
-    for pid, (nom, ticks, rss) in b[2].items():
-        d = max(ticks - a[2][pid][1], 0) if pid in a[2] else 0  # pid nuevo: 0 esta vuelta
-        g = grupos.setdefault(nom, [0, 0])
-        g[0] += d
-        g[1] += rss
-    pct = lambda t: round(100 * t / cap, 1) if cap > 0 else None
-    lista = sorted(({"nombre": n, "cpu_pct": pct(t), "ram_mb": round(r / 1048576, 1)} for n, (t, r) in grupos.items()),
-                   key=lambda x: (x["cpu_pct"] or 0, x["ram_mb"]), reverse=True)[:8]
-    return total_pct, pct(sum(g[0] for g in grupos.values())), lista
-
-
-def _ram(proc="/proc"):
-    try:
-        m = {}
-        for l in (Path(proc) / "meminfo").read_text().splitlines():
-            k, _, v = l.partition(":")
-            m[k] = int(v.split()[0])
-        return {"total": m["MemTotal"] // 1024, "disponible": m["MemAvailable"] // 1024}
-    except (OSError, ValueError, KeyError, IndexError):
-        return None
-
-
-def _mhz(sys_, archivo):
-    vs = []
-    try:
-        for p in Path(sys_, "devices/system/cpu").glob("cpu[0-9]*/cpufreq/" + archivo):
-            try:
-                vs.append(int(p.read_text()) // 1000)
-            except (OSError, ValueError):
-                pass
-    except OSError:
-        pass
-    return sum(vs) // len(vs) if vs else None
-
-
-def recursos(proc="/proc", sys_="/sys", uid=None, ahora=None):
-    """RAM, CPU y procesos del equipo para /salud. Sin lectura = null; nunca levanta. CPU por delta contra la lectura anterior (1 s a 10 min) o dos lecturas a 0,5 s."""
-    nucleos = os.cpu_count()
-    vacio = {"ram_mb": None, "cpu": {"nucleos": nucleos, "mhz_actual": None, "mhz_max": None, "total_pct": None, "procesos_pct": None}, "procesos": []}
-    try:
-        if uid is None and hasattr(os, "getuid"):
-            uid = os.getuid()
-        with _RC["lk"]:
-            t = time.monotonic()
-            if ahora is None and _RC["cache"][1] is not None and t - _RC["cache"][0] < 5:
-                return _RC["cache"][1]
-            prev, cur = _RC["prev"], _muestra(proc, uid)
-            if not (prev and 1 <= cur[0] - prev[0] <= 600):
-                time.sleep(0.5)
-                prev, cur = cur, _muestra(proc, uid)
-            _RC["prev"] = cur
-            tot, pp, lista = _calcular(prev, cur, nucleos, _sc("SC_CLK_TCK", 100))
-            out = {"ram_mb": _ram(proc), "cpu": {"nucleos": nucleos, "mhz_actual": _mhz(sys_, "scaling_cur_freq"),
-                   "mhz_max": _mhz(sys_, "cpuinfo_max_freq"), "total_pct": tot, "procesos_pct": pp if cur[2] else None},
-                   "procesos": lista}
-            _RC["cache"] = (t, out)
-            return out
-    except Exception:  # nunca un 500 por medir
-        return vacio
-
-
-_RED = {"lk": threading.Lock(), "tipo": None, "desde": None}
-
-
-def red_tipo(ip_wlan, ip_salida, salida_ok=True):
-    """Pura. wifi: sale por wlan0; movil: sale por otra interfaz; sin_red: el connect UDP falló; None: no se sabe."""
-    if not salida_ok:
-        return "sin_red"
-    if not ip_salida:
-        return None
-    return "wifi" if ip_wlan and ip_salida == ip_wlan else "movil"
-
-
-def _leer_red():
-    """(ip_wlan0 o None, ip_salida o None, salida_ok) del sistema; sin fcntl (Windows) = (None, None, True) y el tipo queda None. Las IPs no salen de acá hacia el JSON."""
-    try:
-        import fcntl, socket, struct
-    except ImportError:
-        return None, None, True
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.settimeout(2)
-        try:
-            try:
-                ip_wlan = socket.inet_ntoa(fcntl.ioctl(s.fileno(), 0x8915, struct.pack("256s", b"wlan0"))[20:24])
-            except OSError:
-                ip_wlan = None  # wlan0 sin IP o sin la interfaz
-            try:
-                s.connect(("1.1.1.1", 53))  # UDP: no manda nada, solo elige la ruta
-            except OSError:
-                return ip_wlan, None, False
-            return ip_wlan, s.getsockname()[0], True
-        finally:
-            s.close()
-    except Exception:
-        return None, None, True
-
-
-def red_actualizar(leer=None, ahora=None):
-    """Mide la red y, si el tipo cambió respecto de lo que vio el proceso, anota `desde`. Devuelve {tipo, desde}; nunca levanta ni expone IPs."""
-    try:
-        tipo = red_tipo(*(leer or _leer_red)())
-    except Exception:
-        tipo = None
-    with _RED["lk"]:
-        if _RED["desde"] is None or tipo != _RED["tipo"]:
-            _RED["tipo"], _RED["desde"] = tipo, int(time.time() if ahora is None else ahora)
-        return {"tipo": _RED["tipo"], "desde": _RED["desde"]}
-
-
-def equipo():
-    try:
-        s = os.statvfs(Path.home())
-        disco = {"total": round(s.f_blocks * s.f_frsize / 1e9, 1), "libre": round(s.f_bavail * s.f_frsize / 1e9, 1)}
-    except (OSError, AttributeError):
-        disco = None
-    try:
-        up = int(float(Path("/proc/uptime").read_text().split()[0]))
-    except (OSError, ValueError, IndexError):
-        up = None
-    out = Path.home() / "clipper" / "outbox"
-    clipper = None
-    if out.is_dir():
-        fs = [f.stat() for f in out.iterdir() if f.is_file()]
-        clipper = {"clips": len(fs), "mb": round(sum(f.st_size for f in fs) / 1048576, 1),
-                   "ultimo": int(max((f.st_mtime for f in fs), default=0)) or None}
-    return {"bateria": bateria(), "disco_gb": disco, "server_arriba_s": int(time.time() - ARRANQUE),
-            "equipo_arriba_s": up, "trafico_24h": trafico_24h(), "clipper": clipper, "red": red_actualizar(), **recursos()}
 
 
 def salud():
-    """Sin secretos: qué versión de datos se sirve, la fecha de la última observación y el estado del equipo (sin IPs, rutas ni env)."""
+    """Sin secretos: qué versión de datos se sirve y la fecha de la última observación. El estado del equipo vive en CELU-SERVIDOR."""
     obs = (Handler.datos or {}).get("obs") or []
     f = Handler.firma or ""
     return {"ok": True, "commit": "" if f.startswith("mtime:") else f[:12],
-            "ultimo_dato": max((r["fecha"] for r in obs), default=""), "equipo": equipo()}
+            "ultimo_dato": max((r["fecha"] for r in obs), default="")}
 
 
 def integrar_grok(d):
@@ -2123,7 +1849,6 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header(k, v)
         self.end_headers()
         self.wfile.write(cuerpo)
-        contar(codigo, len(cuerpo), self.headers.get("CF-Connecting-IP") or self.client_address[0])
 
     def json(self, codigo, obj):
         self.enviar(codigo, json.dumps(obj, ensure_ascii=False).encode(), "application/json; charset=utf-8")
@@ -2398,7 +2123,6 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def demo():
-    global EN_MAIN
     import shutil
     import tempfile
     import urllib.parse
@@ -2904,87 +2628,8 @@ def demo():
         except urllib.error.HTTPError as e:
             return e.code, e.read()
     assert get("/salud")[0] == 200 and json.loads(get("/salud")[1])["ok"] is True
-    # equipo en /salud: contrato, tráfico, batería sin fuentes, auto-reinicio apagado en tests, sin IPs
     sj = json.loads(get("/salud", {"CF-Connecting-IP": "203.0.113.77"})[1])
-    eq = sj["equipo"]
-    assert set(eq) == {"bateria", "disco_gb", "server_arriba_s", "equipo_arriba_s", "trafico_24h", "clipper", "red", "ram_mb", "cpu", "procesos"}
-    # red: función pura, cambio de tipo (con `desde`), Windows = null, sin IPs en el JSON (IPs falsas inyectadas)
-    assert [red_tipo(*a) for a in (("192.0.2.5", "192.0.2.5"), ("192.0.2.5", "198.51.100.9"), (None, "198.51.100.9"), ("192.0.2.5", None, False), (None, None))] == ["wifi", "movil", "movil", "sin_red", None]
-    assert set(eq["red"]) == {"tipo", "desde"} and isinstance(eq["red"]["desde"], int)
-    if os.name == "nt":
-        assert eq["red"]["tipo"] is None
-    _g = (_RED["tipo"], _RED["desde"])
-    _RED["tipo"] = _RED["desde"] = None
-    assert red_actualizar(lambda: ("192.0.2.5", "192.0.2.5", True), 100) == {"tipo": "wifi", "desde": 100}
-    assert red_actualizar(lambda: ("192.0.2.5", "192.0.2.5", True), 200)["desde"] == 100  # mismo tipo: no cambia
-    _rj = red_actualizar(lambda: (None, "198.51.100.9", True), 300)
-    assert _rj == {"tipo": "movil", "desde": 300}
-    assert "192.0.2" not in json.dumps(_rj) and "198.51.100" not in json.dumps(_rj) and "wlan" not in json.dumps(eq["red"])
-    assert red_actualizar(lambda: 1 / 0, 400) == {"tipo": None, "desde": 400}
-    _RED["tipo"], _RED["desde"] = _g
-    assert set(eq["cpu"]) == {"nucleos", "mhz_actual", "mhz_max", "total_pct", "procesos_pct"} and isinstance(eq["procesos"], list)
-    # /proc y /sys falsos: RAM, nombres cortos, agrupado, % por delta, filtro por uid, sin rutas ni argumentos
-    _r = Path(tempfile.mkdtemp())
-    (_r / "proc").mkdir()
-    (_r / "proc" / "meminfo").write_text("MemTotal:        3145728 kB\nMemFree: 1 kB\nMemAvailable:    1048576 kB\n")
-    (_r / "proc" / "stat").write_text("cpu  100 0 100 700 100 0 0 0\n")
-
-    def _pid(n, comm, cmd, ticks, rss):
-        (_r / "proc" / str(n)).mkdir(exist_ok=True)
-        (_r / "proc" / str(n) / "stat").write_text(f"{n} ({comm}) S " + " ".join(["0"] * 10) + f" {ticks} 0 " + " ".join(["0"] * 8) + f" {rss} 0\n")
-        (_r / "proc" / str(n) / "cmdline").write_bytes(cmd.encode().replace(b" ", b"\0"))
-    _pid(10, "python3", "/data/usr/bin/python3 /home/u/lub/server.py --token=SECRETO", 0, 25600)
-    _pid(11, "cloudflared", "cloudflared tunnel run --token SECRETO", 0, 2560)
-    _pid(12, "runsv", "runsv a", 0, 100)
-    _pid(13, "runsv", "runsv b", 0, 100)
-    for k, f in enumerate((1000000, 2000000)):  # kHz
-        _dd = _r / "sys" / "devices" / "system" / "cpu" / f"cpu{k}" / "cpufreq"
-        _dd.mkdir(parents=True)
-        (_dd / "scaling_cur_freq").write_text(str(f))
-        (_dd / "cpuinfo_max_freq").write_text("2000000")
-    _u = (_r / "proc" / "10").stat().st_uid
-    assert _ram(_r / "proc") == {"total": 3072, "disponible": 1024} and _ram(_r / "nada") is None
-    assert _mhz(_r / "sys", "scaling_cur_freq") == 1500 and _mhz(_r / "sys", "cpuinfo_max_freq") == 2000
-    _ma = _muestra(_r / "proc", _u, 4096)
-    assert len(_ma[2]) == 4 and not _muestra(_r / "proc", _u + 1, 4096)[2]   # otra uid: no se ve
-    _pid(10, "python3", "python3 /h/server.py", 300, 25600)
-    _pid(11, "cloudflared", "x", 100, 2560)
-    _pid(12, "runsv", "x", 50, 100)
-    _pid(13, "runsv", "x", 50, 100)
-    (_r / "proc" / "stat").write_text("cpu  200 0 200 800 200 0 0 0\n")
-    _mb = list(_muestra(_r / "proc", _u, 4096))
-    _mb[0] = _ma[0] + 10
-    tot, pp, lis = _calcular(_ma, tuple(_mb), 4, 100)   # capacidad = 10 s x 100 ticks x 4 núcleos = 4000
-    assert tot == 50.0 and pp == 12.5, (tot, pp)
-    assert [p["nombre"] for p in lis] == ["server.py", "cloudflared", "runsv"] and len(lis) == 3
-    assert lis[0] == {"nombre": "server.py", "cpu_pct": 7.5, "ram_mb": 100.0} and lis[2]["cpu_pct"] == 2.5
-    assert "/home" not in json.dumps(lis) and "SECRETO" not in json.dumps(lis) and "token" not in json.dumps(lis)
-    assert set(eq["trafico_24h"]) == {"pedidos", "e4xx", "e5xx", "mb", "ips", "por_hora"}
-    assert len(eq["trafico_24h"]["por_hora"]) == 24 and eq["trafico_24h"]["pedidos"] >= 2 and eq["trafico_24h"]["ips"] >= 1
-    assert "203.0.113.77" not in json.dumps(sj) and "127.0.0.1" not in json.dumps(sj)
-    _p = Path
-    try:
-        import shutil as _sh
-        _w, _sh.which = _sh.which, lambda *a, **k: None
-        globals()["Path"] = lambda *a: _p("/no/existe/lub")
-        assert _leer_bateria() is None
-    finally:
-        _sh.which = _w
-        globals()["Path"] = _p
-    _f = Path(tempfile.mkdtemp()) / "s.py"
-    _f.write_text("x = 1\n")
-    os.utime(_f, (time.time() - 120, time.time() - 120))
-    assert not EN_MAIN and not codigo_cambio(_f, mtime0=0)   # fuera de main() nunca dispara
-    EN_MAIN = True
-    try:
-        assert codigo_cambio(_f, mtime0=0) and not codigo_cambio(_f, mtime0=_f.stat().st_mtime)
-        _f.write_text("def (:\n")
-        os.utime(_f, (time.time() - 120, time.time() - 120))
-        assert not codigo_cambio(_f, mtime0=0)   # no compila: no sale
-        _f.write_text("x = 1\n")
-        assert not codigo_cambio(_f, mtime0=0)   # mtime reciente: pull a medio escribir
-    finally:
-        EN_MAIN = False
+    assert set(sj) == {"ok", "commit", "ultimo_dato"} and "203.0.113.77" not in json.dumps(sj)   # el equipo vive en CELU-SERVIDOR
     assert get("/api/ultimo")[0] == 200 and get("/robots.txt")[1] == b"User-agent: *\nDisallow: /\n"
     assert urllib.request.urlopen(base + "/api/ultimo").headers["X-Robots-Tag"] == "noindex, nofollow" and get("/api/ultimo", {"X-API-Key": "mala"})[0] == 200   # la clave vieja o errónea se ignora
     assert get("/")[0] == 200
@@ -3401,8 +3046,6 @@ def demo():
 def main():
     if sys.argv[1:] == ["test"]:
         return demo()
-    global EN_MAIN
-    EN_MAIN = True
     clave = os.environ.get("LUB_CLAVE", "")
     if not clave and not os.environ.get("LUB_CARGA_CLAVE"):
         print("AVISO: sin LUB_CLAVE ni LUB_CARGA_CLAVE, la lectura es abierta y la carga (POST) queda cerrada.", flush=True)
@@ -3411,7 +3054,6 @@ def main():
     Handler.datos = cargar(raiz)
     Handler.calc = calcular(Handler.datos)
     Handler.clave, Handler.raiz = clave, Path(raiz)
-    red_actualizar()  # fija el tipo inicial y su `desde` = arranque
     minutos = float(os.environ.get("LUB_RECARGA_MIN", "5"))  # en Render los datos cambian con el redeploy: sin hilo
     if minutos > 0 and not os.environ.get("RENDER"):
         threading.Thread(target=vigilar, args=(raiz, minutos), daemon=True).start()
