@@ -37,7 +37,7 @@ let arrastre = null;
 const ALTO_GRANDE = { g: 1.99, c: 1.79 }, ALTO_CHICO = .645;  // misma altura que los bidones generados (4 L / 1 L; podio = 1 L a .36)
 const GLB = new Map();
 let cargador = null, giro = 0, oscT = 0;
-const OSC = .7;  // ±40°: el dorso repite la etiqueta del frente; de espaldas se ve girando a mano
+const OSC = .7;  // ±40°: el dorso no tiene foto (color liso del envase); de espaldas se ve girando a mano
 
 export function abrir(lista, i0, origen, alCerrar) {
   if (S.abierto || !lista.length) return;

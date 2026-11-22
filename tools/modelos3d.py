@@ -30,8 +30,8 @@ FILAS = 200          # resolución vertical de la grilla de la máscara (antes d
 CARAS = 9000         # triángulos objetivo por modelo
 TEX = 1024           # lado mayor de la textura
 TOPE = 450_000       # bytes por GLB: más que esto es un error del generador
-FRENTE = .5          # una cara lleva la foto si su normal apunta al frente al menos así (coseno): lo casi plano
-FRENTE_BALDE = .25   # el balde es un cilindro: no tiene plano, la foto cubre casi todo el frente
+FRENTE = .9          # una cara lleva la foto si su normal apunta al frente al menos así (coseno, ~25°): solo el frente casi plano
+FRENTE_BALDE = .5    # el balde es un cilindro: no tiene plano; la foto cubre como mucho ±60° alrededor del frente
 TOL_FONDO = .015     # tolerancia del relleno del fondo: más flojo deja entrar los brillos blancos del envase
 # Baldes de 20 L: cilindro (la silueta de frente no distingue un balde de un bidón chato).
 BALDES = ("ypf-extravida-", "ypf-elaion-nautico-2t", "ypf-super-20w50", "ypf-transferencia-termica",
@@ -242,6 +242,52 @@ def perfil(d, prof, r):
     return prof - r + np.sqrt(np.maximum(r * r - (r - d) ** 2, 0))
 
 
+def distancia(m, fuera_es_fondo=True):
+    """Distancia euclídea aproximada (chamfer 1 / 1,414) de cada píxel del envase al fondo más cercano (agujeros incluidos)."""
+    h, w = m.shape
+    d = np.where(m, 1e9, 0.0)
+    r2 = 2 ** .5
+    for pasada, rango in ((1, range(h)), (-1, range(h - 1, -1, -1))):
+        for y in rango:
+            for x in (range(w) if pasada == 1 else range(w - 1, -1, -1)):
+                if d[y, x]:
+                    v = d[y, x]
+                    for dy, dx, c in ((-pasada, 0, 1), (0, -pasada, 1), (-pasada, -pasada, r2), (-pasada, pasada, r2)):
+                        yy, xx = y + dy, x + dx
+                        if 0 <= yy < h and 0 <= xx < w:
+                            v = min(v, d[yy, xx] + c)
+                        elif fuera_es_fondo:
+                            v = min(v, c)
+                    d[y, x] = v
+    return d
+
+
+def suavizar(a, veces):
+    for _ in range(veces):
+        p = np.pad(a, 1, mode="edge")
+        a = (p[1:-1, 1:-1] * 4 + p[:-2, 1:-1] + p[2:, 1:-1] + p[1:-1, :-2] + p[1:-1, 2:]) / 8
+    return a
+
+
+def manija(m, ancho):
+    """Zona de la manija: el material a menos de un ancho de brazo de un agujero cerrado. El ancho del brazo es lo que hay
+    entre el agujero y el fondo de afuera, medido donde es angosto (el lado del cuerpo no cuenta). → (máscara, radio del
+    brazo en px, distancia al borde) o None si no hay agujero o no se mide un brazo."""
+    huecos = agujeros(m)
+    if not huecos:
+        return None
+    hueco = np.any(huecos, axis=0)
+    afuera = distancia(m | hueco)  # distancia al fondo de afuera (el agujero no cuenta como fondo)
+    anillo = m & dilatar(hueco, 1)
+    brazo = afuera[anillo & (afuera < .2 * ancho)]
+    if len(brazo) < 10:
+        return None
+    wb = min(float(np.percentile(brazo, 8)) * 2 + 1, .14 * ancho)  # ancho del brazo
+    a_hueco = distancia(~hueco, False)
+    zona = m & (a_hueco <= wb)
+    return zona, wb / 2, distancia(m)
+
+
 def alturas(m, balde=False):
     """Media profundidad por píxel (en px). Clase: balde (cilindro), bidón con manija o botella."""
     h, w = m.shape
@@ -267,6 +313,14 @@ def alturas(m, balde=False):
     dv = np.minimum(it, ib).T
     zv = perfil(dv, prof, max(ry * prof, 1.0))
     z = np.minimum(zh, zv)
+    mj = None if balde else manija(m, ancho)
+    if mj is not None:
+        # sección de manija real: un caño redondo del ancho del brazo (radio en profundidad = radio en el plano), que
+        # se funde con el cuerpo en una rampa suave (sin escalones) y no es nunca más grueso que el cuerpo
+        zona, rb, d = mj
+        zt = np.sqrt(np.maximum(np.minimum(d, rb) * (2 * rb - np.minimum(d, rb)), 0))
+        w = np.clip(suavizar(zona.astype(np.float64), max(4, round(1.5 * rb))) * 1.6 - .3, 0, 1)
+        z = np.where(m, z * (1 - w) + np.minimum(zt, z) * w, 0)
     for _ in range(2):  # suaviza los quiebres entre corridas (bordes de la manija)
         p = np.pad(z, 1)
         z = np.where(m, (p[1:-1, 1:-1] * 4 + p[:-2, 1:-1] + p[2:, 1:-1] + p[1:-1, :-2] + p[1:-1, 2:]) / 8, 0)
@@ -588,6 +642,8 @@ def demo():
     assert m[80, 50], "lo blanco de la etiqueta en la mitad de abajo no es hueco"
     z = alturas(m)
     assert z[5, 5] == 0 and z[60, 50] > 10 and z[60, 21] < z[60, 50]
+    mj = manija(m, 60)  # el agujero da zona de manija: un caño más fino que el cuerpo, que no llega al cuerpo
+    assert mj is not None and mj[0][40, 27] and not mj[0][100, 50] and z[40, 27] < z[100, 50]
     pos, zz, caras = malla(m, z)
     assert len(caras) and zz.min() == 0 and caras.max() < len(pos)
     # limpieza: una mordida en el borde, una isla y un agujero de ruido se arreglan; la manija (agujero grande) queda
