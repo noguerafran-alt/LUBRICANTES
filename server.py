@@ -39,7 +39,7 @@ from tiendas import MAYORISTAS  # fuentes de precio mayorista: fuera del índice
 RAIZ = Path(__file__).resolve().parent
 SITE = RAIZ / "site"
 INDEX = SITE / "index.html"
-MODELOS = SITE / "modelos"  # GLB por producto_id, los genera la Action modelos3d
+MODELOS = SITE / "modelos"  # GLB por producto_id: submódulo LUB-MODELOS3D (sin él, modelo() = None y no hay 3D)
 
 PRODUCTOS_F = "producto_id,marca,linea,nombre,segmento,sae,base,api,acea,ilsac,jaso,oem,fuente_specs,verificado".split(",")
 EQUIV_F = "eq_id,ypf_id,comp_id,tipo,criterio,evidencia,fuente".split(",")

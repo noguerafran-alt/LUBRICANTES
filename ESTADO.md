@@ -1,6 +1,13 @@
 # ESTADO
 
 
+
+## Los modelos 3D salen a LUB-MODELOS3D, como submódulo (2026-11-22, rama feat/modelos-submodulo)
+- Pedido del usuario: repo propio privado para los GLB (24 MB, 92 archivos) y el pipeline. `noguerafran-alt/LUB-MODELOS3D`: los `.glb` en la raíz, `tools/modelos3d.py` (con `?v` y manijas de #75) y la Action `modelos3d.yml` (comitea allá). El generador ya no lee `data/imagenes.csv`: arma la lista desde `/api/vitrina?pais=AR|BR` pública (comparado contra `data/imagenes.csv`: 104 = 104, 0 URLs distintas), así la Action no necesita credenciales de este repo.
+- Decisión de consumo: **submódulo** en `site/modelos/` (no descarga en el build ni release). Motivo: `server.py` no cambia (sirve los mismos archivos en la misma ruta), el `?v=<hash>` sigue igual (mismos bytes = mismas URLs), y no hace falta guardar un token en Render ni en el celu (celu: deploy key de solo lectura; Render: clona submódulos con su app de GitHub si tiene acceso al repo privado — **no verificado**).
+- Acá: `site/modelos/` pasa a gitlink + `.gitmodules`; se borran `tools/modelos3d.py` y `.github/workflows/modelos3d.yml`. El histórico de los GLB sigue en la historia de git (no se reescribió).
+- Orden: después de #75 (base de esta rama) y de #78 (el pull de casa actualiza submódulos), que tiene que haber llegado al celu antes.
+
 ## El pull del clon de casa actualiza submódulos (2026-11-22, rama feat/submodulo-pull)
 - Paso previo para sacar los modelos 3D a LUB-MODELOS3D (submódulo en `site/modelos`): `recolector_casa.actualizar` (corrida y `--solo-pull`) suma `git submodule update --init --recursive` después del `reset --hard`, que no mueve submódulos. Si falla (red, deploy key) no frena la recolección: queda un aviso en el log y la página sigue sin 3D.
 - Sin `.gitmodules` (hoy) es un no-op. Assert en `demo()` con un submódulo local. En el celu ya está la deploy key de solo lectura de LUB-MODELOS3D (alias SSH `github-modelos`) y el `url.insteadOf` en `~/lub-casa/.git/config` (`git ls-remote` OK).
