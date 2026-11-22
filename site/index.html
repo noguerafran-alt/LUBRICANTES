@@ -662,7 +662,8 @@ body:has(#dl[open]), body:has(#ix-dl[open]) { overflow: hidden; }
       <div><h2 class="vt-titulo" id="pr-titulo">Producto</h2><p class="nota" id="pr-fecha"></p></div>
       <div class="vt-filtro">
         <a class="vt-toggle" href="#visualizador">&larr; Volver al Visualizador</a>
-        <label>Ventana <select id="pr-dias"><option value="3" selected>3 días</option><option value="7">7 días</option><option value="30">30 días</option><option value="90">90 días</option><option value="366">1 año</option><option value="custom" hidden>Personalizado</option></select></label>
+        <label>Ventana <select id="pr-dias"><option value="3" selected>3 días</option><option value="7">7 días</option><option value="30">30 días</option><option value="90">90 días</option><option value="366">1 año</option><option value="mes">Este mes</option><option value="mesant">Mes anterior</option><option value="anio">Este año</option><option value="custom" hidden>Personalizado</option></select></label>
+        <label>Mes <input type="month" id="pr-mes"></label>
         <label>Desde <input type="date" id="pr-desde"></label>
         <label>Hasta <input type="date" id="pr-hasta"></label>
         <label class="chk"><span><input type="checkbox" id="pr-may"> Sumar mayoristas al cálculo</span></label>
@@ -2962,7 +2963,7 @@ function paginaProducto(v) {
       ? `<p>Promedio de la competencia ${mon.format(cmp.promedio_comp_litro)}/L (${entero.format(cmp.n_comp)} avisos) contra ${mon.format(cmp.promedio_ypf_litro)}/L de YPF: <b>${pctTxt(dif)}</b> <span class="mut">(positivo: la competencia es más cara)</span>.</p>`
       : `<p class="vt-vacio">Sin comparación: falta precio de ${cmp.promedio_ypf_litro === null ? "YPF" : "la competencia"} en la ventana.</p>`}</div>${eqs}` : p.es_ypf ? `<p class="vt-vacio">Sin equivalentes cargados para este producto.</p>` : sinYpf(p)}
     <div class="pr-sec pr-como"><h3>Cómo se calcula</h3><ul>
-      <li><b>Ventana.</b> ${$("#pr-dias").value === "custom" ? `Del ${fechaAR(w.desde)} al ${fechaAR(w.hasta)} (${w.dias} días), las fechas que elegiste.` : `Los últimos ${w.dias} días, terminando en el último día con datos (${fechaAR(w.hasta)}), no en hoy.`}</li>
+      <li><b>Ventana.</b> ${["custom", "mes", "mesant", "anio"].includes($("#pr-dias").value) ? `Del ${fechaAR(w.desde)} al ${fechaAR(w.hasta)} (${w.dias} días), las fechas que elegiste.` : `Los últimos ${w.dias} días, terminando en el último día con datos (${fechaAR(w.hasta)}), no en hoy.`}</li>
       <li><b>Un aviso, una vez.</b> Cada aviso (fuente, link, EAN, título, vendedor y envase; la provincia no entra) cuenta una sola vez, con su observación más reciente de la ventana.</li>
       <li><b>$/L.</b> Precio dividido por (litros × unidades del envase): una caja de 12 × 1 L son 12 L.</li>
       <li><b>Sanidad.</b> Un aviso con $/L fuera de [mediana ÷ 2,5; mediana × 2,5] del producto no cuenta: es casi seguro un envase mal leído (una caja como bidón).</li>
@@ -2970,17 +2971,30 @@ function paginaProducto(v) {
       <li><b>Promedio y mediana.</b> Lo destacado es el promedio por litro, como en el Visualizador (que usa los últimos 3 días: con esa ventana los números coinciden). El promedio es la media simple y lo mueve un aviso extremo; la mediana es el valor central y no. El desvío de cada fila es contra la mediana del propio producto.</li>
       <li><b>Comparación.</b> Promedio de todos los avisos de los equivalentes incluidos contra el promedio de YPF (el mismo cálculo que el Visualizador); no entran los no equivalentes ni los de mediana a más de 3 veces la de YPF.</li>
       <li><b>Sin umbral.</b> La página no declara ningún precio como sobreprecio: muestra los datos y quien los consulta decide. Las publicaciones son de terceros y los links llevan a sus sitios. No es tiempo real.</li>
-    </ul><p class="nota">Los mismos datos, en JSON o CSV: <a href="/api/producto?producto_id=${encodeURIComponent(p.producto_id)}${$("#pr-dias").value === "custom" ? `&desde=${w.desde}&hasta=${w.hasta}` : `&dias=${w.dias}`}${v.mayoristas_incluidos ? "&mayoristas=1" : ""}" target="_blank" rel="noopener">/api/producto</a>.</p></div>`;
+    </ul><p class="nota">Los mismos datos, en JSON o CSV: <a href="/api/producto?producto_id=${encodeURIComponent(p.producto_id)}${["custom", "mes", "mesant", "anio"].includes($("#pr-dias").value) ? `&desde=${w.desde}&hasta=${w.hasta}` : `&dias=${w.dias}`}${v.mayoristas_incluidos ? "&mayoristas=1" : ""}" target="_blank" rel="noopener">/api/producto</a>.</p></div>`;
+}
+// «Este mes», «Mes anterior» y «Este año» se cuentan contra el último día con datos (como la ventana por defecto), no contra hoy
+const finMes = ym => { const d = new Date(ym + "-01T00:00:00Z"); d.setUTCMonth(d.getUTCMonth() + 1); d.setUTCDate(0); return d.toISOString().slice(0, 10); };
+function rangoCalendario(a, max, min) {
+  const m = a === "mesant" ? mesAnt(max.slice(0, 7), 1) : max.slice(0, 7);
+  const r = a === "anio" ? [max.slice(0, 4) + "-01-01", max] : a === "mesant" ? [m + "-01", finMes(m)] : /^\d{4}-\d{2}$/.test(a) ? [a + "-01", finMes(a)] : [m + "-01", max];
+  return [r[0] < min ? min : r[0], r[1] > max ? max : r[1]];  // recortado a los días con datos (el calendario no deja salir de ahí)
+}
+function aplicarCalendario(a) {
+  const lim = PR.v?.datos; if (!lim?.hasta) return false;
+  const [d, h] = rangoCalendario(a, lim.hasta, lim.desde || "0000");
+  if (d > h) { PR.aviso = "Ese período no tiene datos."; return false; }
+  $("#pr-desde").value = d; $("#pr-hasta").value = h; return true;
 }
 async function abrirProducto(pid) {
   const dias = $("#pr-dias").value, may = $("#pr-may").checked, desde = $("#pr-desde").value, hasta = $("#pr-hasta").value;
-  const rango = dias === "custom" && desde && hasta;  // con un atajo las fechas se rellenan con lo que devuelve la API
+  const rango = ["custom", "mes", "mesant", "anio"].includes(dias) && desde && hasta;  // con un atajo las fechas se rellenan con lo que devuelve la API
   if (PR.listo && PR.pid === pid && PR.pais === P.pais && PR.dias === dias && PR.may === may && PR.desde === desde && PR.hasta === hasta) return;  // ir() se llama dos veces al arrancar
   Object.assign(PR, { pid, pais: P.pais, dias, desde, hasta, may, listo: false });
   const tok = ++PR.tok, out = $("#pr-out");
   out.textContent = "Cargando…"; $("#pr-fecha").textContent = "";
   let v;
-  try { v = await apiP(`producto?producto_id=${encodeURIComponent(pid)}&${rango ? `desde=${desde}&hasta=${hasta}` : `dias=${dias === "custom" ? 30 : dias}`}${may ? "&mayoristas=1" : ""}`); }
+  try { v = await apiP(`producto?producto_id=${encodeURIComponent(pid)}&${rango ? `desde=${desde}&hasta=${hasta}` : `dias=${/^\d+$/.test(dias) ? dias : 30}`}${may ? "&mayoristas=1" : ""}`); }
   catch (e) {
     if (tok !== PR.tok) return;
     PR.aviso = "";
@@ -2995,14 +3009,24 @@ async function abrirProducto(pid) {
   $("#pr-fecha").textContent = `Datos hasta el ${fechaAR(v.datos.hasta)}.${PR.aviso ? " " + PR.aviso : ""}`;
   PR.aviso = "";
   const di = $("#pr-desde"), ha = $("#pr-hasta");
-  di.min = ha.min = v.datos.desde; di.max = ha.max = v.datos.hasta;
-  if (!rango) { di.value = PR.desde = v.ventana.desde < v.datos.desde ? v.datos.desde : v.ventana.desde; ha.value = PR.hasta = v.ventana.hasta; if (dias === "custom") $("#pr-dias").value = "30"; }
+  di.min = ha.min = v.datos.desde; di.max = ha.max = v.datos.hasta; $("#pr-mes").min = (v.datos.desde || "").slice(0, 7); $("#pr-mes").max = (v.datos.hasta || "").slice(0, 7);
+  if (!rango) { di.value = PR.desde = v.ventana.desde < v.datos.desde ? v.datos.desde : v.ventana.desde; ha.value = PR.hasta = v.ventana.hasta; if (!/^\d+$/.test(dias)) $("#pr-dias").value = "30"; }
   PR.v = v;
   out.innerHTML = paginaProducto(v);
   pintarTira();
   scrollTo(0, 0);
 }
-$("#pr-dias").onchange = () => { $("#pr-desde").value = $("#pr-hasta").value = ""; if (!$("#producto").hidden) abrirProducto(PR.pid); };  // un atajo: las fechas se rellenan al llegar la respuesta
+$("#pr-dias").onchange = () => {
+  const a = $("#pr-dias").value; $("#pr-mes").value = "";
+  if (/^\d+$/.test(a)) $("#pr-desde").value = $("#pr-hasta").value = "";  // un atajo de días: las fechas se rellenan al llegar la respuesta
+  else if (!aplicarCalendario(a)) { $("#pr-dias").value = "custom"; $("#pr-desde").value = PR.desde; $("#pr-hasta").value = PR.hasta; }
+  if (!$("#producto").hidden) abrirProducto(PR.pid);
+};
+$("#pr-mes").onchange = () => {
+  const m = $("#pr-mes").value; if (!/^\d{4}-\d{2}$/.test(m)) return;
+  if (aplicarCalendario(m)) $("#pr-dias").value = "custom"; else { $("#pr-mes").value = ""; $("#pr-desde").value = PR.desde; $("#pr-hasta").value = PR.hasta; }
+  if (!$("#producto").hidden) abrirProducto(PR.pid);
+};  // un atajo: las fechas se rellenan al llegar la respuesta
 $("#pr-may").onchange = () => { if (!$("#producto").hidden) abrirProducto(PR.pid); };
 $("#pr-desde").onchange = $("#pr-hasta").onchange = () => {
   const di = $("#pr-desde"), ha = $("#pr-hasta");
@@ -3010,6 +3034,7 @@ $("#pr-desde").onchange = $("#pr-hasta").onchange = () => {
   if (!di.value || !ha.value || !di.validity.valid || !ha.validity.valid || di.value < di.min || ha.value > ha.max || di.value > di.max || ha.value < ha.min) { di.value = PR.desde; ha.value = PR.hasta; return; }
   if (di.value > ha.value) { [di.value, ha.value] = [ha.value, di.value]; PR.aviso = "Desde era posterior a Hasta: las intercambié."; }
   if ($("#pr-dias").value !== "custom") $("#pr-dias").value = "custom";
+  $("#pr-mes").value = "";
   if (!$("#producto").hidden) abrirProducto(PR.pid);
 };
 
