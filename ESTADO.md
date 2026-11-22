@@ -6,6 +6,11 @@
 - `tools/modelos3d.py`: la foto solo en el frente casi plano (`FRENTE` .5 → .9, `FRENTE_BALDE` .25 → .5) y la manija de los bidones como caño redondo del ancho del brazo (`manija`, `distancia`, `suavizar`), con su assert en el self-test (OK con Blender 5.3 local).
 - **Pendiente**: los 92 GLB de `site/modelos/` siguen siendo de la versión anterior hasta que se regeneren (`modelos3d.yml` con `forzar`).
 
+## Período en provincias y reventa; atajos de calendario en la página de producto (2026-11-22, rama feat/fechas-provincias)
+- Cierra la rama WIP `wip/filtros-fecha-api` (lub-fechas): lo de `/api/producto` y Desde/Hasta del visor ya había entrado con #73 con otro contrato (default 3 días, extremos sueltos); la WIP se descartó y se portó solo lo que faltaba, con el contrato de main.
+- API: `/api/provincias` (con y sin `producto_id`) y `/api/reventa` aceptan `desde`/`hasta` igual que `/api/producto`; la validación es una sola función (`server.rango_pedido`, la usan los tres). `reventa` ahora corta también por `hasta` (antes solo `fecha >= desde`). Respuesta: suma `desde`; con rango, `dias` = largo real. Asserts en `demo()`.
+- Visor (página de producto): Ventana suma «Este mes», «Mes anterior», «Este año» y un selector Mes; se cuentan contra el último día con datos y se recortan a los días con datos. No se portó de la WIP: tipo de cambio por Mes/Año ni fechas cercanas sin cotización (el selector de main ya ofrece solo fechas con cotización).
+
 ## Página de producto = Visualizador (2026-11-21, rama prodvit)
 
 - Discrepancia: el Visualizador daba 19 observaciones y promedio $ 39.562/L para Elaion Auro D1 530 y la página de producto 93 avisos y mediana $ 45.000. Causas: ventana (vitrina 3 días, producto 30), clave de aviso (producto sumaba la provincia: SEPA contaba un comercio por provincia, y las filas viejas sin provincia duplicaban a las nuevas) y número destacado (promedio vs mediana). Sanidad, mayoristas, Grok sin verificar y avisos sin litros ya coincidían.
