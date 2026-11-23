@@ -1,6 +1,11 @@
 # ESTADO
 
 
+## Filtro calendario en Índice (2026-11-23, rama feat/indice-calendario)
+- Pedido del usuario: un selector de día en la pestaña Índice. `<input type="date">` «Día» (min = primer día con datos, max = el último) más «Último día»; la tabla, las sparklines y el detalle por doble clic se calculan para ese día con los 90 días que terminan en él. `/api/indice` ya trae todas las fechas: se filtra en el cliente, la API no cambia.
+- Un día sin datos dice «Sin datos el dd/mm/aaaa» con los días con datos más cercanos (antes y después) como vínculos; no se arrastra nada. Se guarda en `localStorage` (`lub_ix_dia`, con try/catch). Con USD, cada celda usa la cotización de su día (o `fx_fecha`).
+- No verificado en navegador (solo `node --check` del JS): falta mirarlo a 375 px y en tema oscuro.
+
 ## Los 92 GLB regenerados con el generador nuevo (2026-11-22, rama feat/glb-regenerados)
 - Corrida `modelos3d.yml` de LUB-MODELOS3D con `forzar` (run 45041489661, OK): 104 fotos, 92 GLB regenerados (commit `585d157`) y 12 descartes (los mismos de `DESCARTES`). Foto solo en el frente casi plano (`FRENTE` .9, `FRENTE_BALDE` .5) y manija de caño en los bidones.
 - Acá solo se mueve el submódulo `site/modelos` de `6cbe919` a `585d157`: cambian los bytes, así que cambia cada `?v=` y el `immutable` no deja versiones viejas en cache.
