@@ -741,8 +741,12 @@ body:has(#dl[open]), body:has(#ix-dl[open]) { overflow: hidden; }
   </section>
 
   <section id="indice" hidden>
+    <div class="filtros">
+      <label>Día <input type="date" id="ix-dia"></label>
+      <button type="button" class="link" id="ix-hoy">Último día</button>
+    </div>
     <div id="ind-out"></div>
-    <p class="nota">Cada celda es la mediana de $/L de la marca dividida por la de YPF, en el mismo segmento, SAE y día, × 100. Sin YPF ese día no se calcula. Debajo de cada valor, los últimos 90 días. Las fuentes mayoristas (precio por caja o tambor, IVA no verificado) no entran; en la API se suman con <code>?mayoristas=1</code>.</p>
+    <p class="nota">Cada celda es la mediana de $/L de la marca dividida por la de YPF, en el mismo segmento, SAE y día, × 100. Sin YPF ese día no se calcula. Debajo de cada valor, los 90 días que terminan en el día elegido. Las fuentes mayoristas (precio por caja o tambor, IVA no verificado) no entran; en la API se suman con <code>?mayoristas=1</code>.</p>
   </section>
 
   <section id="cargar" hidden>
@@ -1129,17 +1133,32 @@ const IX_GRUPOS = [["Autos", ["pcmo"]], ["Moto", ["moto4t", "moto2t"]], ["Pesado
 const grupoIx = seg => (IX_GRUPOS.find(([, ss]) => ss && ss.includes(seg)) || IX_GRUPOS.at(-1))[0];
 const subIx = g => { const [seg, sae] = g.split("|"); return seg === "moto4t" ? "4T" + (sae ? " · " + sae : "") : seg === "moto2t" ? "2T" + (sae ? " · " + sae : "")
   : grupoIx(seg) === "Otros" ? (SEGMENTO[seg] || seg) + (sae ? " · " + sae : "") : sae || "sin SAE"; };
-const IX = { hist: {}, ultimo: "", desde: 0, foco: null };
+const IX = { hist: {}, ultimo: "", desde: 0, foco: null, dia: "" };
+try { IX.dia = localStorage.getItem("lub_ix_dia") || ""; } catch (e) {}
+function setIxDia(f) {   // "" = el último día con datos
+  IX.dia = f || "";
+  try { IX.dia ? localStorage.setItem("lub_ix_dia", IX.dia) : localStorage.removeItem("lub_ix_dia"); } catch (e) {}
+  indice();
+}
 
 function indice() {
   const out = $("#ind-out");
   if (!D.indice.length) return out.innerHTML = `<div class="explica">Todavía no hay precios con producto asignado para calcular el índice.</div>`;
-  const ultimo = D.indice.reduce((a, r) => r.fecha > a ? r.fecha : a, "");
+  const fechas = [...new Set(D.indice.map(r => r.fecha))].sort(), maxF = fechas.at(-1);
+  const ultimo = /^\d{4}-\d{2}-\d{2}$/.test(IX.dia) ? IX.dia : maxF;   // el día mostrado
+  const inp = $("#ix-dia");
+  Object.assign(inp, { min: fechas[0], max: maxF, value: ultimo });
+  $("#ix-hoy").hidden = ultimo === maxF;
   const hoy = D.indice.filter(r => r.fecha === ultimo);
   const desde = dia(ultimo) - 90;
   const hist = {};
-  D.indice.filter(r => dia(r.fecha) > desde).forEach(r => (hist[r.marca + "|" + r.segmento + "|" + r.sae] ??= []).push(r));
+  D.indice.filter(r => dia(r.fecha) > desde && r.fecha <= ultimo).forEach(r => (hist[r.marca + "|" + r.segmento + "|" + r.sae] ??= []).push(r));
   Object.assign(IX, { hist, ultimo, desde });
+  if (!hoy.length) {   // no se inventa ni se arrastra: se dice y se ofrecen los días con datos más cercanos
+    const ant = fechas.filter(f => f < ultimo).at(-1), sig = fechas.find(f => f > ultimo);
+    const v = f => f ? `<button type="button" class="link" data-ix-dia="${f}">${fechaAR(f)}</button>` : "";
+    return out.innerHTML = `<div class="explica">Sin datos el ${fechaAR(ultimo)}: no hay precios con producto asignado ese día y no se arrastra el de otro. Días con datos más cercanos: ${[v(ant), v(sig)].filter(Boolean).join(" · ")}.</div>`;
+  }
   const delPais = D.productos.filter(p => p.producto_id.endsWith("-br") === (P.pais === "BR"));
   const celdaDe = {};
   hoy.forEach(r => celdaDe[r.marca + "|" + r.segmento + "|" + r.sae] = r);
@@ -1176,7 +1195,7 @@ function indice() {
   out.innerHTML = `<div class="ix-ley"><b>100 = mismo precio por litro que YPF; 110 = 10 % más caro; 90 = 10 % más barato.</b>
       <span class="ix-escala" aria-hidden="true"><span>más barato (70)</span><i></i><span>más caro (130)</span></span>
       <span><span class="ix-sdsw" aria-hidden="true">–</span>sin dato (pasá el mouse o tocá para ver por qué)</span></div>
-    <p class="nota ix-pista">Doble clic (o doble toque, o Enter con la celda enfocada) sobre un valor para ver su evolución en 90 días. Último día con datos: <strong>${fechaAR(ultimo)}</strong>.</p>
+    <p class="nota ix-pista">Doble clic (o doble toque, o Enter con la celda enfocada) sobre un valor para ver su evolución en 90 días. Día mostrado: <strong>${fechaAR(ultimo)}</strong>${ultimo === maxF ? " (el último con datos)" : ` (no es el último: ${fechaAR(maxF)})`}.</p>
     ${aviso}<div class="tabla"><table class="ix-t">${cab}<tbody>${marcas.map(fila).join("")}</tbody></table></div>`;
 }
 
@@ -1194,7 +1213,7 @@ function ixDetalle(marca, g) {
   const prods = D.productos.filter(p => p.segmento === seg && p.sae === sae && (p.marca === marca || p.marca === "YPF") && p.producto_id.endsWith("-br") === (P.pais === "BR"));
   const lista = m => prods.filter(p => p.marca === m).map(p => `<li><a href="#producto/${encodeURIComponent(p.producto_id)}">${esc(nombreCompleto(p.marca, p.linea, p.nombre))}</a> <span class="mut">${esc(p.sae)}</span></li>`).join("");
   $("#ix-cuerpo").innerHTML = `
-    <p class="nota">Cada punto es un día con precio de ambos. Un día sin dato corta la línea: no se interpola. Hasta el ${fechaAR(IX.ultimo)}, últimos 90 días.</p>
+    <p class="nota">Cada punto es un día con precio de ambos. Un día sin dato corta la línea: no se interpola. Hasta el ${fechaAR(IX.ultimo)} (el día elegido), últimos 90 días.</p>
     <div class="ix-kpis">${ult ? kp(`índice el ${fechaAR(ult[0])} (YPF = 100)`, dec1.format(ult[1])) : ""}
       ${vals.length ? kp("mínimo de los 90 días", dec1.format(Math.min(...vals))) + kp("máximo de los 90 días", dec1.format(Math.max(...vals))) : ""}
       ${lM ? kp(`${esc(marca)}, $/L el ${fechaAR(lM[0])}`, mon.format(lM[1])) : ""}${lY ? kp(`YPF, $/L el ${fechaAR(lY[0])}`, mon.format(lY[1])) : ""}</div>
@@ -1213,6 +1232,9 @@ function ixDetalle(marca, g) {
 }
 $("#ind-out").addEventListener("dblclick", e => { const td = e.target.closest("td[data-m]"); if (td) { IX.foco = td; ixDetalle(td.dataset.m, td.dataset.g); } });
 $("#ind-out").addEventListener("keydown", e => { const td = e.key === "Enter" && e.target.closest?.("td[data-m]"); if (td) { e.preventDefault(); IX.foco = td; ixDetalle(td.dataset.m, td.dataset.g); } });
+$("#ix-dia").onchange = e => setIxDia(e.target.value);   // vacío (borrado a mano) = último día
+$("#ix-hoy").onclick = () => setIxDia("");
+$("#ind-out").addEventListener("click", e => { const b = e.target.closest("[data-ix-dia]"); if (b) setIxDia(b.dataset.ixDia); });
 $("#ix-x").onclick = () => $("#ix-dl").close();
 $("#ix-dl").addEventListener("click", e => { if (e.target === $("#ix-dl") || e.target.closest("a[href^='#producto']")) $("#ix-dl").close(); });
 $("#ix-dl").addEventListener("close", () => { const td = IX.foco && document.querySelector(`#ind-out td[data-m="${CSS.escape(IX.foco.dataset.m)}"][data-g="${CSS.escape(IX.foco.dataset.g)}"]`); IX.foco = null; if (td && !$("#indice").hidden) td.focus(); });
