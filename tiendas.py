@@ -23,7 +23,8 @@ TIENDANUBE = {"tn_lspalermo": "https://lspalermo.com.ar", "tn_spch": "https://sp
               "tn_lubrimaster": "https://lubrimaster.mitiendanube.com", "tn_lubricentrodg": "https://lubricentrodg.mitiendanube.com",
               "tn_exporepuestos": "https://www.exporepuestos.com", "tn_netrenault": "https://www.netrenault.com.ar",
               "tn_gramaglia": "https://gramagliarepuestos.com.ar", "tn_torooils": "https://lubricentrotorooils.mitiendanube.com"}
-WOOCOMMERCE = {"woo_larutaok": "https://neumaticoslarutaok.com", "woo_ceridono": "https://ceridono.ar"}
+WOOCOMMERCE = {"woo_larutaok": "https://neumaticoslarutaok.com", "woo_ceridono": "https://ceridono.ar",
+               "woo_allende": "https://www.allenderepuestos.com.ar"}
 TERMINOS_WOO = ("aceite", "lubricante")
 MAYORISTAS = {"shopify_datri", "tn_olafil", "woo_ceridono"}  # precio por caja/tambor, IVA no verificado: /api/indice los excluye
 
@@ -34,6 +35,11 @@ TOPE_PAGINAS = 150
 OLEO = re.compile(r"aceite|lubric|elaion|helix|castrol|quartz|mobil")
 NO_ACEITE = re.compile(r"filtro|kit|service|combo|bomba|pack|aerosol|limpia|aditivo|tapon|bulbo|interruptor|"
                        r"lampara|medidor|embudo|sensor|varilla|reten|anillo|calorstat|\bbidon-vacio")
+
+# Fuentes cuyo catálogo mezcla aceite suelto con combos (aceite + filtro/colocación): el combo es un servicio y va a data/grok
+# (recolectar.servicios_combo), nunca a obs ni al $/L. Daytona y Tienda Neumáticos (NEUMASUR) son el mismo catálogo VTEX: solo corre Daytona.
+COMBOS = {"woo_allende", "vtex_daytona"}
+COMBO = re.compile(r"\bkit\b|\bcombo\b|cambio de aceite|\+\s*filtro")  # sobre texto() (sin acentos)
 
 CAJA = re.compile(r"(?<![\w.,])(\d+)\s*x\s*(\d+(?:[.,]\d+)?)\s*(?:l|lt|lts|litros?)\b")
 GRANEL = re.compile(r"\b(?:tambor|balde|contenedor|bidon)\s*(?:de\s*)?(\d+(?:[.,]\d+)?)\s*(?:l|lt|lts|litros?)\b")
@@ -186,7 +192,7 @@ def tiendanube(fuente, fecha):
 
 
 # ---------- WooCommerce (Store API pública) ----------
-def avisos_woo(productos):
+def avisos_woo(productos, combos=False):
     """Productos de /wp-json/wc/store/v1/products → avisos. price viene en unidades menores (currency_minor_unit)."""
     out = []
     for p in productos:
@@ -198,7 +204,7 @@ def avisos_woo(productos):
         except ValueError:
             continue
         titulo = html.unescape(p.get("name") or "").strip()
-        if not titulo or NO_ACEITE.search(texto(titulo)):
+        if not titulo or (NO_ACEITE.search(texto(titulo)) and not (combos and COMBO.search(texto(titulo)))):
             continue
         sku = (p.get("sku") or "").strip()
         a = dict(url=p.get("permalink") or "", ean=sku if re.fullmatch(r"\d{13}", sku) else "", titulo=titulo, marca_cruda="",
@@ -224,7 +230,7 @@ def woocommerce(fuente, fecha):
                 return http, [], f"HTTP {http} en search={t} page={pag}"
             nuevos = [p for p in d if p.get("id") not in vistos]
             vistos.update(p.get("id") for p in d)
-            avisos += avisos_woo(nuevos)
+            avisos += avisos_woo(nuevos, fuente in COMBOS)
             if len(d) < 100:
                 break
     return http, avisos, ""
