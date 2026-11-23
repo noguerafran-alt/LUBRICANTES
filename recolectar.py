@@ -427,15 +427,15 @@ def fila_servicio(fuente, url, titulo, precio, detalle, fecha, cargado, litros=N
 
 def servicios_combo(fuente, combos, fecha, cargado):
     """Avisos que son combo (tiendas.COMBO) → (filas para data/grok/, n sin stock o sin precio). El detalle sale solo de lo que dice
-    el título: filtro(s) y, si dice "cambio de aceite", colocación; si no dice nada, "KIT". Clave del día: url+título+detalle."""
+    el título: filtro(s); la colocación nunca se afirma (ningún sitio aclara si incluye mano de obra); si no dice nada, "KIT". Clave del día: url+título+detalle."""
     por_clave, sin = {}, 0
     for a in combos:
         if a.get("stock") == 0 or not a["precio"] or float(a["precio"]) <= 0:
             sin += 1
             continue
         t = texto(a["titulo"])
-        # solo lo que el título dice: ni colocación ni su ausencia se deducen; "KIT" mantiene fuera del $/L a lo que no es aceite + colocación (RX_EXTRA)
-        partes = ["FILTRO ACEITE" if "filtro de aceite" in t else "FILTROS" if "filtro" in t else "", "COLOCACIÓN" if "cambio de aceite" in t else ""]
+        # "cambio de aceite" no prueba mano de obra incluida: sin COLOCACIÓN en el detalle, /api/servicios no inventa un $/L de aceite + colocación
+        partes = ["FILTRO ACEITE" if "filtro de aceite" in t else "FILTROS" if "filtro" in t else ""]
         detalle = ";".join(x for x in partes if x) or "KIT"
         f = fila_servicio(fuente, a["url"], a["titulo"], a["precio"], detalle, fecha, cargado,
                           litros=a.get("litros"), unidades=a.get("unidades"))
@@ -510,7 +510,10 @@ def correr(fuente, fecha, rel=None, imgs=None):
         obs = None
         if not fila["error"]:
             combos = [a for a in avisos if fuente in tiendas.COMBOS and tiendas.es_combo(a["titulo"])]
-            obs, fila["n_sin_stock"], fila["n_sin_match"], fila["n_descartados"] = a_obs(fuente, fecha, [a for a in avisos if a not in combos], rel, imgs)
+            # falla cerrada: en fuentes con combos, lo que no es combo pero nombra filtro/kit/service… (un servicio que es_combo no reconoce) no es un bidón
+            sueltos = [a for a in avisos if a not in combos and not (fuente in tiendas.COMBOS and tiendas.NO_ACEITE.search(texto(a["titulo"])))]
+            obs, fila["n_sin_stock"], fila["n_sin_match"], fila["n_descartados"] = a_obs(fuente, fecha, sueltos, rel, imgs)
+            fila["n_descartados"] += len(avisos) - len(combos) - len(sueltos)
             fila["n_con_precio"] = len(obs)
             if fuente in tiendas.COMBOS:  # los combos son servicios: a data/grok, y el día queda reemplazado aunque hoy no haya ninguno
                 serv, sin = servicios_combo(fuente, combos, fecha, ahora_utc())
@@ -596,9 +599,13 @@ def demo():
     sv, sin = servicios_combo("vtex_daytona", [
         dict(url="https://d/a/p", titulo="Cambio de Aceite Semi Sintético Total Quartz 7000 10W-40 + Filtro de Aceite", precio=122115.0, stock=None),
         dict(url="https://d/b/p", titulo="Kit de filtros + aceite Mobi 1.0", precio=0.0, stock=0)], "2026-11-23", "2026-11-23T10:00:00Z")
-    assert sin == 1 and len(sv) == 1 and sv[0]["tipo"] == "servicio" and sv[0]["detalle"] == "FILTRO ACEITE;COLOCACIÓN" and sv[0]["verificado"] == "1"
+    assert sin == 1 and len(sv) == 1 and sv[0]["tipo"] == "servicio" and sv[0]["detalle"] == "FILTRO ACEITE" and sv[0]["verificado"] == "1"
     assert sv[0]["producto_id"] == "totalenergies-quartz-7000-10w40" and sv[0]["provincia"] == "" and len(sv[0]) == len(GROK_ALM)
     assert not C("Kit retenes de aceite motor") and not C("Kit de distribucion Gol") and not C("Combo limpieza Total") and not C("Kit de filtros Gol")
+    sc, _ = servicios_combo("vtex_daytona", [dict(url="u", titulo="Cambio de Aceite Total Quartz 9000 5W-40 4L", precio=1.0, stock=None)], "2026-11-23", "t")
+    assert sc[0]["detalle"] == "KIT"  # sin filtro, «cambio de aceite» no se toma como colocación
+    for t in ("Service Total Quartz 9000 5W-40 4L", "Promo Total Quartz 9000 5W-40 4L con filtro de aceite"):
+        assert not C(t) and tiendas.NO_ACEITE.search(texto(t))  # el ruteo de la corrida los descarta (no van a obs)
     sg, _ = servicios_combo("woo_allende", [dict(url="u", titulo="Kit aceite 4L", precio=1.0, stock=None)], "2026-11-23", "t")
     assert sg[0]["detalle"] == "KIT"
     sk, _ = servicios_combo("woo_allende", [dict(url="u", titulo="Kit de filtros + aceite Kwid 1.0", precio=79900.0, stock=None)], "2026-11-23", "t")
