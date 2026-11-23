@@ -583,7 +583,7 @@ def vitrina(d, mayoristas=False, pais="AR"):
     eq = defaultdict(dict)
     for e in d["equivalencias"]:
         eq[e["ypf_id"]].setdefault(e["comp_id"], e)
-    productos, i30 = [], indices_30d(d, mayoristas)
+    productos, i30 = [], indices_30d(d)
     for p in productos_de(d, pais):
         pid, ypf = p["producto_id"], datos_ypf(por_pid.get(p["producto_id"], []))
         eqs, en_prom = [], []
@@ -697,25 +697,27 @@ def _indice_par(por, eqs, pid, mayoristas=False):
     return {"indice": round(my / mc * 100, 1) if my and mc else None, "mediana_ypf_litro": my, "mediana_comp_litro": mc, "n_ypf": len(y), "n_comp": len(pool)}
 
 
-def indices_30d(d, mayoristas=False):
-    """{producto_id YPF: indice_30d} con la ventana de 30 días que termina en el último día con datos de `d` (ya de un solo país)."""
+def indices_30d(d):
+    """{producto_id YPF: indice_30d} (nunca con mayoristas: cotizan por caja o tambor, igual que /api/bi/indice_competencia) con la ventana de 30 días que termina en el último día con datos de `d` (ya de un solo país)."""
     eq, ypf = _equivs(d), [p["producto_id"] for p in d["productos"] if p["marca"] == "YPF"]
     hasta, por = _avisos(d, VENTANA_INDICE, set(ypf) | {c for y in ypf for c in eq.get(y, {})}, None)
     desde, _ = desde_hasta(d, VENTANA_INDICE)
-    return {pid: {**_indice_par(por, eq.get(pid, {}), pid, mayoristas), "desde": desde or None, "hasta": hasta or None} for pid in ypf}
+    return {pid: {**_indice_par(por, eq.get(pid, {}), pid), "desde": desde or None, "hasta": hasta or None} for pid in ypf}
 
 
 def bi_indice_competencia(d, desde=""):
     """/api/bi/indice_competencia: el índice de 30 días para cada fecha con datos (ventana móvil que termina ahí), una fila por producto YPF con datos en la ventana.
     Barrido incremental: se mantiene el último aviso vivo de cada clave y se descartan los que salen de la ventana. Cacheado por estado de datos (`d` se rearma al recargar)."""
     cache = d.setdefault("_cache_bi_indice", {})
+    # ponytail: barrido completo = fechas × avisos vivos (~0,1-0,2 s por fecha en la PC); `calcular` lo precalienta al cargar, fuera del pedido. Con años de historia:
+    # persistir los cortes cerrados y recalcular solo los últimos 30 días.
     if "filas" not in cache:
         filas = []
         eq = _equivs(d)
         ypf = [p["producto_id"] for p in d["productos"] if p["marca"] == "YPF"]
         pids = set(ypf) | {c for y in ypf for c in eq.get(y, {})}
         for pais in PAISES:
-            obs = [r for r in d["obs"] if pais_r(r) == pais]
+            obs = [r for r in d["obs"] if pais_r(r) == pais and moneda_r(r) == PAISES[pais][1]]  # una moneda distinta (p. ej. USD) no se mezcla en la mediana
             por_dia, vivos = defaultdict(list), {}
             for r in obs:
                 if r["producto_id"] in pids:
@@ -1646,6 +1648,7 @@ def calcular(d, hoy=None):
     """Lo que no depende de parámetros se calcula una vez al arrancar. Argentina va en el nivel de arriba (lo de siempre);
     `_paises` trae lo mismo por país. Mercado y mapa son solo Argentina (energia.csv y series.csv son de la SE y el INDEC)."""
     da = de_pais(d, "AR")
+    bi_indice_competencia(d)  # precalienta la caché: el primer GET de Power BI no paga el barrido
     por_pais = {p: calc_pais(d, p) for p in PAISES}
     return {
         "mercado": mercado(da),
@@ -2662,7 +2665,8 @@ def demo():
         assert i_["indice"] == (round(i_["mediana_ypf_litro"] / i_["mediana_comp_litro"] * 100, 1) if i_["mediana_ypf_litro"] and i_["mediana_comp_litro"] else None)
         assert (i_["desde"], i_["hasta"]) == ("2026-10-07", "2026-11-05")
         assert (pid_ in sw_) == bool(i_["n_ypf"] or i_["n_comp"]) and (pid_ not in sw_ or {k: sw_[pid_][k] for k in i_ if k not in ("desde", "hasta")} == {k: v for k, v in i_.items() if k not in ("desde", "hasta")}), pid_
-    assert vt_["ypf-a"]["indice_30d"]["indice"] is not None and vt_["ypf-b"]["indice_30d"] == {"indice": None, "mediana_ypf_litro": None, "mediana_comp_litro": None, "n_ypf": 0, "n_comp": vt_["ypf-b"]["indice_30d"]["n_comp"], "desde": "2026-10-07", "hasta": "2026-11-05"}
+    assert vt_["ypf-a"]["indice_30d"]["indice"] is not None and vt_["ypf-b"]["indice_30d"] == {"indice": None, "mediana_ypf_litro": None, "mediana_comp_litro": None, "n_ypf": 0, "n_comp": producto(dv, "ypf-b", 30)["comparacion"]["n_comp"], "desde": "2026-10-07", "hasta": "2026-11-05"}
+    assert {k: v["indice_30d"] for k, v in {x["producto_id"]: x for x in vitrina(dv, True)["productos"]}.items()} == {k: v["indice_30d"] for k, v in vt_.items()}  # mayoristas no cambian el índice
     assert aplanar_vitrina(vitrina(dv))[0]["indice30_indice"] == vt_["ypf-a"]["indice_30d"]["indice"] and vitrina({**dv, "obs": []})["productos"][0]["indice_30d"]["n_ypf"] == 0
     # ventana móvil: un corte anterior solo ve lo que hasta entonces había (el 2026-11-04 no ve los avisos del 05)
     assert {f["fecha"] for f in bi_indice_competencia(dv)} >= {"2026-11-04", "2026-11-05"} and bi_indice_competencia(dv, "2026-11-05") == [f for f in bi_indice_competencia(dv) if f["fecha"] >= "2026-11-05"]

@@ -1,6 +1,6 @@
 # Power BI: precios observados en modelo estrella
 
-El server publica siete tablas en CSV (UTF-8 con BOM, así Power BI y Excel leen los acentos) para cruzar los precios observados con datos internos de YPF. Todas van detrás de la misma clave que el resto de la API (`LUB_CLAVE`).
+El server publica siete tablas en CSV (UTF-8 con BOM, así Power BI y Excel leen los acentos) para cruzar los precios observados con datos internos de YPF. Son de lectura abierta, sin clave, como todo `GET` de la API.
 
 | tabla | URL | qué es |
 |---|---|---|

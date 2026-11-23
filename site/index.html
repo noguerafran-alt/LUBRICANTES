@@ -1446,7 +1446,7 @@ function bloqueIndice(p) {
   const d = Math.round((100 - x.indice) * 10) / 10;
   const txt = d === 0 ? "YPF al mismo precio por litro" : d > 0 ? `YPF ${dec1.format(d)} % más barato` : `YPF ${dec1.format(-d)} % más caro`;
   return `<div class="vt-indice">${cab}<p><span class="vt-precio">${dec1.format(x.indice)}</span> <span class="vt-dif ${d > 0 ? "barato" : d < 0 ? "caro" : ""}">${txt}</span></p>
-    <p class="vt-rango">Mediana YPF ${mon.format(x.mediana_ypf_litro)}/L contra ${mon.format(x.mediana_comp_litro)}/L de la competencia · ${entero.format(x.n_ypf)} y ${entero.format(x.n_comp)} avisos · ${esc(x.desde)} a ${esc(x.hasta)}</p></div>`;
+    <p class="vt-rango">Mediana YPF ${mon.format(x.mediana_ypf_litro)}/L contra ${mon.format(x.mediana_comp_litro)}/L de la competencia · ${entero.format(x.n_ypf)} y ${entero.format(x.n_comp)} avisos · ${fechaAR(x.desde)} a ${fechaAR(x.hasta)}</p>${P.usd ? `<p class="vt-rango">YPF ${usdDe(x, "mediana_ypf_litro", "", true)}<br>Competencia ${usdDe(x, "mediana_comp_litro", "", true)}</p>` : ""}</div>`;
 }
 
 function slideVt(p, i, n, clon) {
