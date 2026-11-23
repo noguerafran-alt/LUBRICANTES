@@ -416,7 +416,9 @@ MENSUAL_DIAS, MANUAL_DIAS = 45, 30  # tope de antigüedad de la última bajada b
 CUBIERTA = {"grok_helix": "helix_api", "macro_92_2_tipo_cambiion_0_0_21_24": "fx_bcra",
             # sitios que Grok cargaba y desde 2026-11-21 lee el recolector: su histórico grok_* no alerta a los 30 días
             **{f"grok_{s}": f"tn_{s}" for s in ("rano", "olafil", "lubrimaster", "lubricentrodg", "exporepuestos", "netrenault", "gramaglia", "torooils")},
-            "grok_larutaok": "woo_larutaok", "grok_ceridono": "woo_ceridono"}
+            "grok_larutaok": "woo_larutaok", "grok_ceridono": "woo_ceridono",
+            # 2026-11-23: Allende y Daytona; Tienda Neumáticos es el mismo catálogo VTEX que Daytona (misma cubridora)
+            "grok_allende": "woo_allende", "grok_daytona": "vtex_daytona", "grok_tiendaneumaticos": "vtex_daytona"}
 
 
 def cadencia(f):
@@ -2207,6 +2209,8 @@ def demo():
     h_ = _av([("2026-11-19", "helix_api", "")], grok=[g_])["grok_helix"]   # 49 días: alertaría, pero helix_api lo cubre
     assert not h_["alerta"] and h_["aviso"] == "cubierto por helix_api", h_
     assert _av([("2026-11-17", "helix_api", "")], grok=[g_])["grok_helix"]["alerta"]   # helix_api atrasada no cubre
+    assert CUBIERTA["grok_tiendaneumaticos"] == CUBIERTA["grok_daytona"] == "vtex_daytona" and CUBIERTA["grok_allende"] == "woo_allende"
+    assert not {f["fuente"] for f in fuentes_grok({"grok": [dict(g_, fuente="woo_allende"), dict(g_, fuente="vtex_daytona")], "grok_sitios": []}, date.today())}  # escriben en data/grok pero su estado es el de fuentes.csv
     s_ = _av([("2026-11-05", "macro_x", ""), ("2026-11-19", "macro_series", "")])
     assert not s_["macro_x"]["alerta"] and s_["macro_x"]["dias_sin_datos"] == 0, s_["macro_x"]   # sin fila propia hace 14 días, macro_series al día
     assert _av([("2026-11-05", "macro_x", ""), ("2026-11-17", "macro_series", "")])["macro_x"]["alerta"]

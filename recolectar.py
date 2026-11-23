@@ -37,12 +37,15 @@ VTEX = {
     # AvailableQuantity=99999 es relleno ("hay stock"), no cantidad.
     "vtex_norauto": ("www.norauto.com.ar", "C:/3/20/"),
     # Brasil: la categoría (fq=C:9317) da [] en Pitstop; se barre por texto (ft=) con las marcas del seed BR.
+    # Daytona (NEUMASUR): C:/3/ = Lubricentro. Sus aceites son todos combos "Cambio de Aceite ... + Filtro" (servicios, a data/grok);
+    # lo demás (refrigerantes) se descarta. Tienda Neumáticos es el mismo catálogo (mismos productId, títulos y precios): no se lee, sería doble conteo.
+    "vtex_daytona": ("www.daytona.com.ar", "C:/3/"),
     "vtex_br_pitstop": ("www.pitstop.com.br", None),
     "vtex_br_altese": ("www.altese.com.br", None),
 }
 # AvailableQuantity que es relleno ("hay stock") y no una cantidad: la fuente guarda stock vacío. Norauto 99999 (las demás
 # argentinas, igual); Pitstop y Altese también ponen 100 en casi todo.
-RELLENO_STOCK = {"vtex_br_pitstop": {99999, 100}, "vtex_br_altese": {99999, 100}}
+RELLENO_STOCK = {"vtex_daytona": {99999, 100}, "vtex_br_pitstop": {99999, 100}, "vtex_br_altese": {99999, 100}}
 # Lotes y kits: precio de varias unidades o de servicio con nombre de 1 L. No son $/L: no entran (ver CLAUDE.md, Brasil).
 LOTE_BR = re.compile(r"\b(kit|combo|revisao)\b|^\s*\d+\s+oleo\b|\(\s*\d+\s*un\b")  # sobre texto() (sin acentos)
 EXTRA_TERMINOS_BR = {"Petronas": ["oleo selenia"]}  # Selenia es la marca de Petronas en Brasil
@@ -412,6 +415,34 @@ HELIX_PAGINA = "https://www.helixturno.com.ar/combos"  # misma URL que usa grok_
 GROK_ALM = "fecha,fuente,url,titulo,marca,precio,precio_lista,litros,unidades,tipo,detalle,verificado,producto_id,match,cargado,provincia,pais,moneda".split(",")  # = server.GROK_ALM_F (assert en server.py test)
 
 
+def fila_servicio(fuente, url, titulo, precio, detalle, fecha, cargado, litros=None, unidades=None):
+    """Fila de data/grok/ (esquema GROK_ALM) de un servicio: aceite + filtro/mano de obra. Nunca va a obs ni al $/L;
+    `detalle` es lo que lee server.RX_EXTRA para no calcular un precio_litro falso. producto_id/litros salen de `normalizar`."""
+    n = normalizar(titulo, "", "", url=url)
+    return dict(fecha=fecha, fuente=fuente, url=url, titulo=titulo, marca=n["marca"] or "", precio=num(precio), precio_lista="",
+                litros=num(n["litros"] if litros is None else litros), unidades=n["unidades"] or "" if unidades is None else unidades,
+                tipo="servicio", detalle=detalle, verificado="1", producto_id=n["producto_id"], match=n["match"], cargado=cargado,
+                provincia="", pais="AR", moneda="ARS")
+
+
+def servicios_combo(fuente, combos, fecha, cargado):
+    """Avisos que son combo (tiendas.COMBO) → (filas para data/grok/, n sin stock o sin precio). El detalle sale solo de lo que dice
+    el título: filtro(s); la colocación nunca se afirma (ningún sitio aclara si incluye mano de obra); si no dice nada, "KIT". Clave del día: url+título+detalle."""
+    por_clave, sin = {}, 0
+    for a in combos:
+        if a.get("stock") == 0 or not a["precio"] or float(a["precio"]) <= 0:
+            sin += 1
+            continue
+        t = texto(a["titulo"])
+        # "cambio de aceite" no prueba mano de obra incluida: sin COLOCACIÓN en el detalle, /api/servicios no inventa un $/L de aceite + colocación
+        partes = ["FILTRO ACEITE" if "filtro de aceite" in t else "FILTROS" if "filtro" in t else ""]
+        detalle = ";".join(x for x in partes if x) or "KIT"
+        f = fila_servicio(fuente, a["url"], a["titulo"], a["precio"], detalle, fecha, cargado,
+                          litros=a.get("litros"), unidades=a.get("unidades"))
+        por_clave[(f["url"], f["titulo"], f["detalle"])] = f
+    return list(por_clave.values()), sin
+
+
 def filas_helix(resultado, fecha, cargado):
     """result[] de GetCombosWeb → (filas para data/grok/, n sin precio). Son servicios (aceite + mano de obra), nunca $/L de bidón:
     `tipo=servicio`, así que server.py los manda a /api/servicios y no a obs. `imagenWeb` (URL firmada que vence) se ignora.
@@ -423,12 +454,9 @@ def filas_helix(resultado, fecha, cargado):
             sin_precio += 1
             continue
         titulo = f"{c.get('titulo', '')} {c.get('descripcion', '')}".strip()
-        n = normalizar(titulo, "", "", url=HELIX_PAGINA)
         detalle = ";".join(t for t, k in (("FILTRO AIRE", "filtroAire"), ("FILTRO ACEITE", "filtroAceite")) if c.get(k)
                            ) + (";COLOCACIÓN Y CONTROLES" if c.get("colocacion") else ";sin colocación")
-        f = dict(fecha=fecha, fuente="helix_api", url=HELIX_PAGINA, titulo=titulo, marca=n["marca"] or "", precio=num(precio), precio_lista="",
-                 litros=num(n["litros"]), unidades=n["unidades"] or "", tipo="servicio", detalle=detalle.lstrip(";"), verificado="1",
-                 producto_id=n["producto_id"], match=n["match"], cargado=cargado, provincia="", pais="AR", moneda="ARS")
+        f = fila_servicio("helix_api", HELIX_PAGINA, titulo, precio, detalle.lstrip(";"), fecha, cargado)
         por_clave[(f["titulo"], f["detalle"])] = f  # mismo combo dos veces el mismo día: una fila
     return list(por_clave.values()), sin_precio
 
@@ -481,8 +509,17 @@ def correr(fuente, fecha, rel=None, imgs=None):
         fila["n_items"] = len(avisos)
         obs = None
         if not fila["error"]:
-            obs, fila["n_sin_stock"], fila["n_sin_match"], fila["n_descartados"] = a_obs(fuente, fecha, avisos, rel, imgs)
+            combos = [a for a in avisos if fuente in tiendas.COMBOS and tiendas.es_combo(a["titulo"])]
+            # falla cerrada: en fuentes con combos, lo que no es combo pero nombra filtro/kit/service… (un servicio que es_combo no reconoce) no es un bidón
+            sueltos = [a for a in avisos if a not in combos and not (fuente in tiendas.COMBOS and tiendas.NO_ACEITE.search(texto(a["titulo"])))]
+            obs, fila["n_sin_stock"], fila["n_sin_match"], fila["n_descartados"] = a_obs(fuente, fecha, sueltos, rel, imgs)
+            fila["n_descartados"] += len(avisos) - len(combos) - len(sueltos)
             fila["n_con_precio"] = len(obs)
+            if fuente in tiendas.COMBOS:  # los combos son servicios: a data/grok, y el día queda reemplazado aunque hoy no haya ninguno
+                serv, sin = servicios_combo(fuente, combos, fecha, ahora_utc())
+                reemplazar(os.path.join(DATA, "grok", fecha[:7] + ".csv"), GROK_ALM, serv, lambda f: (f["fuente"], f["fecha"]), {(fuente, fecha)})
+                fila["n_sin_stock"] += sin
+                fila["n_con_precio"] += len(serv)
     if not fila["error"] and fila["n_items"] == 0 and fila["http"] and 200 <= int(fila["http"]) < 300:
         fila["error"] = ("API devolvió 0 productos (¿bloqueo de IP?)" if fuente == "oficial_br_notaparana"
                          else "categoria vacia, revisar fq")
@@ -553,6 +590,29 @@ def demo():
     assert "ml" not in sin_fuentes(fuentes_por_defecto({}), ["--sin", "ml"]) and "ml_cat" in sin_fuentes(fuentes_por_defecto({}), ["--sin", "ml"])
     assert sin_fuentes(["ml"], ["--solo", "ml", "--sin", "ml"]) == [] and sin_fuentes(["ml"], ["--sin"]) == ["ml"]
     assert "ml" in fuentes_por_defecto({"GITHUB_ACTIONS": "true"}) and "helix_api" in fuentes_por_defecto({"GITHUB_ACTIONS": "true"})
+    # combos → servicio, sueltos → obs, con títulos reales de Allende y Daytona (relevamiento 2026-11-23)
+    C = tiendas.es_combo
+    assert C("Kit de filtros + aceite Kwid 1.0") and C("Cambio de Aceite Semi Sintético Total Quartz 7000 10W-40 + Filtro de Aceite")
+    assert not C("ACEITE ELAION 4L 10W40 SEMISINTETICO F30") and not C("Aceite ELAION AURO 5W30 sintético 4L") and not C("Botella 1 Litro Total Refrigerante Glacelf")
+    assert tiendas.COMBOS == {"woo_allende", "vtex_daytona"} and "vtex_daytona" in VTEX and VTEX["vtex_daytona"][1] == "C:/3/" and "vtex_tiendaneumaticos" not in VTEX
+    assert "woo_allende" in tiendas.WOOCOMMERCE and "woo_allende" in fuentes_por_defecto({}) and "vtex_daytona" in fuentes_por_defecto({})
+    sv, sin = servicios_combo("vtex_daytona", [
+        dict(url="https://d/a/p", titulo="Cambio de Aceite Semi Sintético Total Quartz 7000 10W-40 + Filtro de Aceite", precio=122115.0, stock=None),
+        dict(url="https://d/b/p", titulo="Kit de filtros + aceite Mobi 1.0", precio=0.0, stock=0)], "2026-11-23", "2026-11-23T10:00:00Z")
+    assert sin == 1 and len(sv) == 1 and sv[0]["tipo"] == "servicio" and sv[0]["detalle"] == "FILTRO ACEITE" and sv[0]["verificado"] == "1"
+    assert sv[0]["producto_id"] == "totalenergies-quartz-7000-10w40" and sv[0]["provincia"] == "" and len(sv[0]) == len(GROK_ALM)
+    assert not C("Kit retenes de aceite motor") and not C("Kit de distribucion Gol") and not C("Combo limpieza Total") and not C("Kit de filtros Gol")
+    sc, _ = servicios_combo("vtex_daytona", [dict(url="u", titulo="Cambio de Aceite Total Quartz 9000 5W-40 4L", precio=1.0, stock=None)], "2026-11-23", "t")
+    assert sc[0]["detalle"] == "KIT"  # sin filtro, «cambio de aceite» no se toma como colocación
+    for t in ("Service Total Quartz 9000 5W-40 4L", "Promo Total Quartz 9000 5W-40 4L con filtro de aceite"):
+        assert not C(t) and tiendas.NO_ACEITE.search(texto(t))  # el ruteo de la corrida los descarta (no van a obs)
+    sg, _ = servicios_combo("woo_allende", [dict(url="u", titulo="Kit aceite 4L", precio=1.0, stock=None)], "2026-11-23", "t")
+    assert sg[0]["detalle"] == "KIT"
+    sk, _ = servicios_combo("woo_allende", [dict(url="u", titulo="Kit de filtros + aceite Kwid 1.0", precio=79900.0, stock=None)], "2026-11-23", "t")
+    assert sk[0]["detalle"] == "FILTROS" and sk[0]["producto_id"] == ""  # sin litros ni marca de aceite: nada que matchear
+    wk = tiendas.avisos_woo([dict(id=1, name="Kit de filtros + aceite Kwid 1.0", prices=dict(price="7990000", regular_price="7990000", currency_minor_unit=2),
+                                  is_in_stock=True, permalink="u")], True)
+    assert len(wk) == 1 and not tiendas.avisos_woo([dict(id=1, name="Kit de filtros + aceite Kwid 1.0", prices=dict(price="1", currency_minor_unit=2))])  # sin combos, el kit sigue fuera
     # helix_api: JSON de ejemplo de GetCombosWeb (sin red). Servicio, no bidón; HX8 con filtros; clave titulo+detalle; sin precio no entra.
     hx = [dict(titulo="Combo Sintetico", descripcion="Shell Helix HX8 Professional AV 5W40 (4 Litros)", imagenWeb="https://x/firmada?sig=1",
                filtroAire=True, filtroAceite=True, colocacion=True, precio=239990),
