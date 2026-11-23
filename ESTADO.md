@@ -1,6 +1,12 @@
 # ESTADO
 
 
+## GLB: manijas lisas con foto, baldes parejos y Röd 4T con modelo (2026-11-23, rama feat/glb-manijas-baldes)
+- Reclamo del usuario con capturas: manija de la Elaion TS 1040 corrugada y sin foto, balde Extravida XV100 abollado, Röd 4T sin modelo (foto con balde + botella).
+- Generador (LUB-MODELOS3D `c7f21f7`): manija con perfil de distancia al borde y peso de mezcla que no cae en la silueta (sin escalones ni serrucho), contorno que arrastra a los vértices vecinos, foto en la zona de la manija hasta ~55° con la normal de los vértices; baldes regularizados (eje común, semiancho con mediana móvil); `ELEGIR` corta la foto y modela la botella de Röd 4T; Total Quartz 9000 Future e Ineo vuelven a tener modelo (su foto ya es de una botella).
+- La Action no pudo bajar las fotos de lubricantes.ypf.com (cargaban en 0×0 desde la IP de GitHub): esos GLB se regeneraron desde la PC. El generador ahora falla con error claro y conserva el GLB viejo.
+- Submódulo `site/modelos` → 97 GLB; chequeo estructural de los 97 (glTF, una pieza, malla cerrada, < 450 KB) y render de los reclamados: OK.
+
 ## Allende y Daytona pasan de Grok al recolector, con combos como servicio (2026-11-23, rama feat/fuentes-ex-grok-5)
 - Pedido: automatizar Allende, Lubritodo, Autodo, Daytona y Tienda Neumáticos. **Implementadas: `woo_allende` y `vtex_daytona`.** No: Lubritodo y Autodo (los términos prohíben monitoreo automático / explotar la información; citas en CLAUDE.md «No usar») y Tienda Neumáticos (mismo catálogo VTEX que Daytona, idénticos productId, títulos y precios: doble conteo en medianas y `dif_pct`).
 - Combos (`tiendas.COMBO`) nunca a obs: `recolectar.servicios_combo` + `fila_servicio` (helper que ahora usa también `filas_helix`) los escriben en `data/grok/` como `tipo=servicio`, `verificado=1`, `detalle` con filtro/colocación, idempotente por fuente+fecha. `/api/servicios` no calcula `precio_litro` (RX_EXTRA ve «filtro»/«sin colocación»). `server.CUBIERTA`: `grok_allende`, `grok_daytona` y `grok_tiendaneumaticos` quedan cubiertos; salen de `seed/grok_sitios.csv`. `fuentes_grok` ya ignora lo que no empieza con `grok_`.
