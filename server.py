@@ -64,7 +64,8 @@ SITIOS_F = ["fuente", "host", "descripcion"]
 VITRINA_F = ("fecha,producto_id,nombre,linea,segmento,sae,base,imagen,imagen_fuente,ypf_n,ypf_promedio_litro,ypf_min_litro,"
              "ypf_max_litro,ypf_mediana_litro,presentacion_comun_l,promedio_presentacion,ypf_mas_barato_fuente,"
              "ypf_mas_barato_vendedor,ypf_mas_barato_precio_litro,ypf_mas_barato_url,comp_n,comp_promedio_litro,comp_min_litro,"
-             "comp_max_litro,n_equivalentes,dif_pct,pais,moneda").split(",")
+             "comp_max_litro,n_equivalentes,dif_pct,indice30_indice,indice30_mediana_ypf_litro,indice30_mediana_comp_litro,"
+             "indice30_n_ypf,indice30_n_comp,indice30_desde,indice30_hasta,pais,moneda").split(",")
 # Sanidad del $/L en la vitrina: un aviso a más de SANIDAD veces la mediana de su producto es un envase mal leído (caja
 # como bidón, "R3" como 3 L), y un equivalente cuya mediana está a más de RANGO_EQ veces la del YPF no promedia.
 # ponytail: umbrales fijos a ojo sobre noviembre 2026; si aparecen premium reales a más de 3x, revisar RANGO_EQ.
@@ -96,6 +97,8 @@ CAMPOS = {
 }
 CAMPOS["bi_precios"] = ["fecha", "capturado", "producto_id", "fuente", "canal", "vendedor", "sucursal", "provincia", "pais", "moneda", "precio", "litros", "unidades",
                         "precio_litro", "precio_usd_litro", "url", "match", "verificado"]
+CAMPOS["bi_indice"] = ["fecha", "pais", "moneda", "segmento", "sae", "marca", "mediana_litro", "mediana_ypf_litro", "indice", "n"]
+CAMPOS["bi_indice_competencia"] = ["fecha", "producto_id", "pais", "moneda", "indice", "mediana_ypf_litro", "mediana_comp_litro", "n_ypf", "n_comp"]
 CAMPOS["bi_productos"] = PRODUCTOS_F + ["es_ypf"]
 CAMPOS["bi_equivalencias"] = EQUIV_F[1:]  # ypf_id, comp_id, tipo, criterio, evidencia, fuente
 CAMPOS["bi_fuentes"] = ["fuente", "canal", "pais", "tipo", "ultima_fecha"]
@@ -135,7 +138,7 @@ def tabla_fx(d):
     return t
 
 
-USD_CAMPOS = ("precio", "precio_litro", "mediana_litro", "promedio_litro", "min_litro", "max_litro", "promedio_presentacion")
+USD_CAMPOS = ("precio", "precio_litro", "mediana_litro", "mediana_ypf_litro", "mediana_comp_litro", "promedio_litro", "min_litro", "max_litro", "promedio_presentacion")
 
 
 ID_TC = "92.2_TIPO_CAMBIION_0_0_21_24"
@@ -163,7 +166,7 @@ def fx_fecha_error(tabla, moneda, fx_fecha):
     return {"error": f"sin cotización de {moneda} el {fx_fecha}", "fechas_cercanas": cerca}
 
 
-USD_CAMPOS = ("precio", "precio_litro", "mediana_litro", "promedio_litro", "min_litro", "max_litro", "promedio_presentacion")
+USD_CAMPOS = ("precio", "precio_litro", "mediana_litro", "mediana_ypf_litro", "mediana_comp_litro", "promedio_litro", "min_litro", "max_litro", "promedio_presentacion")
 
 
 def con_usd(o, moneda, tabla, fecha="", fx_fecha=""):
@@ -580,7 +583,7 @@ def vitrina(d, mayoristas=False, pais="AR"):
     eq = defaultdict(dict)
     for e in d["equivalencias"]:
         eq[e["ypf_id"]].setdefault(e["comp_id"], e)
-    productos = []
+    productos, i30 = [], indices_30d(d, mayoristas)
     for p in productos_de(d, pais):
         pid, ypf = p["producto_id"], datos_ypf(por_pid.get(p["producto_id"], []))
         eqs, en_prom = [], []
@@ -601,6 +604,7 @@ def vitrina(d, mayoristas=False, pais="AR"):
         productos.append({
             "producto_id": pid, "nombre": p["nombre"], "linea": p["linea"], "segmento": p["segmento"], "sae": p["sae"], "base": p["base"],
             "imagen": (foto.get(pid) or {}).get("url"), "modelo": modelo(pid), "imagen_fuente": (foto.get(pid) or {}).get("fuente"), "specs": specs(p),
+            "indice_30d": i30.get(pid) or {"indice": None, "mediana_ypf_litro": None, "mediana_comp_litro": None, "n_ypf": 0, "n_comp": 0, "desde": None, "hasta": None},
             "ypf": ypf, "competencia": {**{k: comp[k] for k in ("n", "promedio_litro", "min_litro", "max_litro")}, "equivalentes": eqs},
             "dif_pct": round((comp["promedio_litro"] / ypf["promedio_litro"] - 1) * 100, 1)
             if comp["promedio_litro"] and ypf["promedio_litro"] else None})
@@ -619,7 +623,8 @@ def aplanar_vitrina(v):
                     "promedio_presentacion": y["promedio_presentacion"], "ypf_mas_barato_fuente": b.get("fuente"),
                     "ypf_mas_barato_vendedor": b.get("vendedor"), "ypf_mas_barato_precio_litro": b.get("precio_litro"),
                     "ypf_mas_barato_url": b.get("url"), "comp_n": c["n"], "comp_promedio_litro": c["promedio_litro"],
-                    "comp_min_litro": c["min_litro"], "comp_max_litro": c["max_litro"], "n_equivalentes": len(c["equivalentes"])})
+                    "comp_min_litro": c["min_litro"], "comp_max_litro": c["max_litro"], "n_equivalentes": len(c["equivalentes"]),
+                    **{"indice30_" + k: v for k, v in p["indice_30d"].items()}})
     return out
 
 
@@ -662,6 +667,87 @@ def canal(fuente):
 def tipo_fuente(f):
     """Tipo de fuente para la dimensión de Power BI. Las `oficial_*` (nota fiscal de Brasil) se tratan como SEPA."""
     return "grok" if f.startswith("grok_") else "sepa" if f == "sepa" or f.startswith("oficial_") else "ml" if f.startswith("ml") else "mayorista" if f in MAYORISTAS else "tienda"
+
+
+VENTANA_INDICE = 30  # índice según la competencia: siempre 30 días, aparte de la ventana de la vitrina y de los filtros de fecha
+
+
+def _equivs(d):
+    """{ypf_id: {comp_id: equivalencia}}: una por competidor (la primera), como la vitrina y /api/producto."""
+    eq = defaultdict(dict)
+    for e in d["equivalencias"]:
+        eq[e["ypf_id"]].setdefault(e["comp_id"], e)
+    return eq
+
+
+def _indice_par(por, eqs, pid, mayoristas=False):
+    """Índice según la competencia de UN producto YPF sobre sus avisos `por` (de `_avisos`): mediana $/L YPF / mediana $/L de la competencia × 100 (competencia = 100;
+    menos de 100 = YPF más barato). Misma regla que `producto()`: sanidad `cuerdos`, sin no_equivalente, equivalente fuera de RANGO_EQ no cuenta. Un lado sin datos = None."""
+    def cuerdas(p):
+        c = _validos(por.get(p, []), mayoristas)
+        return [pl for pl, _ in cuerdos(c)] if c else []
+    y = cuerdas(pid)
+    my = round(median(y), 2) if y else None
+    pool = []
+    for cid, e in eqs.items():
+        xs = cuerdas(cid)
+        if xs and e["tipo"] != "no_equivalente" and not (my and not 1 / RANGO_EQ <= round(median(xs), 2) / my <= RANGO_EQ):
+            pool += [round(x, 2) for x in xs]
+    mc = round(median(pool), 2) if pool else None
+    return {"indice": round(my / mc * 100, 1) if my and mc else None, "mediana_ypf_litro": my, "mediana_comp_litro": mc, "n_ypf": len(y), "n_comp": len(pool)}
+
+
+def indices_30d(d, mayoristas=False):
+    """{producto_id YPF: indice_30d} con la ventana de 30 días que termina en el último día con datos de `d` (ya de un solo país)."""
+    eq, ypf = _equivs(d), [p["producto_id"] for p in d["productos"] if p["marca"] == "YPF"]
+    hasta, por = _avisos(d, VENTANA_INDICE, set(ypf) | {c for y in ypf for c in eq.get(y, {})}, None)
+    desde, _ = desde_hasta(d, VENTANA_INDICE)
+    return {pid: {**_indice_par(por, eq.get(pid, {}), pid, mayoristas), "desde": desde or None, "hasta": hasta or None} for pid in ypf}
+
+
+def bi_indice_competencia(d, desde=""):
+    """/api/bi/indice_competencia: el índice de 30 días para cada fecha con datos (ventana móvil que termina ahí), una fila por producto YPF con datos en la ventana.
+    Barrido incremental: se mantiene el último aviso vivo de cada clave y se descartan los que salen de la ventana. Cacheado por estado de datos (`d` se rearma al recargar)."""
+    cache = d.setdefault("_cache_bi_indice", {})
+    if "filas" not in cache:
+        filas = []
+        eq = _equivs(d)
+        ypf = [p["producto_id"] for p in d["productos"] if p["marca"] == "YPF"]
+        pids = set(ypf) | {c for y in ypf for c in eq.get(y, {})}
+        for pais in PAISES:
+            obs = [r for r in d["obs"] if pais_r(r) == pais]
+            por_dia, vivos = defaultdict(list), {}
+            for r in obs:
+                if r["producto_id"] in pids:
+                    por_dia[r["fecha"]].append(r)
+            for fecha in sorted({r["fecha"] for r in obs}):
+                for r in por_dia.get(fecha, []):
+                    k = _clave_aviso(r, None)
+                    if k not in vivos or r["fecha"] >= vivos[k]["fecha"]:
+                        vivos[k] = {**r, "pl": precio_litro(r)}
+                ini = (date.fromisoformat(fecha) - timedelta(days=VENTANA_INDICE - 1)).isoformat()
+                vivos = {k: r for k, r in vivos.items() if r["fecha"] >= ini}
+                por = defaultdict(list)
+                for r in vivos.values():
+                    por[r["producto_id"]].append(r)
+                for pid in ypf:
+                    x = _indice_par(por, eq.get(pid, {}), pid)
+                    if x["n_ypf"] or x["n_comp"]:
+                        filas.append({"fecha": fecha, "producto_id": pid, "pais": pais, "moneda": PAISES[pais][1], **x})
+        cache["filas"] = filas
+    return [f for f in cache["filas"] if f["fecha"] >= desde]
+
+
+def bi_indice(calc, desde="", mayoristas=False, pais=""):
+    """/api/bi/indice: lo mismo que /api/indice (YPF = 100) de todos los países, en filas largas; `mediana_ypf_litro` es la del grupo (fecha × segmento × SAE) en esa moneda."""
+    out = []
+    for p, cp in calc["_paises"].items():
+        if pais and p != pais:
+            continue
+        filas = cp["indice_con_mayoristas" if mayoristas else "indice"]
+        ypf = {(r["fecha"], r["segmento"], r["sae"], r["moneda"]): r["mediana_litro"] for r in filas if r["marca"] == "YPF"}
+        out += [{**r, "mediana_ypf_litro": ypf.get((r["fecha"], r["segmento"], r["sae"], r["moneda"]), "")} for r in filas if r["fecha"] >= desde]
+    return out
 
 
 def bi_precios(d, desde=""):
@@ -715,6 +801,11 @@ def desde_hasta(d, dias, desde=None, hasta=None):
     return (date.fromisoformat(hasta) - timedelta(days=dias - 1)).isoformat(), hasta
 
 
+def _clave_aviso(r, prov_en_url):
+    prov = "" if prov_en_url is None or r["url"] and not prov_en_url and canal(r["fuente"]) != "grok" else r.get("provincia", "")
+    return (r["producto_id"], r["fuente"], r["url"], r["ean"], r["titulo"], r["vendedor"], r["litros"], r["unidades"], prov)
+
+
 def _avisos(d, dias, pids, prov_en_url=True, desde=None, hasta=None):
     """→ (hasta, {producto_id: avisos}): cada aviso una vez, con su observación más reciente de la ventana.
     prov_en_url=True (/api/provincias, /api/reventa): la provincia entra en la clave (SEPA trae un aviso por comercio × bandera × provincia × EAN).
@@ -724,8 +815,7 @@ def _avisos(d, dias, pids, prov_en_url=True, desde=None, hasta=None):
     ult = {}
     for r in d["obs"]:
         if r["producto_id"] in pids and desde <= r["fecha"] <= hasta:
-            prov = "" if prov_en_url is None or r["url"] and not prov_en_url and canal(r["fuente"]) != "grok" else r.get("provincia", "")
-            k = (r["producto_id"], r["fuente"], r["url"], r["ean"], r["titulo"], r["vendedor"], r["litros"], r["unidades"], prov)
+            k = _clave_aviso(r, prov_en_url)
             if k not in ult or r["fecha"] >= ult[k]["fecha"]:
                 ult[k] = r
     por = defaultdict(list)
@@ -1903,9 +1993,14 @@ class Handler(BaseHTTPRequestHandler):
             desde = q.get("desde", "")
             if desde and not RX_FECHA.fullmatch(desde):
                 return self.json(400, {"error": "desde tiene que ser AAAA-MM-DD"})
-            filas = bi_tabla(self.datos, nombre[3:], q)
+            if nombre[3:] == "indice":
+                filas = bi_indice(self.calc, desde, q.get("mayoristas") == "1", pais if "pais" in q else "")
+            elif nombre[3:] == "indice_competencia":
+                filas = [r for r in bi_indice_competencia(self.datos, desde) if "pais" not in q or r["pais"] == pais]
+            else:
+                filas = bi_tabla(self.datos, nombre[3:], q)
             if filas is None:
-                return self.json(404, {"error": "no existe", "tablas": ["precios", "productos", "equivalencias", "fuentes", "provincias"]})
+                return self.json(404, {"error": "no existe", "tablas": ["precios", "productos", "equivalencias", "fuentes", "provincias", "indice", "indice_competencia"]})
             return self.enviar(200, chr(0xFEFF).encode() + a_csv("bi_" + nombre[3:], filas), "text/csv; charset=utf-8")
         cp = self.calc["_paises"][pais]  # lo calculado por país; el resto (productos, fuentes, …) no depende del país
         if nombre == "vitrina":
@@ -2559,6 +2654,18 @@ def demo():
                                     O("2026-11-05", "sepa", "ypf-a", "4000", url="", vendedor="Changomas", provincia="AR-B"),
                                     O("2026-11-05", "sepa", "shell-s", "6600", url="s2", provincia="AR-B"), O("2026-11-05", "sepa", "shell-s", "7000", url="s3", provincia="AR-C")]}
     vt_ = {x["producto_id"]: x for x in vitrina(dv)["productos"]}
+    # índice según la competencia (30 días): el mismo número que /api/producto?dias=30 y que el último corte del barrido de /api/bi/indice_competencia
+    sw_ = {f["producto_id"]: f for f in bi_indice_competencia(dv) if f["fecha"] == "2026-11-05"}
+    for pid_, x_ in vt_.items():
+        i_, c30_ = x_["indice_30d"], producto(dv, pid_, 30)["comparacion"]
+        assert (i_["mediana_ypf_litro"], i_["mediana_comp_litro"], i_["n_comp"]) == (c30_["mediana_ypf_litro"], c30_["mediana_comp_litro"], c30_["n_comp"]), pid_
+        assert i_["indice"] == (round(i_["mediana_ypf_litro"] / i_["mediana_comp_litro"] * 100, 1) if i_["mediana_ypf_litro"] and i_["mediana_comp_litro"] else None)
+        assert (i_["desde"], i_["hasta"]) == ("2026-10-07", "2026-11-05")
+        assert (pid_ in sw_) == bool(i_["n_ypf"] or i_["n_comp"]) and (pid_ not in sw_ or {k: sw_[pid_][k] for k in i_ if k not in ("desde", "hasta")} == {k: v for k, v in i_.items() if k not in ("desde", "hasta")}), pid_
+    assert vt_["ypf-a"]["indice_30d"]["indice"] is not None and vt_["ypf-b"]["indice_30d"] == {"indice": None, "mediana_ypf_litro": None, "mediana_comp_litro": None, "n_ypf": 0, "n_comp": vt_["ypf-b"]["indice_30d"]["n_comp"], "desde": "2026-10-07", "hasta": "2026-11-05"}
+    assert aplanar_vitrina(vitrina(dv))[0]["indice30_indice"] == vt_["ypf-a"]["indice_30d"]["indice"] and vitrina({**dv, "obs": []})["productos"][0]["indice_30d"]["n_ypf"] == 0
+    # ventana móvil: un corte anterior solo ve lo que hasta entonces había (el 2026-11-04 no ve los avisos del 05)
+    assert {f["fecha"] for f in bi_indice_competencia(dv)} >= {"2026-11-04", "2026-11-05"} and bi_indice_competencia(dv, "2026-11-05") == [f for f in bi_indice_competencia(dv) if f["fecha"] >= "2026-11-05"]
     for pid_ in vt_:
         pp_ = producto(dv, pid_)
         assert (pp_["resumen"]["n"], pp_["resumen"]["promedio_litro"], pp_["resumen"]["mediana_litro"]) == (vt_[pid_]["ypf"]["n"], vt_[pid_]["ypf"]["promedio_litro"], vt_[pid_]["ypf"]["mediana_litro"]), pid_
@@ -2681,6 +2788,13 @@ def demo():
     for t in ("precios", "productos", "equivalencias", "fuentes", "provincias"):
         assert get("/api/bi/" + t)[0] == 200, t
     assert get("/api/bi/nada", k)[0] == 404 and get("/api/bi/precios?desde=ayer", k)[0] == 400
+    ii = bi("indice")
+    assert ii and list(ii[0]) == CAMPOS["bi_indice"] and {r["pais"] for r in ii} == {"AR"} and len(ii) == len(c["indice"])
+    assert all(r["mediana_ypf_litro"] and round(float(r["mediana_litro"]) / float(r["mediana_ypf_litro"]) * 100, 1) == float(r["indice"]) for r in ii if r["indice"])
+    assert len(bi("indice?mayoristas=1")) == len(c["indice_con_mayoristas"]) and bi("indice?desde=2026-12-01") == [] and bi("indice?pais=BR") == []
+    ic = bi("indice_competencia")
+    assert ic and list(ic[0]) == CAMPOS["bi_indice_competencia"] and len(ic) == len(bi_indice_competencia(Handler.datos)) and bi("indice_competencia?desde=2026-12-01") == []
+    assert get("/api/bi/indice_competencia?desde=ayer", k)[0] == 400 and get("/api/bi/indice?desde=ayer", k)[0] == 400 and get("/api/bi/indice?pais=XX", k)[0] == 400
     bp = bi("precios")
     assert len(bp) == 8 and all(r["producto_id"] and r["capturado"] == "" for r in bp)  # filas sin hora: vacío, nunca inventada
     assert [r["fecha"] for r in bi("precios") if r["canal"] == "mayorista"] == ["2026-11-02"] and {r["pais"] for r in bp} == {"AR"}

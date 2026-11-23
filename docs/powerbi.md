@@ -1,6 +1,6 @@
 # Power BI: precios observados en modelo estrella
 
-El server publica cinco tablas en CSV (UTF-8 con BOM, así Power BI y Excel leen los acentos) para cruzar los precios observados con datos internos de YPF. Todas van detrás de la misma clave que el resto de la API (`LUB_CLAVE`).
+El server publica siete tablas en CSV (UTF-8 con BOM, así Power BI y Excel leen los acentos) para cruzar los precios observados con datos internos de YPF. Todas van detrás de la misma clave que el resto de la API (`LUB_CLAVE`).
 
 | tabla | URL | qué es |
 |---|---|---|
@@ -8,6 +8,8 @@ El server publica cinco tablas en CSV (UTF-8 con BOM, así Power BI y Excel leen
 | `productos` | `/api/bi/productos` | dimensión: `seed/productos.csv` + `es_ypf` (1/0) |
 | `equivalencias` | `/api/bi/equivalencias` | puente YPF ↔ competencia (`ypf_id`, `comp_id`, `tipo`, `criterio`, `evidencia`, `fuente`) |
 | `fuentes` | `/api/bi/fuentes` | dimensión: `fuente`, `canal`, `pais`, `tipo` (tienda, mayorista, grok, sepa, ml), `ultima_fecha` |
+| `indice` | `/api/bi/indice[?desde=][&pais=][&mayoristas=1]` | hechos: lo mismo que la pestaña Índice (YPF = 100), una fila por `fecha × pais × moneda × segmento × sae × marca` |
+| `indice_competencia` | `/api/bi/indice_competencia[?desde=][&pais=]` | hechos: índice YPF vs competencia, serie diaria por `producto_id` |
 | `provincias` | `/api/bi/provincias` | dimensión: `codigo` ISO, `nombre`, `region`, `pais`, `online` (la fila `online` es el e-commerce nacional) |
 
 Notas sobre `precios`:
@@ -15,6 +17,27 @@ Notas sobre `precios`:
 - Una fila por captura, no hay fotos horarias.
 - `verificado` solo se llena en las filas de Grok (`1` el precio apareció en la página, `0` no). Esas filas **se incluyen** (como en `/api/reventa`); filtrá `verificado <> "0"` si querés lo mismo que el índice.
 - `precio_litro` = `precio / (litros × unidades)`; vacío si falta el envase. `precio_usd_litro` usa la cotización oficial de **ese mismo día**; vacío si no hay. No mezcles `moneda` ni `pais` al promediar.
+
+## Índices
+
+- **`indice`** (`fecha,pais,moneda,segmento,sae,marca,mediana_litro,mediana_ypf_litro,indice,n`): la tabla de la pestaña Índice. `indice` = mediana $/L de la marca / mediana $/L de YPF del mismo grupo y día × 100, o sea **YPF = 100**. Excluye mayoristas (con `?mayoristas=1` los suma) y Grok sin verificar. Todos los países y monedas en la misma tabla: filtrá por `pais`/`moneda`, nunca los mezcles. `indice` vacío = ese día no hay YPF en el grupo.
+- **`indice_competencia`** (`fecha,producto_id,pais,moneda,indice,mediana_ypf_litro,mediana_comp_litro,n_ypf,n_comp`): para cada fecha con datos, el índice del producto YPF `producto_id` con una **ventana móvil de 30 días que termina en `fecha`**: mediana $/L YPF / mediana $/L de la competencia equivalente × 100, con la **competencia = 100** (menos de 100 = YPF más barato). Es el mismo número que muestra el Visualizador y que `/api/producto?dias=30` (`comparacion.mediana_ypf_litro / mediana_comp_litro`); sin mayoristas, sin `no_equivalente`, sin Grok sin verificar, con la sanidad de siempre. Se escribe una fila si ese día hay avisos de algún lado; `indice` queda vacío si falta YPF o competencia (nunca 0).
+- Cuidado con las dos bases: en `indice` YPF = 100; en `indice_competencia` la competencia = 100.
+- Relaciones: `indice_competencia[producto_id]` → `productos[producto_id]` (muchos a uno). `indice` no trae `producto_id` (es por segmento × SAE × marca).
+- Incremental: `?desde=AAAA-MM-DD` filtra `fecha >= desde`, igual que `precios` (mal formado = 400). Cada fecha ya tiene su ventana propia, así que un rango parcial no cambia el valor de las filas.
+- Tipos para Power Query (con `"en-US"` como en `precios`): `fecha` date; `indice` y `mediana_*` number; `n`, `n_ypf`, `n_comp` Int64; el resto text.
+- Medida DAX de ejemplo (promedio simple del índice de los productos YPF filtrados, en la última fecha del filtro):
+
+```dax
+Indice vs competencia =
+VAR f = MAX ( indice_competencia[fecha] )
+RETURN
+    CALCULATE (
+        AVERAGE ( indice_competencia[indice] ),
+        indice_competencia[fecha] = f,
+        indice_competencia[pais] = "AR"
+    )
+```
 
 ## Conectarse
 

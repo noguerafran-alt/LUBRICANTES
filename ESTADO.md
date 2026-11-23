@@ -1,5 +1,12 @@
 # ESTADO
 
+## Índice según la competencia (30 días) y los índices para Power BI (2026-11-23, rama feat/indice-competencia-bi)
+- Pedido del usuario: mostrar el índice calculado según la competencia como dato adicional, con 30 días de historia siempre, y dejar la API de índices lista para Power BI.
+- `/api/vitrina` suma por producto `indice_30d` (mediana $/L YPF / mediana $/L competencia × 100, competencia = 100; `indice30_*` en CSV). Reusa `_avisos`/`_validos`/`cuerdos`/`RANGO_EQ`: coincide con `/api/producto?dias=30` (assert en `demo()`; con los datos reales, 116 productos, 0 diferencias). Tarjeta del Visualizador: bloque «Índice vs competencia (30 días)», aclara que no es el de la pestaña Índice (YPF = 100).
+- Nuevas `GET /api/bi/indice` (lo de `/api/indice`, todos los países, con `mediana_ypf_litro`) y `GET /api/bi/indice_competencia` (serie diaria por producto con ventana móvil de 30 días, barrido incremental cacheado por estado de datos). `docs/powerbi.md` y `CLAUDE.md` actualizados.
+- Tiempos (datos reales del repo, 46,9 mil observaciones, PC): `indice_competencia` 0,47 s en frío (659 filas, 22 fechas) y ~0 s con caché; `bi/indice` 0,01 s (1335 filas); la vitrina suma un `_avisos` más por país y variante en `calcular`.
+- No verificado: el bloque en navegador (375 px, tema oscuro), el tiempo en el celu y un Power BI real. `.vt-dif.barato/.caro` no tienen color en el CSS (igual que en «Competencia equivalente»).
+
 
 ## GLB: manijas lisas con foto, baldes parejos y Röd 4T con modelo (2026-11-23, rama feat/glb-manijas-baldes)
 - Reclamo del usuario con capturas: manija de la Elaion TS 1040 corrugada y sin foto, balde Extravida XV100 abollado, Röd 4T sin modelo (foto con balde + botella).
