@@ -6,7 +6,7 @@
 - Nuevas `GET /api/bi/indice` (lo de `/api/indice`, todos los países, con `mediana_ypf_litro`) y `GET /api/bi/indice_competencia` (serie diaria por producto con ventana móvil de 30 días, barrido incremental cacheado por estado de datos). `docs/powerbi.md` y `CLAUDE.md` actualizados.
 - Revisión: `indice_30d` ya no suma mayoristas con `?mayoristas=1` (coincide con `bi/indice_competencia`); `bi_indice_competencia` se precalienta en `calcular` (fuera del pedido; techo documentado con `ponytail:`) y filtra también por moneda; la tarjeta muestra fechas `fechaAR` y USD; powerbi.md ya no dice que pide clave.
 - Tiempos (datos reales del repo, 46,9 mil observaciones, PC): `indice_competencia` 0,47 s en frío (659 filas, 22 fechas) y ~0 s con caché; `bi/indice` 0,01 s (1335 filas); la vitrina suma un `_avisos` más por país y variante en `calcular`.
-- No verificado: el bloque en navegador (375 px, tema oscuro), el tiempo en el celu y un Power BI real. `.vt-dif.barato/.caro` no tienen color en el CSS (igual que en «Competencia equivalente»).
+- Verificado en navegador (lub-test, ronda 2): tarjeta en tema claro y oscuro, 375 px y desktop. Sin verificar: el tiempo del precalentado en el celu y un Power BI real.
 
 
 ## GLB: manijas lisas con foto, baldes parejos y Röd 4T con modelo (2026-11-23, rama feat/glb-manijas-baldes)
