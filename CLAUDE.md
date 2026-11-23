@@ -236,7 +236,7 @@ VTEX pagina de a 50 (`_from`/`_to`, máximo 2500). 1 request/s por host,
 ## Fuentes: en uso y candidatas
 
 **En uso** (todas las de la tabla de arriba, más Grok; Brasil: Pitstop, Altese y Nota Paraná, la última **con cautela**): Mercado Libre (API con token) · SEPA/Precios Claros · Carrefour,
-Más Online, Easy, Norauto (VTEX; Jumbo dada de baja el 2026-11-19) · D'Atri (Shopify, mayorista) · LS Palermo, Casa González y, desde 2026-11-21, Rano, Olafil, Lubrimaster, Lubricentro DG, Exporepuestos, Net Renault, Gramaglia y Toro Oils (Tiendanube) · La Ruta OK y Ceridono (WooCommerce) ·
+Más Online, Easy, Norauto y Daytona (VTEX; Daytona con combos como servicio; Jumbo dada de baja el 2026-11-19) · D'Atri (Shopify, mayorista) · LS Palermo, Casa González y, desde 2026-11-21, Rano, Olafil, Lubrimaster, Lubricentro DG, Exporepuestos, Net Renault, Gramaglia y Toro Oils (Tiendanube) · La Ruta OK, Ceridono y Allende (WooCommerce; Allende con combos como servicio) ·
 catálogo YPF (GraphQL, sin precios) · categorías ML · helixturno.com.ar: API JSON automática (`helix_api`, combos como servicios) y, aparte, vía Grok (`grok_helix`).
 
 **Candidatas, NO en uso:** relevamiento del 2026-11-04 en `docs/relevamiento/fuentes-candidatas.md` (61 sitios, 37 con

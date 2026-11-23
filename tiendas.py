@@ -41,6 +41,12 @@ NO_ACEITE = re.compile(r"filtro|kit|service|combo|bomba|pack|aerosol|limpia|adit
 COMBOS = {"woo_allende", "vtex_daytona"}
 COMBO = re.compile(r"\bkit\b|\bcombo\b|cambio de aceite|\+\s*filtro")  # sobre texto() (sin acentos)
 
+
+def es_combo(titulo):
+    """Combo de aceite: dice kit/combo/cambio y nombra aceite o lubricante, y sacadas esas palabras no queda otro repuesto (retenes, distribución…)."""
+    t = texto(titulo)
+    return bool(COMBO.search(t) and re.search(r"aceite|lubric", t) and not NO_ACEITE.search(re.sub(r"filtro|kit|combo|pack|service", "", t)))
+
 CAJA = re.compile(r"(?<![\w.,])(\d+)\s*x\s*(\d+(?:[.,]\d+)?)\s*(?:l|lt|lts|litros?)\b")
 GRANEL = re.compile(r"\b(?:tambor|balde|contenedor|bidon)\s*(?:de\s*)?(\d+(?:[.,]\d+)?)\s*(?:l|lt|lts|litros?)\b")
 QUART = re.compile(r"\d\s*qt\b")
@@ -204,7 +210,7 @@ def avisos_woo(productos, combos=False):
         except ValueError:
             continue
         titulo = html.unescape(p.get("name") or "").strip()
-        if not titulo or (NO_ACEITE.search(texto(titulo)) and not (combos and COMBO.search(texto(titulo)))):
+        if not titulo or (NO_ACEITE.search(texto(titulo)) and not (combos and es_combo(titulo))):
             continue
         sku = (p.get("sku") or "").strip()
         a = dict(url=p.get("permalink") or "", ean=sku if re.fullmatch(r"\d{13}", sku) else "", titulo=titulo, marca_cruda="",
