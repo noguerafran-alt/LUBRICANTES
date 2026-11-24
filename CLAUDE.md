@@ -22,6 +22,7 @@ El relevamiento que fundamenta todo esto está en `docs/relevamiento/`
   2026-11-05, HTTP 403"), nunca 0 ni un guion sin explicación.
 - **No se adivina el matcheo.** Un aviso entra con `producto_id` solo si hay
   exactamente un candidato. Si no, `producto_id` vacío y `match=none`.
+- **Credenciales de Correo Argentino** solo en `.correo_local` (ignorado por git) o en `CORREO_*`; nunca en el repo, en un GET ni en un log (ni token ni header `Authorization`). La contraseña de la cuenta MiCorreo no se guarda nunca.
 - **Sin scraping de Mercado Libre** (Términos del Programa de Desarrolladores
   7.5/7.6). Solo API: categorías sin token, precios con OAuth de app propia.
 - **Lectura abierta, escritura con clave** (decisión del usuario, 2026-11-19: la página es privada pero sin clave). El visor, los estáticos y todo `GET` de `/api/*` responden sin clave; un `X-API-Key` o Basic Auth que llegue se ignora (Power BI ya configurado sigue andando). Todo `POST` (hoy solo `/api/cargar`) exige clave y, si no hay ninguna configurada (`LUB_CLAVE` ni `LUB_CARGA_CLAVE`), se rechaza. Ya no hay `sys.exit` por falta de `LUB_CLAVE` en Render. Toda respuesta lleva `X-Robots-Tag: noindex, nofollow` y `/robots.txt` da `Disallow: /`. **Ningún GET puede exponer secretos** (tokens de ML, `GH_PAT`, claves, env, rutas locales, stacks): cualquier campo nuevo se audita contra eso. Nunca una clave en la URL.
@@ -41,6 +42,7 @@ El relevamiento que fundamenta todo esto está en `docs/relevamiento/`
 ```
 recolectar.py      # (--renormalizar: recalcula el matcheo de data/obs/ y data/grok/ sin tocar precios; --podar: deja en data/obs/ solo lo relacionado con YPF) una corrida: YPF GraphQL + VTEX + Shopify + Tiendanube + `helix_api` (combos Shell → data/grok/) + ML categorías (+ ML con token si hay secrets)
 tiendas.py         # lectores Shopify, Tiendanube, WooCommerce, Odoo (Performance Lube) y PrestaShop (Motoracing), litros de caja/tambor, robots.txt (parser propio con * y $)
+correo.py          # Correo Argentino (API MiCorreo): credenciales en `.correo_local`, token, `alta`, `probar`, `cotizar` (solo credenciales y cotización suelta; la tabla de tarifas viene después)
 ml.py              # cliente ML: categorías sin token, OAuth refresh, products/items con token
 sepa.py            # Precios Claros (SEPA): zip diario en streaming, filtra lubricantes
 normalizar.py      # aviso → (marca, sae, litros, unidades, producto_id, match)
@@ -217,6 +219,10 @@ Nota Paraná está **pausada desde 2026-11-18**: la API devuelve datos señuelo 
 **Reglas del tráfico de casa**: sale de la IP residencial del usuario, con el mismo volumen bajo y `robots.txt` respetado de siempre; no se usa para saltear bloqueos anti-bot (Nota Paraná sigue pausada; Coto sigue diferido por sus términos).
 **Límite:** celular (o PC) apagado o sin red = sin SEPA ni SE ese día (sin fila, no se arrastran precios; el visor lo dice).
 Tarea de Windows (alternativa): `schtasks /Create /TN LUBRICANTES-SEPA /SC DAILY /ST 06:00 /TR "<python> <clon>\tools\recolector_casa.py" /F` (la existente, 11:00 con `sepa_pc.py`, sigue andando sin tocarla; clon: `git clone` en `%USERPROFILE%\lub-sepa` y el archivo vacío `.recolector_casa`; `<python>` = ruta completa a python 3.12). No conviene correr a la vez celular y PC.
+
+## Correo Argentino (MiCorreo)
+
+API oficial (PDF 08/2022). Base prod `https://api.correoargentino.com.ar/micorreo/v1`, test `https://apitest.correoargentino.com.ar/micorreo/v1` (usuario y clave de API distintos por ambiente). `POST /token` con Basic → `{token, expires}`; el resto con `Bearer`: `POST /users/validate {email, password}` → `customerId` (string con ceros; 404 si la cuenta no existe), `POST /rates {customerId, postalCodeOrigin, postalCodeDestination, deliveredType? D|S, dimensions{weight g 1..25000, height/width/length cm ≤150}}` → `rates[{deliveredType, productType, productName, price}]` (402 «Cliente FAP no identificado»). `correo.py alta` pide todo, guarda `.correo_local` `{ambiente, usuario, clave, customer_id}` (sin la contraseña ni el email de MiCorreo) y prueba una cotización; `correo.py probar <cp_origen> <cp_destino> [peso_g]`. Sin credenciales no se hace ningún request. Pasa por `ml.pedir` (1 req/s, UA honesto). En el celu, `reset --hard` no toca un archivo ignorado sin trackear: `.correo_local` sobrevive en `~/lub-casa` (probado; no usar `git clean -x`). **La tabla de tarifas y el cruce con el precio puesto vienen en una etapa siguiente**; hoy no escribe en `data/`.
 
 ## Fuentes v1 (probadas el 2026-11-03)
 

@@ -12,3 +12,4 @@ cron.log
 .casa.lock
 pull.log
 logs/
+.correo_local

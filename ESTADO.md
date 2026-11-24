@@ -1,5 +1,9 @@
 # ESTADO
 
+## Correo Argentino: credenciales (2026-11-24, rama feat/correo-credenciales)
+- `correo.py` nuevo: token Basic cacheado, `validar` (customerId), `cotizar` (D/S, validación de rangos, parseo tolerante: precio no numérico = fila descartada) y CLI `alta` / `probar`. Credenciales en `.correo_local` (en `.gitignore`, modo 600, sin la contraseña de MiCorreo) o `CORREO_*`. `ml.pedir` suma `headers` opcional (sin romper usos). No escribe en `data/`; tabla de tarifas y cruce: etapa siguiente.
+- Verificado: `correo.py test` y los demás módulos OK (fixtures); un archivo ignorado sobrevive a `git reset --hard`. **No verificado contra la API real** (sin credenciales a mano): formato exacto de `expires`, y si `/token` acepta POST sin cuerpo.
+
 ## Ticket a ML actualizado (2026-11-24, rama docs/ml-ticket-v2)
 - `docs/ml-soporte-403.md`: el cuerpo suma la prueba con «Publicación y sincronización» en lectura y escritura (scopes read-write en el token, sigue 403) y que la cuenta es vendedora. Sin enviar: lo manda el usuario.
 

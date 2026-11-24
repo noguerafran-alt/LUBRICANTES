@@ -53,11 +53,11 @@ def busquedas(raiz=None):
     return BUSQUEDAS_YPF + sorted(comp)
 
 
-def pedir(ruta, token=None, data=None, texto=False, metodo=None):
+def pedir(ruta, token=None, data=None, texto=False, metodo=None, headers=None):
     """→ (http, json o None). 1 req/s por host, timeout 30 s, un reintento ante red/5xx/429.
     `data` dict va como formulario; bytes, como JSON. `texto=True` devuelve el cuerpo como str
     (HTML, XML, robots.txt). `metodo` (p. ej. "PUT") solo si no es el que corresponde por `data`.
-    Lo usan también recolectar.py y tiendas.py."""
+    `headers` dict suma cabeceras (p. ej. Basic de correo.py). Lo usan también recolectar.py y tiendas.py."""
     url = ruta if ruta.startswith("http") else API + ruta
     host = urllib.parse.urlsplit(url).netloc
     h = {"User-Agent": UA, "Accept": "*/*" if texto else "application/json"}
@@ -68,6 +68,7 @@ def pedir(ruta, token=None, data=None, texto=False, metodo=None):
         h["Content-Type"] = "application/x-www-form-urlencoded"
     elif data is not None:
         h["Content-Type"] = "application/json"
+    h.update(headers or {})
     for intento in (1, 2):
         time.sleep(max(0, _ultimo.get(host, 0) + 1 - time.time()))
         _ultimo[host] = time.time()
