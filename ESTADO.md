@@ -1,5 +1,8 @@
 # ESTADO
 
+## Video de presentación: solo con ▶ y a pantalla completa (2026-11-23, rama fix/hero-play)
+- Pedido del usuario con captura: el video no se muestra más al entrar; ▶ del header lo abre a pantalla completa, con sonido, y se cierra con ×, Esc o al terminar. Sale `lub_hero_visto` (ya no se usa).
+
 ## Mapa 3D del precio puesto y video hero (2026-11-23, rama feat/puesto-ml, segunda tanda)
 - `site/mapa3d.js` (nuevo): vista «3D» de la capa «Puesto» del Mapa (selector «Plano | 3D», `lub_mapa_vista`). Provincias de `AR_GEO` extruidas con three.js on-demand; altura = mínimo $/L puesto, color = % más cara que la más barata, sin cotización = placa gris rayada con su motivo; hover/clic/orbit; vuelve a Plano sin WebGL. La cámara orbital se factorizó de `indice3d.js` a `controles()` (exportada; el Índice 3D la usa igual que antes).
 - Carreras corregidas en el Mapa: una respuesta de `mpCargar`/`mpPuesto` que llega después de cambiar de capa ya no pisa la vista.
