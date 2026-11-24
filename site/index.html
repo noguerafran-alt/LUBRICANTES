@@ -552,6 +552,7 @@ body:has(#dl[open]), body:has(#ix-dl[open]) { overflow: hidden; }
 .ix-ley b { font-weight: 600; }
 .ix-escala { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--mut); }
 .ix-escala i { display: block; width: 150px; height: 12px; border-radius: 3px; border: 1px solid var(--borde); background: linear-gradient(90deg, color-mix(in srgb, var(--barato) 34%, var(--panel)), var(--panel) 50%, color-mix(in srgb, var(--caro) 34%, var(--panel))); }
+.ix-escala-ypf i { transform: scaleX(-1); }   /* vista 3D: el color se lee desde YPF (verde = YPF más barato) */
 .ix-sdsw { display: inline-grid; place-items: center; width: 22px; height: 18px; border-radius: 3px; background: color-mix(in srgb, var(--mut) 10%, var(--panel)); color: var(--mut); border: 1px solid var(--borde); font-size: 12px; margin-right: 4px; }
 .ix-pista { margin: 2px 0 8px; }
 .ix-t { width: auto; min-width: 100%; border-collapse: separate; border-spacing: 0; }
@@ -1332,8 +1333,8 @@ async function ix3d() {
         `${c.n} ${c.n === 1 ? "aviso" : "avisos"} · del ${fechaAR(c.fecha_min)} al ${fechaAR(c.fecha_max)}`, "Clic o toque para ver la distribución"] };
   };
   $("#ix-3d-aviso").innerHTML = avisoSD([[mTodas.length - marcas.length, "marca", "marcas", "f"], [gTodos.length - cols.length, "columna", "columnas", "f"]])
-    + `<div class="ix-ley"><b>Altura = $/L mediano de los últimos ${v.dias} días (${fechaAR(v.desde)} al ${fechaAR(v.hasta)}). Color = índice contra YPF del mismo segmento y SAE (YPF = 100, en azul).</b>
-      <span class="ix-escala" aria-hidden="true"><span>más barato (70)</span><i></i><span>más caro (130)</span></span>
+    + `<div class="ix-ley"><b>Altura = $/L mediano de los últimos ${v.dias} días (${fechaAR(v.desde)} al ${fechaAR(v.hasta)}). Color desde YPF contra la competencia del mismo segmento y SAE (YPF = 100, en azul): verde = YPF más barato, rojo = YPF más caro.</b>
+      <span class="ix-escala ix-escala-ypf" aria-hidden="true"><span>YPF más caro (70)</span><i></i><span>YPF más barato (130)</span></span>
       <span><span class="ix-sdsw" aria-hidden="true">–</span>base gris plana = sin dato</span></div>
     <p class="nota ix-pista">Arrastrá para girar; rueda o pellizco para acercar; botón derecho o dos dedos para mover (con el foco en el gráfico, flechas y +/-). Una barra por marca y SAE; el SAE va de más fino a más grueso y YPF está adelante. Es la mediana de ${v.dias} días, no el índice de un solo día de la tabla.</p>`;
   lienzo.innerHTML = "";

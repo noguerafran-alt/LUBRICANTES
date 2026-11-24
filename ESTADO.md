@@ -1,5 +1,8 @@
 # ESTADO
 
+## Índice 3D: más separación y colores desde YPF (2026-11-24, rama fix/indice3d-colores)
+- Pedido del usuario: `PASO` 1,4 → 2,2 y `ANCHO` 0,9 → 0,8 en `site/indice3d.js` para que las barras no se tapen. Color invertido solo en la vista 3D: verde = la competencia es más cara (YPF más barato), rojo = YPF más caro; leyenda y escala (`.ix-escala-ypf`) dicen eso. La tabla del Índice no cambia (sigue verde = marca más barata que YPF).
+
 ## Correo: `tarifas --resto` (2026-11-24, rama feat/correo-resto)
 - A pedido del usuario, carga inicial completa: `python correo.py tarifas --resto` cotiza los 6 grupos que no tocan hoy (presupuesto 6 x 12 min), con la fecha de hoy; no pisa los pares del grupo del día. Assert en `demo()` (grupo del día + resto = 576 x 4).
 
