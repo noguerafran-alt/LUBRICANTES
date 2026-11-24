@@ -103,6 +103,8 @@ CAMPOS["bi_productos"] = PRODUCTOS_F + ["es_ypf"]
 CAMPOS["bi_equivalencias"] = EQUIV_F[1:]  # ypf_id, comp_id, tipo, criterio, evidencia, fuente
 CAMPOS["bi_fuentes"] = ["fuente", "canal", "pais", "tipo", "ultima_fecha"]
 CAMPOS["bi_provincias"] = ["codigo", "nombre", "region", "pais", "online"]
+CAMPOS["puesto"] = ["producto_id", "provincia", "cp", "fuente", "precio_puesto", "precio", "envio", "metodo", "vendedor", "url", "fecha",
+                    "minimo_litro_puesto", "mediana_litro_puesto", "n", "n_no_envia", "n_sin_cotizacion", "pais", "moneda"]
 CAMPOS["indice_con_mayoristas"] = CAMPOS["indice"]
 CAMPOS["indice_celdas"] = ["segmento", "sae", "marca", "mediana_litro", "indice", "n", "fecha_min", "fecha_max", "productos", "pais", "moneda", "desde", "hasta", "dias"]
 CAMPOS["macro"] = MACRO_F = ["fecha", "id", "valor", "signo"]
@@ -231,6 +233,8 @@ def cargar(raiz):
         "marcas_seed": leer_csv(raiz / "seed" / "marcas_empresas.csv"),
         "energia": leer_energia(raiz / "data" / "macro" / "energia.csv"),
         "fx": leer_csv(raiz / "data" / "fx.csv"),
+        "envios": [r for p in sorted((raiz / "data" / "envios").glob("*.csv")) for r in leer_csv(p)],
+        "cp": leer_csv(raiz / "seed" / "cp_capitales.csv"),
     }
     integrar_grok(d)
     d["energia_por_producto"] = defaultdict(list)
@@ -934,6 +938,66 @@ def provincias(d, pid, dias=30, fuente="", mayoristas=False, pais="AR", desde=No
             "n_sin_provincia": sum(1 for r in rs if r.get("provincia", "") not in validas and r.get("provincia", "") != ONLINE)}
 
 
+NOTA_PUESTO = ("Precio puesto = precio del aviso + envío cotizado a la capital de cada provincia (CP de la capital), el mismo día. Mercado Libre, con la cuenta de la app: "
+               "el interior puede costar distinto y con usuario logueado o Mercado Puntos puede ser más barato. No es tiempo real: ML se cotiza en rotación semanal, por eso la ventana es de al menos 7 días. "
+               "Sin cotización no hay precio (nunca se arrastra ni se toma el de la vecina).")
+
+
+def puesto(d, pid, dias=7):
+    """Precio puesto en cada provincia de un producto: por (provincia, fuente), el mínimo y la mediana de $/L puesto sobre los avisos
+    de la ventana (cada aviso una vez, con su cotización `ok` más reciente; precio y envío del MISMO día). Una mediana nunca mezcla fuentes.
+    No toca obs, índice, vitrina ni comparador. Provincia sin cotización ok: celda con minimo null y sus contadores (n_no_envia, n_sin_cotizacion)."""
+    envios = d.get("envios", [])
+    hasta = max((r["fecha"] for r in envios), default="")
+    desde = (date.fromisoformat(hasta) - timedelta(days=dias - 1)).isoformat() if hasta else ""
+    cp = {c["provincia"]: c["cp"] for c in d.get("cp", [])}
+    vend = {(r["url"], r["fecha"]): r["vendedor"] for r in d["obs"] if r["fuente"] == "ml"}  # ponytail: solo ML cotiza hoy; otra fuente suma su clave
+    ok, otros = {}, defaultdict(set)
+    for r in envios:
+        if r["producto_id"] != pid or not desde <= r["fecha"] <= hasta:
+            continue
+        k = (r["fuente"], r["url"], r["provincia_destino"])
+        if r["estado"] == "ok" and num(r["costo_envio"]) is not None:
+            if k not in ok or (r["fecha"], -num(r["costo_envio"])) > (ok[k]["fecha"], -num(ok[k]["costo_envio"])):  # la más reciente; ese día, el método más barato
+                ok[k] = r
+        else:
+            otros[k].add(r["estado"])
+    avisos = []
+    for k, r in ok.items():
+        env = num(r["costo_envio"])
+        pl = precio_litro({**r, "precio": (num(r["precio"]) or 0) + env}) if num(r["precio"]) else None
+        if pl is not None:
+            avisos.append({**r, "pl": pl, "envio": env, "vendedor": vend.get((r["url"], r["fecha"]), "")})
+    por_fuente = defaultdict(list)
+    for a in avisos:
+        por_fuente[a["fuente"]].append((a["pl"], a))
+    cuerdo = {id(a) for xs in por_fuente.values() for _, a in cuerdos(xs)}  # sanidad de la vitrina, por fuente y sobre todas las provincias
+    avisos = [a for a in avisos if id(a) in cuerdo]
+    celdas = defaultdict(lambda: {"avisos": [], "no_envia": 0, "sin_cotizacion": 0})
+    for a in avisos:
+        celdas[(a["provincia_destino"], a["fuente"])]["avisos"].append(a)
+    for k, est in otros.items():  # avisos sin cotización ok en la ventana: no_envia (un dato) o sin_cotizacion (un hueco)
+        if k not in ok:
+            celdas[(k[2], k[0])]["no_envia" if "no_envia" in est else "sin_cotizacion"] += 1
+    out = []
+    for (pv, fu), c in sorted(celdas.items()):
+        xs = sorted(c["avisos"], key=lambda a: a["pl"])
+        m = xs[0] if xs else None
+        out.append({"provincia": pv, "cp": cp.get(pv, ""), "fuente": fu,
+                    "minimo": m and {"precio_puesto": round(num(m["precio"]) + m["envio"], 2), "precio": num(m["precio"]), "envio": m["envio"], "vendedor": m["vendedor"] or None,
+                                     "url": m["url"], "fecha": m["fecha"], "metodo": m["metodo"]},
+                    "minimo_litro_puesto": m and round(m["pl"], 2), "mediana_litro_puesto": round(median(a["pl"] for a in xs), 2) if xs else None,
+                    "n": len(xs), "n_no_envia": c["no_envia"], "n_sin_cotizacion": c["sin_cotizacion"], "fecha": max((a["fecha"] for a in xs), default=None),
+                    "avisos": [{"vendedor": a["vendedor"] or None, "url": a["url"], "fecha": a["fecha"], "precio": num(a["precio"]), "envio": a["envio"], "metodo": a["metodo"],
+                                "plazo_h": num(a["plazo_h"]), "precio_puesto": round(num(a["precio"]) + a["envio"], 2), "precio_litro_puesto": round(a["pl"], 2)} for a in xs]})
+    return {"producto_id": pid, "pais": "AR", "moneda": "ARS", "dias": dias, "desde": desde or None, "hasta": hasta or None, "nota": NOTA_PUESTO, "celdas": out}
+
+
+def aplanar_puesto(v):
+    return [{"producto_id": v["producto_id"], **{k: c[k] for k in ("provincia", "cp", "fuente", "minimo_litro_puesto", "mediana_litro_puesto", "n", "n_no_envia", "n_sin_cotizacion", "fecha")},
+             **(c["minimo"] or {}), "pais": "AR", "moneda": "ARS"} for c in v["celdas"]]
+
+
 def provincias_resumen(d, dias=30, fuente="", mayoristas=False, pais="AR", desde=None, hasta=None):
     """Sin producto_id: por cada producto YPF y fuente, $/L mediano, avisos, cuántas provincias distintas y fecha (sin detalle por provincia)."""
     d = de_pais(d, pais)
@@ -983,7 +1047,7 @@ NOMBRE_FUENTE = {"ypf_gql": "YPF catálogo", "vtex_carrefour": "Carrefour", "vte
                  "tn_rano": "Repuestos Rano", "tn_olafil": "Olafil", "tn_lubrimaster": "Lubrimaster", "tn_lubricentrodg": "Lubricentro DG",
                  "tn_exporepuestos": "Exporepuestos", "tn_netrenault": "Net Renault", "tn_gramaglia": "Gramaglia Repuestos", "tn_torooils": "Toro Oils",
                  "woo_larutaok": "Neumáticos La Ruta OK", "woo_ceridono": "Ceridono",
-                 "sepa": "Precios Claros (SEPA)", "ml": "Mercado Libre", "vtex_br_pitstop": "Pitstop (Brasil)", "vtex_br_altese": "Altese (Brasil)",
+                 "sepa": "Precios Claros (SEPA)", "ml": "Mercado Libre", "ml_envios": "Mercado Libre (cotización de envíos)", "vtex_br_pitstop": "Pitstop (Brasil)", "vtex_br_altese": "Altese (Brasil)",
                  "oficial_br_notaparana": "Nota Paraná (Brasil, notas fiscales)"}
 METODO = ("Misma lógica que la vitrina (/api/vitrina). Cada aviso (fuente + url + ean + título + vendedor + envase; la provincia no entra) cuenta una vez, con su observación más reciente de la ventana "
           f"(por defecto {VENTANA_DIAS} días, termina en el último día con datos; con dias/desde/hasta se amplía). precio_litro = precio / (litros × unidades). Quedan fuera del cálculo (en_calculo=false, con motivo_exclusion): "
@@ -2032,6 +2096,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.producto(q)
         if nombre == "indice/celdas":
             return self.celdas(q)
+        if nombre == "puesto":
+            return self.puesto(q)
         if nombre.startswith("bi/"):  # modelo estrella para Power BI: CSV con BOM (para que lea los acentos), sin filtro de país
             desde = q.get("desde", "")
             if desde and not RX_FECHA.fullmatch(desde):
@@ -2149,6 +2215,23 @@ class Handler(BaseHTTPRequestHandler):
             filas = [{**c, "productos": ";".join(c["productos"]), "pais": v["pais"], "moneda": v["moneda"], "desde": v["desde"], "hasta": v["hasta"], "dias": v["dias"]} for c in v["celdas"]]
             return self.enviar(200, a_csv("indice_celdas", filas), "text/csv; charset=utf-8")
         self.json(200, celdas_usd(v, d.get("fx_tabla", {}), self.fx_fecha) if self.usd else v)
+    def puesto(self, q):
+        """/api/puesto: precio puesto por provincia (precio + envío cotizado a la capital). Solo AR; `dias` 7–366 (default 7)."""
+        pid = q.get("producto_id", "")
+        if self.pais != "AR":
+            return self.json(400, {"error": "puesto es solo Argentina"})
+        if not any(p["producto_id"] == pid for p in self.datos["productos"]):
+            return self.json(400, {"error": f"producto_id desconocido o ausente: {pid!r}"})
+        try:
+            dias = int(q.get("dias") or 7)
+        except ValueError:
+            dias = 0
+        if not 7 <= dias <= 366:
+            return self.json(400, {"error": "dias tiene que ser un entero entre 7 y 366"})
+        v = puesto(self.datos, pid, dias)
+        if q.get("formato") == "csv":
+            return self.enviar(200, a_csv("puesto", aplanar_puesto(v)), "text/csv; charset=utf-8")
+        self.json(200, v)
 
     def producto(self, q):
         """/api/producto: la página de producto del visor y la fuente del agente de sobreprecios (400 si el producto no existe o `dias`/`umbral` son inválidos)."""
@@ -2337,6 +2420,23 @@ def demo():
         "2026-11-02,vtex_carrefour,200,10,8,2,0,\n"
         "2026-11-03,vtex_carrefour,403,0,0,0,0,HTTP 403\n"
         "2026-11-03,ml,,0,0,0,0,sin token\n", encoding="utf-8")
+
+    # precio puesto: envíos de prueba (en el tmp, nunca en data/ del repo)
+    (raiz / "data" / "envios").mkdir()
+    shutil.copy(RAIZ / "seed" / "cp_capitales.csv", raiz / "seed" / "cp_capitales.csv")
+    ENV_F = "fecha,capturado,fuente,url,producto_id,litros,unidades,precio,cp_destino,provincia_destino,costo_envio,metodo,plazo_h,estado,deposito".split(",")
+    A_, B_ = "https://articulo.mercadolibre.com.ar/MLA-1", "https://articulo.mercadolibre.com.ar/MLA-2"
+    e_ = lambda fe, u, pv, co, me, es="ok", pr="16000": dict(fecha=fe, fuente="ml", url=u, producto_id="ypf-a-10w40", litros="4", unidades="1", precio=pr,
+                                                            cp_destino="x", provincia_destino=pv, costo_envio=co, metodo=me, plazo_h="", estado=es, deposito="")
+    ENV = [e_("2026-11-20", A_, "AR-X", "0", "domicilio"), e_("2026-11-20", B_, "AR-X", "6000", "agencia", pr="20000"), e_("2026-11-20", B_, "AR-X", "4000", "domicilio", pr="20000"),
+           e_("2026-11-16", A_, "AR-X", "100", "domicilio", pr="1"),     # la misma cotización más vieja: gana la del 20
+           e_("2026-11-20", A_, "AR-V", "", "", "sin_cotizacion"), e_("2026-11-19", B_, "AR-R", "", "", "no_envia"),
+           e_("2026-11-10", A_, "AR-S", "50", "domicilio"),                # fuera de la ventana de 7 días: no se arrastra
+           e_("2026-11-18", B_, "AR-N", "1000", "domicilio", pr="20000"), e_("2026-11-20", B_, "AR-N", "", "", "sin_cotizacion")]  # ok del 18 + hueco del 20: cuenta el ok
+    with open(raiz / "data" / "envios" / "2026-11.csv", "w", encoding="utf-8", newline="") as f:
+        w = csv.DictWriter(f, ENV_F)
+        w.writeheader()
+        w.writerows(ENV)
 
     # datos sintéticos de mercado: 13 meses de automotrices (YPF, Shell, A..F, Z1, Z2) con Shell ausente en 2026-03
     (raiz / "data" / "macro").mkdir()
@@ -2992,6 +3092,26 @@ def demo():
     assert json.loads(get("/api/provincias?desde=2026-11-01&hasta=2026-11-05", k)[1])["dias"] == 5
     for mal in ("&desde=2026-11-05&hasta=2026-11-01", "&desde=x", "&desde=2024-01-01&hasta=2026-01-01"):
         assert get("/api/provincias?producto_id=ypf-a-10w40" + mal, k)[0] == 400 and get("/api/reventa?producto_id=ypf-a-10w40" + mal, k)[0] == 400, mal
+    # ---------- /api/puesto: precio + envío del mismo día, ventana 7 días, sin arrastre ----------
+    cod, cuerpo = get("/api/puesto?producto_id=ypf-a-10w40")  # lectura abierta
+    pu_ = json.loads(cuerpo)
+    cel_ = {(c["provincia"], c["fuente"]): c for c in pu_["celdas"]}
+    assert cod == 200 and (pu_["desde"], pu_["hasta"], pu_["dias"]) == ("2026-11-14", "2026-11-20", 7) and ("AR-S", "ml") not in cel_
+    x_ = cel_[("AR-X", "ml")]
+    assert (x_["n"], x_["minimo"]["precio_puesto"], x_["minimo"]["envio"], x_["minimo"]["url"], x_["cp"]) == (2, 16000, 0, A_, "5000")   # A gratis (4000/L) y B con la opción más barata (24000/4 = 6000/L)
+    assert (x_["minimo_litro_puesto"], x_["mediana_litro_puesto"], x_["fecha"]) == (4000, 5000, "2026-11-20") and x_["avisos"][1]["precio_puesto"] == 24000
+    v_, r_, n_ = cel_[("AR-V", "ml")], cel_[("AR-R", "ml")], cel_[("AR-N", "ml")]
+    assert (v_["minimo"], v_["n"], v_["n_sin_cotizacion"], v_["n_no_envia"], v_["mediana_litro_puesto"]) == (None, 0, 1, 0, None)   # sin cotización: sin precio, con su motivo
+    assert (r_["minimo"], r_["n_no_envia"], r_["n_sin_cotizacion"]) == (None, 1, 0) and (n_["n"], n_["n_sin_cotizacion"], n_["minimo"]["precio_puesto"], n_["fecha"]) == (1, 0, 21000, "2026-11-18")
+    assert "AR-C" not in {p for p, _ in cel_} and len(pu_["celdas"]) == 4   # provincia sin filas: no hay celda (el visor dice «sin datos en la ventana»)
+    assert json.loads(get("/api/puesto?producto_id=ypf-a-10w40&dias=366")[1])["celdas"][0]["provincia"] == "AR-N" and ("AR-S", "ml") in {(c["provincia"], c["fuente"]) for c in json.loads(get("/api/puesto?producto_id=ypf-a-10w40&dias=366")[1])["celdas"]}
+    assert get("/api/puesto?producto_id=ypf-a-10w40&formato=csv")[1].startswith(b"producto_id,provincia,cp,fuente,precio_puesto,")
+    for mal in ("", "?producto_id=nada", "?producto_id=ypf-a-10w40&dias=6", "?producto_id=ypf-a-10w40&dias=367", "?producto_id=ypf-a-10w40&dias=x", "?producto_id=ypf-a-10w40&pais=BR"):
+        assert get("/api/puesto" + mal)[0] == 400, mal
+    assert json.loads(get("/api/puesto?producto_id=shell-b-10w40")[1])["celdas"] == []   # producto sin cotizaciones: vacío, no inventado
+    assert puesto({"envios": [], "obs": [], "cp": []}, "x")["celdas"] == [] and "token" not in json.dumps(pu_).lower()
+    vd_ = puesto({"envios": [dict(ENV[0])], "obs": [dict(fuente="ml", url=A_, fecha="2026-11-20", vendedor="55 tienda:7")], "cp": []}, "ypf-a-10w40")["celdas"][0]
+    assert vd_["minimo"]["vendedor"] == "55 tienda:7"   # el vendedor sale de obs por url + fecha
     cod, cuerpo = get("/api/producto?producto_id=ypf-a-10w40")  # lectura abierta
     pj_ = json.loads(cuerpo)
     assert cod == 200 and pj_["producto"]["es_ypf"] and [e["producto_id"] for e in pj_["equivalentes"]] == ["shell-b-10w40"] and pj_["publicaciones"] and "metodo" in pj_

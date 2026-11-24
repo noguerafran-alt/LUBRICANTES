@@ -704,6 +704,7 @@ body:has(#dl[open]), body:has(#ix-dl[open]) { overflow: hidden; }
       <p class="nota" id="mp-fecha"></p>
     </div></div>
     <div class="filtros">
+      <label>Capa <select id="mp-capa"><option value="sepa">Sucursal física (SEPA)</option><option value="puesto">Puesto en provincia (online + envío)</option></select></label>
       <label>Producto YPF <select id="mp-ypf"></select></label>
       <label>Producto a mostrar <select id="mp-prod"></select></label>
       <label>Fuente <select id="mp-fuente"></select></label>
@@ -816,7 +817,7 @@ obs = pd.read_csv("<span class="origen"></span>/api/obs?mes=2026-11&amp;formato=
 <script>
 const NOMBRE_FUENTE = { ypf_gql: "YPF catálogo", vtex_carrefour: "Carrefour", vtex_masonline: "Masonline", vtex_easy: "Easy",
   vtex_jumbo: "Jumbo", vtex_norauto: "Norauto", shopify_datri: "Tienda D'Atri", tn_lspalermo: "LS Palermo", tn_spch: "Casa González",
-  sepa: "Precios Claros (SEPA)", ml_cat: "ML categorías", ml: "Mercado Libre", vtex_br_pitstop: "Pitstop (Brasil)", vtex_br_altese: "Altese (Brasil)",
+  sepa: "Precios Claros (SEPA)", ml_cat: "ML categorías", ml: "Mercado Libre", ml_envios: "Mercado Libre (cotización de envíos)", vtex_br_pitstop: "Pitstop (Brasil)", vtex_br_altese: "Altese (Brasil)",
   helix_api: "Shell Helix combos (API helixturno, automática)", oficial_br_notaparana: "Nota Paraná (Brasil, notas fiscales)", fx_bcb_ptax: "BCB PTAX (tipo de cambio)", fx_bcra: "BCRA cotizaciones (tipo de cambio)", casa: "Servidor FLN Data Analysis (celular o PC)" };
 const MAYORISTAS = ["shopify_datri"]; // precio por caja o tambor, IVA no verificado: el índice no los usa
 const SEGMENTO = { pcmo: "Autos (PCMO)", hddo: "Pesados (HDDO)", moto4t: "Moto 4T", moto2t: "Moto 2T", transmision: "Transmisión",
@@ -2910,8 +2911,9 @@ function initMapa() {
   if (MP.listo) return;
   MP.listo = true;
   opciones($("#mp-ypf"), ypfsAR().map(p => p.producto_id), "", id => { const p = prod(id); return `${p.nombre} ${p.sae || ""}`.trim(); });
-  $("#mp-ypf").onchange = () => { opcionesEquiv(); mpCargar(); };
-  $("#mp-prod").onchange = mpCargar;
+  $("#mp-ypf").onchange = () => { opcionesEquiv(); mpCapa(); };
+  $("#mp-prod").onchange = mpCapa;
+  $("#mp-capa").onchange = mpCapa;
   $("#mp-fuente").onchange = mpPintar;
   $("#mp-nivel").onchange = mpPintar;
   opcionesEquiv();
@@ -2923,6 +2925,67 @@ function opcionesEquiv() {
   const et = i => { const p = prod(i); return `${nombreCompleto(p.marca, p.nombre)} ${p.sae || ""}`.trim(); };
   $("#mp-prod").innerHTML = `<option value="${esc(id)}">${esc(et(id))} (YPF)</option>` +
     eqs.map(e => `<option value="${esc(e.comp_id)}">${esc(et(e.comp_id))} · ${esc(TIPO[e.tipo] || e.tipo)}</option>`).join("");
+}
+
+const NOTA_PUESTO = "Envío cotizado a la capital de cada provincia (CP de la capital), con la cuenta de la app, el día indicado. El interior puede costar distinto. Mercado Libre con usuario logueado o con Mercado Puntos puede ser más barato. No es tiempo real.";
+
+function mpCapa() {
+  const p = $("#mp-capa").value === "puesto";
+  $("#mp-fuente").parentElement.hidden = $("#mp-nivel").parentElement.hidden = p;
+  if (!p) $("#mp-panel").innerHTML = '<p class="nota">Tocá una provincia para ver todas las fuentes que tienen precio ahí, cada una por separado.</p>';
+  return p ? mpPuesto() : mpCargar();
+}
+
+// Capa «puesto»: color = mínimo $/L puesto (precio + envío cotizado del mismo día) entre las fuentes con cotización ok de la provincia.
+async function mpPuesto() {
+  const id = $("#mp-prod").value;
+  $("#mp-mapa").textContent = "Cargando…";
+  try { MP.puesto = await api("puesto?producto_id=" + encodeURIComponent(id)); } catch (e) { $("#mp-mapa").textContent = "No se pudo leer: " + e.message; return; }
+  MP.sel = null;
+  mpPintarPuesto();
+}
+
+function mpPintarPuesto() {
+  const M = MP.puesto, por = {};
+  for (const c of M.celdas) (por[c.provincia] ||= []).push(c);
+  // por provincia: la celda con el mínimo más barato; si ninguna tiene precio, el motivo
+  const mejor = iso => (por[iso] || []).filter(c => c.minimo).sort((a, b) => a.minimo_litro_puesto - b.minimo_litro_puesto)[0];
+  const motivo = iso => { const cs = por[iso] || [];
+    return !cs.length ? "sin datos en la ventana" : cs.some(c => c.n_no_envia) ? "no envía" : "sin cotización (Mercado Libre no devolvió envío)"; };
+  const vals = Object.keys(AR_GEO.provincias).map(iso => mejor(iso)?.minimo_litro_puesto).filter(v => v != null);
+  const mn = Math.min(...vals), mx = Math.max(...vals), [x, y, w, h] = AR_GEO.viewBox;
+  const texto = iso => { const c = mejor(iso), g = AR_GEO.provincias[iso].n;
+    if (!c) return `${g}: ${motivo(iso)}`;
+    const m = c.minimo;
+    return `${g}: mínimo ${pl(c.minimo_litro_puesto)} puesto · ${nf(c.fuente)}${m.vendedor ? " · vendedor " + m.vendedor : ""} · envío ${m.envio ? pesos.format(m.envio) : "gratis"} · mediana ${pl(c.mediana_litro_puesto)} · ${c.n} ${c.n === 1 ? "aviso" : "avisos"} · ${fechaAR(c.fecha)}`; };
+  const attrs = iso => { const c = mejor(iso);
+    return `class="mp-prov${c ? "" : " mp-sd"}${MP.sel === iso ? " sel" : ""}" data-iso="${iso}"${c ? ` fill="${mezcla(mx === mn ? .5 : (c.minimo_litro_puesto - mn) / (mx - mn))}"` : ""} tabindex="0" role="button" aria-label="${esc(texto(iso))}"`; };
+  const c0 = AR_GEO.provincias["AR-C"].c;
+  $("#mp-fecha").textContent = M.hasta ? `Cotizaciones hasta el ${fechaAR(M.hasta)} (últimos ${M.dias} días). ${NOTA_PUESTO}` : "Todavía no hay cotizaciones de envío.";
+  $("#mp-aviso").textContent = "Color: mínimo $/L puesto de la provincia (precio del aviso + envío del mismo día). El tooltip trae también la mediana. Gris rayado: sin precio, con su motivo.";
+  $("#mp-mapa").innerHTML = `<svg viewBox="${x} ${y} ${w} ${h}" role="group" aria-label="Mapa de Argentina por provincia, precio puesto">
+    <defs><pattern id="mp-raya" width="90" height="90" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="90" height="90" fill="#eef0f3"/><rect width="38" height="90" fill="#b8bec7"/></pattern></defs>
+    ${Object.entries(AR_GEO.provincias).map(([iso, g]) => `<path d="${g.d}" ${attrs(iso)}><title>${esc(texto(iso))}</title></path>`).join("")}
+    <circle cx="${c0[0]}" cy="${c0[1]}" r="70" ${attrs("AR-C")}><title>${esc(texto("AR-C"))} (círculo para poder tocarla)</title></circle>
+  </svg>`;
+  $("#mp-mapa").querySelectorAll("[data-iso]").forEach(e => {
+    e.onclick = () => { MP.sel = e.dataset.iso; mpPintarPuesto(); };
+    e.onkeydown = ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); e.onclick(); } };
+  });
+  const sin = 24 - vals.length;
+  $("#mp-ley").innerHTML = (vals.length ? (mn === mx ? `<span>todas: ${esc(pl(mn))}</span>` : `<span>${esc(pl(mn))}</span><span class="mp-grad" aria-hidden="true"></span><span>${esc(pl(mx))}</span>`) +
+    "<span>más claro = más barato puesto</span>" : "") + `<span><i class="mp-chip"></i>sin precio (${sin} de 24)</span>`;
+  const iso = MP.sel;
+  $("#mp-panel").innerHTML = iso ? `<h3>${esc(AR_GEO.provincias[iso].n)} <span class="nota">· CP ${esc((por[iso] || [{}])[0].cp || "")}</span></h3>` +
+    ((por[iso] || []).length ? (por[iso]).map(c => `<p class="nota">${esc(nf(c.fuente))}: ${c.n} ${c.n === 1 ? "aviso" : "avisos"} con precio${c.n_no_envia ? ` · ${c.n_no_envia} no envía` : ""}${c.n_sin_cotizacion ? ` · ${c.n_sin_cotizacion} sin cotización` : ""}</p>` +
+      (c.avisos.length ? `<ul>${c.avisos.map(a => `<li><span class="v">${esc(pl(a.precio_litro_puesto))}</span> puesto · ${esc(pesos.format(a.precio))} + envío ${a.envio ? esc(pesos.format(a.envio)) : "gratis"} (${esc(a.metodo)}${a.plazo_h ? ", " + a.plazo_h + " h" : ""})
+        <span class="m">${a.vendedor ? "vendedor " + esc(a.vendedor) + " · " : ""}${fechaAR(a.fecha)} · ${linkUrl(a.url, "ver aviso")}</span></li>`).join("")}</ul>` : `<p class="mp-sin">${esc(motivo(iso))}.</p>`)).join("")
+      : `<p class="mp-sin">${esc(motivo(iso))}.</p>`) : '<p class="nota">Tocá una provincia para ver los avisos con su precio puesto.</p>';
+  $("#mp-online").innerHTML = "";
+  $("#mp-tabla").innerHTML = `<div class="tabla"><table><tr><th>Provincia</th><th>CP</th><th>Mínimo $/L puesto</th><th>Fuente</th><th>Vendedor</th><th>Envío</th><th>Mediana $/L</th><th>Avisos</th><th>Fecha</th></tr>` +
+    Object.entries(AR_GEO.provincias).sort((a, b) => a[1].n.localeCompare(b[1].n, "es")).map(([k, g]) => { const c = mejor(k), m = c?.minimo;
+      return `<tr><td>${esc(g.n)}</td><td>${esc((por[k] || [{}])[0].cp || "")}</td>` + (c ? `<td class="n">${esc(pl(c.minimo_litro_puesto))}</td><td>${esc(nf(c.fuente))}</td><td>${esc(m.vendedor || "")}</td><td class="n">${m.envio ? esc(pesos.format(m.envio)) : "gratis"}</td><td class="n">${esc(pl(c.mediana_litro_puesto))}</td><td class="n">${c.n}</td><td>${fechaAR(c.fecha)}</td>`
+        : `<td colspan="7" class="mp-sin">${esc(motivo(k))}</td>`) + "</tr>"; }).join("") + "</table></div>";
 }
 
 async function mpCargar() {

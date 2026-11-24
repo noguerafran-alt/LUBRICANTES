@@ -9,10 +9,12 @@ Solo se guarda lo relacionado con YPF: un producto YPF o un comp_id de seed/equi
 n_descartados de fuentes.csv y no se escribe (ni siquiera como sin_match).
 """
 import csv
+import hashlib
 import json
 import os
 import sys
 import re
+import time
 import traceback
 import urllib.parse
 from datetime import datetime, timedelta, timezone
@@ -27,6 +29,9 @@ DATA = os.path.join(AQUI, "data")
 OBS = "fecha,fuente,url,ean,titulo,marca,precio,precio_lista,stock,vendedor,sucursal,litros,unidades,producto_id,match,provincia,pais,moneda,capturado".split(",")  # única definición: sepa.py y server.py la importan
 FUENTES = "fecha,fuente,http,n_items,n_con_precio,n_sin_stock,n_sin_match,error,n_descartados".split(",")
 IMAGENES = "producto_id,url,fuente,fecha".split(",")
+ENVIOS = "fecha,capturado,fuente,url,producto_id,litros,unidades,precio,cp_destino,provincia_destino,costo_envio,metodo,plazo_h,estado,deposito".split(",")
+ENVIOS_K = 7  # rotación semanal: cada combinación se cotiza a las 24 provincias un día de cada siete
+ENVIOS_SEGUNDOS = 22 * 60  # presupuesto de la cotización: el job tiene 50 min y `ml` ya usa ~14; sin tope un timeout mataría el commit del día
 OFERTA = "fecha,categoria_id,categoria,total_items".split(",")
 
 VTEX = {
@@ -544,6 +549,42 @@ def sin_fuentes(fuentes, args):
     return [f for f in fuentes if f not in fuera]
 
 
+def grupo_envios(clave, fecha, k=ENVIOS_K):
+    """¿Toca hoy cotizar esta combinación? Grupo por sha1 de la clave, hoy el `ordinal del día % k` (como la rotación de Tiendanube)."""
+    return int(hashlib.sha1("|".join(clave).encode()).hexdigest(), 16) % k == datetime.fromisoformat(fecha).toordinal() % k
+
+
+def envios_ml(obs, fecha, rel, tok, capitales, cotizar=ml.cotizar, reloj=time.monotonic):
+    """Avisos de YPF que `ml` escribió hoy → (fila ml_envios, filas data/envios). Una combinación vendedor × producto × envase
+    (con el MLA de uno de sus avisos) del grupo de hoy se cotiza a la capital de las 24 provincias. `provincia_destino` sale de la
+    tabla `capitales`, nunca de la respuesta. Sin token no se pide nada."""
+    fila = dict(fecha=fecha, fuente="ml_envios", http="", n_items=0, n_con_precio=0, n_sin_stock=0, n_sin_match=0, error="", n_descartados=0)
+    if not tok:
+        fila["error"] = "sin token"
+        return fila, None
+    combos = {}
+    for r in sorted((r for r in obs if r["fuente"] == "ml" and r["producto_id"] in rel and r["fecha"] == fecha), key=lambda r: r["url"]):
+        combos.setdefault((r["vendedor"], r["producto_id"], r["litros"], str(r["unidades"])), r)
+    hoy = [r for k, r in combos.items() if grupo_envios(k, fecha)]
+    capturado, filas, limite = ahora_utc(), [], reloj() + ENVIOS_SEGUNDOS
+    for i, r in enumerate(hoy):
+        if reloj() > limite:  # ponytail: el corte es siempre por el final de la lista; si molesta, rotar el inicio por día
+            fila["error"] = f"cortado por tiempo: {i} de {len(hoy)} combinaciones"
+            break
+        for c in capitales:
+            http, estado, ops = cotizar(r["url"], c["cp"], tok)
+            fila["http"], fila["n_items"] = http, fila["n_items"] + 1
+            fila["n_con_precio"] += estado == "ok"
+            base = dict(fecha=fecha, capturado=capturado, fuente="ml", url=r["url"], producto_id=r["producto_id"], litros=r["litros"],
+                        unidades=r["unidades"], precio=r["precio"], cp_destino=c["cp"], provincia_destino=c["provincia"], deposito="")
+            filas += [dict(base, costo_envio=num(co), metodo=m, plazo_h=h, estado=estado) for m, co, h in ops] or \
+                     [dict(base, costo_envio="", metodo="", plazo_h="", estado=estado)]
+    if hoy and not fila["n_con_precio"] and not fila["error"]:
+        fila["error"] = f"ninguna de {fila['n_items']} cotizaciones respondió"
+    print(f"ml_envios: {len(hoy)} de {len(combos)} combinaciones hoy, {fila['n_items']} cotizaciones, {fila['n_con_precio']} ok", flush=True)
+    return fila, filas
+
+
 def main(args):
     if "--renormalizar" in args:
         return renormalizar()
@@ -578,6 +619,22 @@ def main(args):
     for mes in sorted({f["fecha"][:7] for f in propias}):  # cada nota va al archivo de su mes; idempotente por fila
         reemplazar(os.path.join(DATA, "obs", mes + ".csv"), OBS, [f for f in propias if f["fecha"][:7] == mes], clave_fila)
     print("fotos nuevas o cambiadas:", guardar_imagenes(os.path.join(DATA, "imagenes.csv"), imgs, fecha), flush=True)
+    ml_ = next((f for f in filas_f if f["fuente"] == "ml"), None)
+    if ml_:  # después de escribir todo: si la cotización se alarga o se rompe, los precios del día ya están guardados
+        vacia = dict(fecha=fecha, fuente="ml_envios", http="", n_items=0, n_con_precio=0, n_sin_stock=0, n_sin_match=0, n_descartados=0)
+        try:
+            if ml_["error"] and ml_["error"] != "sin token":
+                fila, env = dict(vacia, error="ml sin avisos: " + ml_["error"]), None
+            else:
+                ypf = {p["producto_id"] for p in leer(os.path.join(AQUI, "seed", "productos.csv")) if p["marca"] == "YPF"}
+                fila, env = envios_ml(obs, fecha, ypf, ml.TOKEN_HOY, leer(os.path.join(AQUI, "seed", "cp_capitales.csv")))
+        except Exception:
+            traceback.print_exc()
+            fila, env = dict(vacia, error="excepcion: " + traceback.format_exc().strip().splitlines()[-1][:200]), None
+        print(",".join(str(fila[k]) for k in FUENTES), flush=True)
+        escribir_fuentes(os.path.join(DATA, "fuentes.csv"), [fila])
+        if env is not None:  # idempotente: reemplaza las filas de esa fuente y fecha
+            reemplazar(os.path.join(DATA, "envios", fecha[:7] + ".csv"), ENVIOS, env, lambda f: (f["fuente"], f["fecha"]), {("ml", fecha)})
 
 
 def demo():
@@ -631,6 +688,43 @@ def demo():
     for _ in (1, 2):  # idempotente: la segunda corrida del día no duplica y no toca a grok_helix
         reemplazar(rh, GROK_ALM, fh, lambda f: (f["fuente"], f["fecha"]), {("helix_api", "2026-11-19")})
     assert [f["fuente"] for f in leer(rh)].count("helix_api") == 4 and [f["fuente"] for f in leer(rh)].count("grok_helix") == 1
+    # ---- ml_envios: cotización a las 24 capitales (solo con token, rotación k=7, idempotente) ----
+    caps = leer(os.path.join(AQUI, "seed", "cp_capitales.csv"))
+    assert len(caps) == 24 and all(re.fullmatch(r"\d{4}", c["cp"]) for c in caps) and {c["provincia"] for c in caps} == set(__import__("normalizar").PROVINCIAS)
+    PID = "ypf-elaion-ts1040-10w40"
+    mk = lambda i, pid=PID: dict(fuente="ml", fecha="2026-11-23", url=f"https://articulo.mercadolibre.com.ar/MLA-{i}", vendedor=str(i),
+                                 producto_id=pid, litros="4", unidades=1, precio="63355")
+    flota = [mk(i) for i in range(70)]
+    clave = lambda r: (r["vendedor"], r["producto_id"], r["litros"], str(r["unidades"]))
+    dias = [[r["url"] for r in flota if grupo_envios(clave(r), f"2026-11-{23 + d}")] for d in range(7)]
+    assert sorted(u for g in dias for u in g) == sorted(r["url"] for r in flota) and all(dias)  # 7 días seguidos = todas, cada una una vez
+    pedidos = []
+    def falso(url, cp, tok):
+        pedidos.append((url, cp, tok))
+        return {"1001": (200, "ok", [("domicilio", 0, 48)]), "8500": (200, "ok", [("domicilio", 6208, ""), ("agencia", 4500, 72)]),
+                "9410": (404, "sin_cotizacion", []), "3300": (424, "sin_cotizacion", [])}[cp]
+    caps_ = [c for c in caps if c["provincia"] in ("AR-C", "AR-R", "AR-V", "AR-N")]
+    fx, ex = envios_ml(flota, "2026-11-23", {PID}, None, caps_, falso)
+    assert fx["error"] == "sin token" and ex is None and pedidos == []  # sin token no se hace ni un request
+    fx, ex = envios_ml(flota + [mk(999, "otro-producto")], "2026-11-23", {PID}, "tok", caps_, falso)
+    hoy_ = [r for r in flota if grupo_envios(clave(r), "2026-11-23")]
+    assert {p[2] for p in pedidos} == {"tok"} and fx["n_items"] == len(pedidos) == 4 * len(hoy_) and fx["error"] == "" and fx["n_con_precio"] == 2 * len(hoy_)
+    assert {x["url"] for x in ex} == {r["url"] for r in hoy_}  # el producto ajeno no se cotiza
+    pr = {x["provincia_destino"]: [y for y in ex if y["provincia_destino"] == x["provincia_destino"] and y["url"] == hoy_[0]["url"]] for x in ex}
+    assert [(x["costo_envio"], x["metodo"], x["estado"]) for x in pr["AR-C"]] == [("0", "domicilio", "ok")]  # gratis = 0 declarado
+    assert [(x["costo_envio"], x["metodo"], x["plazo_h"]) for x in pr["AR-R"]] == [("6208", "domicilio", ""), ("4500", "agencia", 72)]  # una fila por método
+    assert [(x["costo_envio"], x["metodo"], x["estado"], x["cp_destino"]) for x in pr["AR-V"] + pr["AR-N"]] == [("", "", "sin_cotizacion", "9410"), ("", "", "sin_cotizacion", "3300")]
+    assert set(ex[0]) == set(ENVIOS) and ex[0]["deposito"] == "" and ex[0]["precio"] == "63355"
+    rt = os.path.join(__import__("tempfile").mkdtemp(), "e.csv")
+    for _ in (1, 2):  # idempotente: la re-corrida del día reemplaza las filas de ml de esa fecha y no toca otras fechas
+        reemplazar(rt, ENVIOS, ex, lambda f: (f["fuente"], f["fecha"]), {("ml", "2026-11-23")})
+    reemplazar(rt, ENVIOS, [dict(ex[0], fecha="2026-11-22")], lambda f: (f["fuente"], f["fecha"]), {("ml", "2026-11-22")})
+    assert len(leer(rt)) == len(ex) + 1
+    t_ = iter(range(0, 10**6, 700))
+    fc, ec = envios_ml(flota, "2026-11-23", {PID}, "tok", caps_, falso, lambda: next(t_))
+    assert fc["error"].startswith("cortado por tiempo") and 0 < fc["n_items"] < fx["n_items"]
+    fn, _ = envios_ml(flota, "2026-11-23", {PID}, "tok", caps_, lambda u, c, t: (403, "sin_cotizacion", []))
+    assert fn["n_con_precio"] == 0 and fn["error"].startswith("ninguna de")
     filas, sin_stock, _, desc = a_obs("vtex_x", "2026-11-03", avisos)
     assert sin_stock == 2 and len(filas) == 2 and desc == 0, (sin_stock, filas)
     assert filas[0]["precio"] == "159999" and filas[0]["litros"] == "4" and filas[0]["stock"] == 1
