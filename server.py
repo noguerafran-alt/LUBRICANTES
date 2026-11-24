@@ -2071,6 +2071,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.enviar(200, b"User-agent: *\nDisallow: /\n", "text/plain; charset=utf-8")
         if u.path in ("/", "/index.html"):  # solo se sirve este archivo: no hay path traversal posible
             return self.enviar(200, INDEX.read_bytes(), "text/html; charset=utf-8")
+        if u.path == "/ml-callback":  # Redirect URI de la app de ML: solo muestra la dirección para pegarla en `ml.py autorizar`
+            return self.enviar(200, (SITE / "ml-callback.html").read_bytes(), "text/html; charset=utf-8", [("Cache-Control", "no-store")])
         if u.path in ("/favicon.svg", "/favicon.ico"):  # el navegador pide .ico por defecto: se le da el mismo SVG
             return self.enviar(200, (SITE / "favicon.svg").read_bytes(), "image/svg+xml", [("Cache-Control", "public, max-age=86400")])
         if u.path.endswith((".js", ".mjs", ".glb", ".mp4", ".jpg")):  # resolve + is_relative_to contra traversal
@@ -3104,6 +3106,7 @@ def demo():
     assert get("/api/serie?p=nada", {"X-API-Key": "s3cr3t"})[0] == 404
     assert get("/../server.py", {"X-API-Key": "s3cr3t"})[0] == 404
     assert get("/site/index.html", {"X-API-Key": "s3cr3t"})[0] == 404
+    assert get("/ml-callback?code=TG-x")[0] == 200 and get("/ml-callback.html")[0] == 404   # la Redirect URI de ML, solo por su ruta
     # ---------- /api/provincias, /api/reventa, /api/cobertura por HTTP: con y sin clave ----------
     for ruta in ("/api/provincias?producto_id=ypf-a-10w40", "/api/provincias", "/api/reventa?producto_id=ypf-a-10w40", "/api/cobertura"):
         assert get(ruta)[0] in (200, 400), ruta

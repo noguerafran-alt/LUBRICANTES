@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Mercado Libre autorizado</title>
+<link rel="icon" href="/favicon.svg">
+<style>
+  :root { --bg:#f4f6f9; --card:#fff; --txt:#1c2430; --dim:#4f5a69; --acc:#0047ba; --sobre-acc:#fff; --line:#d9dee6; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#10151c; --card:#18202a; --txt:#e6ebf2; --dim:#a9b4c3; --acc:#6ea0ff; --sobre-acc:#10151c; --line:#2a3441; } }
+  body { margin:0; background:var(--bg); color:var(--txt); font:16px/1.5 system-ui, "Segoe UI", sans-serif; padding:32px 16px; }
+  main { max-width:560px; margin:0 auto; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:24px; }
+  h1 { font-size:20px; margin:0 0 8px; }
+  p { color:var(--dim); margin:8px 0; }
+  code { display:block; padding:10px 12px; border:1px solid var(--line); border-radius:8px; word-break:break-all; font-size:14px; }
+  button { margin-top:10px; font:inherit; color:var(--sobre-acc); background:var(--acc); border:0; border-radius:8px; padding:10px 14px; cursor:pointer; }
+</style>
+</head>
+<body>
+<main>
+  <h1 id="t">Mercado Libre autorizó la app de Lubricantes</h1>
+  <p id="m">Copiá esta dirección completa y pegala en la terminal donde corre <b>python ml.py autorizar</b>. El código vence en minutos y sirve una sola vez.</p>
+  <code id="url"></code>
+  <button id="copiar" type="button">Copiar dirección</button>
+  <p>Esta página no guarda ni envía nada: el canje lo hace la terminal, con el Client Secret y PKCE.</p>
+</main>
+<script>
+  // Solo muestra la dirección de la barra: el code no sirve sin el Client Secret y el code_verifier de la terminal.
+  const q = new URLSearchParams(location.search);
+  document.getElementById("url").textContent = location.href;
+  if (!q.get("code")) {
+    document.getElementById("t").textContent = "Sin código de autorización";
+    document.getElementById("m").textContent = q.get("error_description") || q.get("error") || "Esta dirección no trae ?code=. Volvé a correr python ml.py autorizar.";
+  }
+  document.getElementById("copiar").addEventListener("click", async (ev) => {
+    try { await navigator.clipboard.writeText(location.href); ev.target.textContent = "Copiada"; }
+    catch { ev.target.textContent = "Copiala a mano"; }
+  });
+</script>
+</body>
+</html>

@@ -23,7 +23,7 @@ ARCHIVO_REFRESH = os.environ.get("ML_REFRESH_ARCHIVO", ".ml_refresh_nuevo")
 # Credenciales de la PC (las deja `python ml.py autorizar`); en .gitignore.
 ARCHIVO_LOCAL = os.environ.get("ML_LOCAL", ".ml_local")
 # Provisorio: dominio propio en Render hasta que LUBRICANTES tenga el suyo (cambiarlo también en DevCenter).
-REDIRECT = "https://biblioteca-b8mb.onrender.com/ml-callback"
+REDIRECT = "https://lubricantes.fln-data-analysis.com/ml-callback"  # tiene que ser idéntica a la Redirect URI de la app en el devcenter
 # Líneas YPF; las de la competencia salen de los equivalentes del seed (`busquedas()`).
 BUSQUEDAS_YPF = ["elaion", "extravida", "rod ypf", "ypf aceite"]
 TOPE_PRODUCTOS = 50  # por búsqueda; se loguea cuántas búsquedas se cortan
