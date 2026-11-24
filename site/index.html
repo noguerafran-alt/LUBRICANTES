@@ -547,12 +547,12 @@ body:has(#dl[open]), body:has(#ix-dl[open]) { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) { .sd-sw::after { transition: none; } }
 .sd-aviso { margin: 4px 0 8px; font-size: 13px; color: var(--mut); }
 .sd-aviso .link { font-size: 13px; padding: 6px 4px; min-height: 32px; }
-/* Índice: mapa de calor divergente centrado en 100 (verde = más barato que YPF, rojo = más caro). El texto de la celda queda en --tx: el tinte se limita a ~34 % para sostener el contraste AA en claro y oscuro */
+/* Índice: mapa de calor divergente centrado en 100, color desde YPF (verde = YPF más barato que la marca, rojo = YPF más caro). El texto de la celda queda en --tx: el tinte se limita a ~34 % para sostener el contraste AA en claro y oscuro */
 .ix-ley { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; margin: 6px 0 4px; font-size: 13px; }
 .ix-ley b { font-weight: 600; }
 .ix-escala { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--mut); }
 .ix-escala i { display: block; width: 150px; height: 12px; border-radius: 3px; border: 1px solid var(--borde); background: linear-gradient(90deg, color-mix(in srgb, var(--barato) 34%, var(--panel)), var(--panel) 50%, color-mix(in srgb, var(--caro) 34%, var(--panel))); }
-.ix-escala-ypf i { transform: scaleX(-1); }   /* vista 3D: el color se lee desde YPF (verde = YPF más barato) */
+.ix-escala-ypf i { transform: scaleX(-1); }   /* tabla y 3D: el color se lee desde YPF (verde = YPF más barato) */
 .ix-sdsw { display: inline-grid; place-items: center; width: 22px; height: 18px; border-radius: 3px; background: color-mix(in srgb, var(--mut) 10%, var(--panel)); color: var(--mut); border: 1px solid var(--borde); font-size: 12px; margin-right: 4px; }
 .ix-pista { margin: 2px 0 8px; }
 .ix-t { width: auto; min-width: 100%; border-collapse: separate; border-spacing: 0; }
@@ -1237,7 +1237,7 @@ function indiceTabla() {
     const lit = `<span class="ix-l">${mon.format(r.mediana_litro)}/L</span>${usdDe(r, "mediana_litro", "")}`;
     if (marca === "YPF") return `<td class="n"><b class="ix-v">100</b>${lit}</td>`;
     if (r.indice === null) return `<td class="ix-c" style="cursor:default"><span class="vacio">sin YPF ese día</span>${lit}</td>`;
-    const d = r.indice - 100, t = Math.min(Math.abs(d) / 30, 1), tono = Math.abs(d) < .05 ? "" : d > 0 ? "ix-caro" : "ix-barato";
+    const d = r.indice - 100, t = Math.min(Math.abs(d) / 30, 1), tono = Math.abs(d) < .05 ? "" : d > 0 ? "ix-barato" : "ix-caro";   // color desde YPF: marca más cara = verde (YPF más barato)
     const txt = tono ? `${dec1.format(Math.abs(d))} % ${d > 0 ? "más caro" : "más barato"}` : "igual que YPF";
     return `<td class="ix-c ${tono}" style="--h:${Math.round(t * 34)}%" tabindex="0" data-m="${esc(marca)}" data-g="${esc(g)}" title="Doble clic (o Enter) para ver el detalle de 90 días"
       aria-label="${esc(`${marca}, ${subIx(g)}: índice ${dec1.format(r.indice)}, ${txt}. Doble clic o Enter para el detalle de 90 días`)}"><b class="ix-v">${dec1.format(r.indice)}</b><span class="ix-d">${esc(txt)}</span>${lit}${sp}</td>`;
@@ -1246,8 +1246,8 @@ function indiceTabla() {
   const cab = `<thead><tr><th rowspan="2" scope="col">Marca</th>${grupos.map(([n, c]) => `<th class="ix-g" colspan="${c.length}" scope="colgroup">${esc(n)}</th>`).join("")}</tr>
     <tr>${grupos.flatMap(([, c]) => c).map(g => `<th scope="col" title="${esc((SEGMENTO[g.split("|")[0]] || g.split("|")[0]) + (g.split("|")[1] ? " · " + g.split("|")[1] : ""))}">${esc(subIx(g))}</th>`).join("")}</tr></thead>`;
   const fila = mk => `<tr${mk === "YPF" ? ' class="ix-ref"' : ""}><th scope="row">${esc(mk)}${mk === "YPF" ? '<span class="ix-sub mut">referencia = 100</span>' : ""}</th>${grupos.flatMap(([, c]) => c).map(g => celda(mk, g)).join("")}</tr>`;
-  out.innerHTML = `<div class="ix-ley"><b>100 = mismo precio por litro que YPF; 110 = 10 % más caro; 90 = 10 % más barato.</b>
-      <span class="ix-escala" aria-hidden="true"><span>más barato (70)</span><i></i><span>más caro (130)</span></span>
+  out.innerHTML = `<div class="ix-ley"><b>100 = mismo precio por litro que YPF; 110 = la marca 10 % más cara; 90 = la marca 10 % más barata. Color desde YPF: verde = YPF más barato, rojo = YPF más caro.</b>
+      <span class="ix-escala ix-escala-ypf" aria-hidden="true"><span>YPF más caro (70)</span><i></i><span>YPF más barato (130)</span></span>
       <span><span class="ix-sdsw" aria-hidden="true">–</span>sin dato (pasá el mouse o tocá para ver por qué)</span></div>
     <p class="nota ix-pista">Doble clic (o doble toque, o Enter con la celda enfocada) sobre un valor para ver su evolución en 90 días. Día mostrado: <strong>${fechaAR(ultimo)}</strong>${ultimo === maxF ? " (el último con datos)" : ` (no es el último: ${fechaAR(maxF)})`}.</p>
     ${aviso}<div class="tabla"><table class="ix-t">${cab}<tbody>${marcas.map(fila).join("")}</tbody></table></div>`;
