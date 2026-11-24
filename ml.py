@@ -138,6 +138,16 @@ def token():
     return d["access_token"], ""
 
 
+def pkce(verifier=None):
+    """→ (code_verifier, code_challenge S256), RFC 7636. La app tiene «Requiere PKCE» (seguridad del devcenter):
+    sin esto el canje del code falla. Solo interviene en el alta; el refresh diario no lo usa."""
+    import base64
+    import hashlib
+    import secrets
+    v = verifier or secrets.token_urlsafe(64)
+    return v, base64.urlsafe_b64encode(hashlib.sha256(v.encode()).digest()).decode().rstrip("=")
+
+
 def autorizar():
     """Alta inicial en la PC del usuario: pide credenciales sin mostrarlas, canjea el code
     y prueba los endpoints. Imprime solo códigos HTTP, nunca tokens."""
@@ -146,15 +156,16 @@ def autorizar():
     cid = input("Client ID (App ID): ").strip()
     sec = getpass.getpass("Client Secret (no se muestra): ").strip()
     redirect = input(f"Redirect URI [{REDIRECT}]: ").strip() or REDIRECT
+    verifier, challenge = pkce()
     url = "https://auth.mercadolibre.com.ar/authorization?" + urllib.parse.urlencode(
-        dict(response_type="code", client_id=cid, redirect_uri=redirect))
+        dict(response_type="code", client_id=cid, redirect_uri=redirect, code_challenge=challenge, code_challenge_method="S256"))
     print("\nSe abre el navegador. Autorizá la app y copiá la dirección completa a la que te manda\n"
           "(la página puede dar error o 404: no importa, lo que sirve es el ?code=... de la barra).\n")
     webbrowser.open(url)
     pegado = input("Pegá la dirección completa (o solo el code): ").strip()
     code = urllib.parse.parse_qs(urllib.parse.urlsplit(pegado).query).get("code", [pegado])[0]
     http, d = pedir("/oauth/token", data=dict(grant_type="authorization_code", client_id=cid,
-                                              client_secret=sec, code=code, redirect_uri=redirect))
+                                              client_secret=sec, code=code, redirect_uri=redirect, code_verifier=verifier))
     if not d or "refresh_token" not in d:
         sys.exit(f"No se pudo canjear el code (HTTP {http}). El code dura minutos y sirve una sola vez: repetí.")
     _guardar_local(dict(client_id=cid, client_secret=sec, refresh_token=d["refresh_token"]))
@@ -306,6 +317,9 @@ def demo():
         assert aceite(dict(domain_id="MLA-ENGINE_OILS")) and not aceite(dict(domain_id="MLA-SNEAKERS"))
         assert aviso(dict(name="Aceite 5W-30 4 L"), dict(item_id="MLA1", price=1, seller_id=2))["titulo"] == "Aceite 5W-30 4 L"
         assert token() == (None, "sin token")
+        assert pkce("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk")[1] == "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"  # vector de RFC 7636
+        v, c = pkce()
+        assert 43 <= len(v) <= 128 and pkce(v)[1] == c and pkce()[0] != v
         assert item_id("https://articulo.mercadolibre.com.ar/MLA-1873751937") == "MLA1873751937" and item_id("https://x.com/a") is None
         op = lambda c, t="address", h=None: dict(cost=c, shipping_option_type=t, **({} if h is None else dict(estimated_delivery_time=h)))
         assert opciones(200, dict(options=[op(0)])) == ("ok", [("domicilio", 0, "")])  # gratis: 0 solo si la opción lo declara

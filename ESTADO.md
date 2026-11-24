@@ -3,7 +3,10 @@
 ## ML trae 0 publicaciones: el error dice el HTTP de /items (2026-11-23, rama fix/ml-items-http)
 - Discrepancia: desde la corrida del 2026-11-23 (00:34 UTC del 24) `ml` da «token válido pero 0 publicaciones (283 productos encontrados)»; hasta el 22 traía ~1.855. Búsqueda y token andan; `products/{id}/items` vuelve vacío para todos. El código de ML no cambió desde el 22: la causa es de ML. Sin publicaciones, `ml_envios` (precio puesto, #87) tampoco cotiza.
 - `ml.avisos` cuenta el HTTP de cada `products/{id}/items` y lo suma al log y al `error` de la fila `ml` (`items: HTTP 403 ×283`); antes `_paginar` lo tragaba sin rastro. Assert en `demo()` (mock 403). `python ml.py test` y `recolectar.py test` = OK.
-- Pendiente: correr la Action con este cambio, leer el código y corregir según lo que diga (scope del token, endpoint, bloqueo).
+- Resultado (2 corridas): `HTTP 403 ×283 {"blocked_by":"PolicyAgent","message":"At least one policy returned UNAUTHORIZED.","code":"PA_UNAUTHORIZED_RESULT_FROM_POLICIES"}`; `pedir` guarda el cuerpo del error (`ULTIMO_ERROR`) y la fila `ml` lo lleva.
+- Reautorización del usuario (2026-11-24, `ml.py autorizar` desde la PC, IP residencial): search 200, highlights 200, items **403 igual**: el bloqueo es de la app (no certificada), no del usuario ni de la IP. Permiso «Publicación y sincronización» = Lectura (ya estaba). Refresh nuevo cargado en el secret `ML_REFRESH_TOKEN`.
+- `ml.autorizar` usa PKCE S256 (`pkce()`, assert con el vector de RFC 7636) para poder activar «Requiere PKCE» en el devcenter (seguridad 70/100); el refresh diario no cambia.
+- Pendiente: activar PKCE en el devcenter (lo hace el usuario) y consulta a soporte de ML/OpenPlatform por el 403. Mientras tanto ML no trae precios ni cotiza envíos.
 
 ## Vuelven los GLB originales (2026-11-23, rama fix/glb-originales)
 - Reclamo del usuario con capturas: las manijas seguían corrugadas y con la etiqueta arrastrada; en el video BRAG (GLB originales de LUB-MODELOS3D `6cbe919`) se veían bien. Render comparado en Blender de las tres versiones de la Elaion TS 1040: la original es la buena; las regeneradas (`585d157`, `0f02700`) deforman la manija.
