@@ -862,7 +862,7 @@ const esGrok = f => f.startsWith("grok_");
 const hostGrok = f => (D.grok_sitios || []).find(x => x.fuente === f)?.host || "";
 const nf = f => esGrok(f) ? "Grok · " + (hostGrok(f) || f) : (NOMBRE_FUENTE[f] || f) + (MAYORISTAS.includes(f) ? " (mayorista)" : "");
 const nfh = f => esGrok(f) && hostGrok(f) ? `Grok · <a href="https://${esc(hostGrok(f))}" rel="noreferrer noopener" target="_blank">${esc(hostGrok(f))}</a>` : esc(nf(f));
-const sello = v => v === "1" ? '<span class="badge confirmada">✓ verificado</span>' : '<span class="badge">no verificado</span>';
+const sello = v => v === "1" ? '<span class="badge confirmada">✓ verificado</span>' : v === "respaldo" ? '<span class="badge caro">Grok · respaldo de Mercado Libre (sin verificar)</span>' :'<span class="badge">no verificado</span>';
 const linkUrl = (url, txt) => /^https:\/\//.test(url) ? `<a href="${esc(url)}" rel="noreferrer noopener" target="_blank">${esc(txt)}</a>` : esc(txt);
 const fechaAR = iso => iso ? iso.slice(8, 10) + "/" + iso.slice(5, 7) + "/" + iso.slice(0, 4) : "";
 const dia = iso => Date.parse(iso + "T00:00:00Z") / 864e5;
@@ -3202,7 +3202,7 @@ function filaPub(x) {
   const sepa = canalTxt(x) === "SEPA";
   const link = x.url ? linkUrl(x.url, "ver publicación") + (/^https:\/\//.test(x.url) ? "" : ` <span class="vacio">${esc(x.url)}</span>`)
     : sepa ? '<span class="vacio">precio declarado en SEPA, sin link</span>' : '<span class="vacio">sin link</span>';
-  const marcas = (x.canal === "mayorista" ? '<span class="badge">mayorista</span>' : "") + (x.verificado === true ? '<span class="badge confirmada">✓ verificado</span>' : x.verificado === false ? '<span class="badge caro">Grok: no verificado</span>' : "");
+  const marcas = (x.canal === "mayorista" ? '<span class="badge">mayorista</span>' : "") + (x.verificado === true ? '<span class="badge confirmada">✓ verificado</span>' : x.respaldo ? '<span class="badge caro">Grok · respaldo de Mercado Libre (sin verificar)</span>' : x.verificado === false ? '<span class="badge caro">Grok: no verificado</span>' : "");
   const env = x.litros ? `${dec1.format(x.litros)} L × ${entero.format(x.unidades)}` : '<span class="vacio">sin litros</span>';
   return `<tr${x.en_calculo ? "" : ' class="fuera"'}><td class="l">${esc(x.fuente_nombre)}${marcas ? "<br>" + marcas : ""}</td><td>${canalTxt(x)}</td><td class="l">${x.vendedor ? esc(x.vendedor) : '<span class="vacio">sin dato</span>'}</td>
     <td>${x.provincia ? esc(x.provincia) : '<span class="vacio">sin dato</span>'}</td><td>${fechaAR(x.fecha)}</td><td>${horaAR(x.capturado) || '<span class="vacio">sin hora</span>'}</td>

@@ -53,7 +53,11 @@ GROK_ALM_F = GROK_F + ["verificado", "producto_id", "match", "cargado", "provinc
 PAISES = {"AR": ("Argentina", "ARS"), "BR": ("Brasil", "BRL")}
 MONEDA_DEFECTO = {"AR": "ARS", "BR": "BRL", "CL": "CLP", "UY": "UYU", "PY": "PYG", "BO": "BOB"}  # países del relevamiento de limítrofes
 MONEDAS = {"ARS", "BRL", "CLP", "UYU", "PYG", "BOB", "USD"}
+# Decisión del usuario 2026-11-24: estas cargas de Grok reemplazan a la API de ML solo los días en que `ml` no tiene ninguna observación.
+RESPALDO_GROK = {"grok_mercadolibre": "ml", "grok_mercadolibre_www": "ml"}
+_NOTA_RESPALDO = "respaldo de la API de Mercado Libre: cuenta solo los días en que la API no trajo datos; precios sin verificar"
 NOTAS_FUENTE = {
+    **dict.fromkeys(RESPALDO_GROK, _NOTA_RESPALDO),
     "ml_envios": "pausada desde 2026-11-24 por decisión del usuario: Mercado Libre vuelve a pedir solo precios",
     "oficial_br_notaparana": "pausada desde 2026-11-18: la API devuelve datos señuelo al acceso automatizado; no se esquiva",
     "helix_api": "automática: combos Shell de helixturno.com.ar por su API JSON (servicios con mano de obra, no $/L de bidón)",
@@ -303,8 +307,15 @@ def integrar_grok(d):
     d["obs"] = d["obs_base"] + [
         {**dict.fromkeys(OBS_F, ""), **{k: r.get(k) or "" for k in GROK_ALM_F if k in OBS_F or k in ("verificado", "cargado")}}
         for r in d["grok"] if r["tipo"] == "producto"]
+    dias = defaultdict(set)  # fechas con obs de cada fuente cubierta (antes de sumar Grok)
+    for r in d["obs_base"]:
+        if r["fuente"] in RESPALDO_GROK.values():
+            dias[r["fuente"]].add(r["fecha"])
     for r in d["obs"][len(d["obs_base"]):]:
         r["capturado"] = r.get("cargado", "")  # hora del POST de /api/cargar (ya viene ISO UTC); las filas viejas sin hora quedan vacías
+        cubre = RESPALDO_GROK.get(r["fuente"])
+        if cubre and r.get("verificado") == "0" and r["fecha"] not in dias[cubre]:
+            r["verificado"] = "respaldo"  # la API no trajo nada ese día: cuenta en los cálculos, rotulada
 
 
 def clave_grok(r):
@@ -355,7 +366,7 @@ def ultimo(obs, pais="AR"):
         out.append({"producto_id": pid, "fuente": fuente, "litros": litros, "fecha": fecha,
                     "precio": round(median(x[2] for x in dia), 2),
                     "precio_litro": round(median(x[1] for x in dia), 2), "n": len(dia), "url": dia[0][3],
-                    "verificado": "" if not dia[0][4] else "1" if all(x[4] == "1" for x in dia) else "0",
+                    "verificado": "" if not dia[0][4] else "1" if all(x[4] == "1" for x in dia) else "respaldo" if all(x[4] == "respaldo" for x in dia) else "0",
                     "pais": pais, "moneda": moneda})
     return out
 
@@ -532,7 +543,7 @@ def fuentes_grok(d, hoy):
     for f in sorted({s["fuente"] for s in d["grok_sitios"]} | set(por)):
         filas = por.get(f, [])
         base = {"fecha": "", "fuente": f, "http": "", "n_items": 0, "n_con_precio": 0, "n_sin_stock": 0, "n_sin_match": 0,
-                "n_descartados": 0, "error": "sin cargas todavía", "ultimo_ok": None, "dias_sin_datos": None, "dias_sin_correr": None, "pais": "AR", "nota": ""}
+                "n_descartados": 0, "error": "sin cargas todavía", "ultimo_ok": None, "dias_sin_datos": None, "dias_sin_correr": None, "pais": "AR", "nota": NOTAS_FUENTE.get(f, "")}
         if filas:
             ult = max(r["fecha"] for r in filas)
             n = [r for r in filas if r["fecha"] == ult]
@@ -890,7 +901,7 @@ def _celda(rs, **clave):
     return {**clave, "fuente": f, "canal": canal(f), "precio_litro": round(median(r["pl"] for r in rs), 2),
             "precio": round(median(num(r["precio"]) for r in rs), 2), "n": len(rs), "fecha": ult["fecha"],
             "vendedores": [v for v, _ in Counter(r["vendedor"] for r in rs if r["vendedor"]).most_common(5)],
-            "url": ult["url"] if grok else "", "verificado": ("1" if all(r.get("verificado") == "1" for r in rs) else "0") if grok else "",
+            "url": ult["url"] if grok else "", "verificado": ("1" if all(r.get("verificado") == "1" for r in rs) else "respaldo" if all(r.get("verificado") == "respaldo" for r in rs) else "0") if grok else "",
             "cargado": (ult.get("cargado") or "") if grok else ""}
 
 
@@ -1171,7 +1182,7 @@ METODO = ("Misma lógica que la vitrina (/api/vitrina). Cada aviso (fuente + url
           f"no entran los no_equivalente ni los equivalentes cuya mediana está a más de {RANGO_EQ} veces la de YPF. "
           "Las url son publicaciones de terceros; SEPA no trae url. Sin umbral de sobreprecio: lo decide quien consume el dato.")
 PUBLICACION_F = ["fuente", "fuente_nombre", "canal", "vendedor", "sucursal", "provincia", "fecha", "capturado", "precio", "litros", "unidades",
-                 "precio_litro", "desvio_pct_vs_mediana", "url", "verificado", "en_calculo", "motivo_exclusion", "sobre_umbral"]
+                 "precio_litro", "desvio_pct_vs_mediana", "url", "verificado", "respaldo", "en_calculo", "motivo_exclusion", "sobre_umbral"]
 CAMPOS["producto"] = ["rol", "producto_id", "marca", "nombre", "tipo", "evidencia"] + PUBLICACION_F + ["pais", "moneda"]
 
 
@@ -1206,8 +1217,8 @@ def _publicaciones(d, rs, mayoristas, umbral):
         pub = {"fuente": f, "fuente_nombre": nombre_fuente(d, f), "canal": canal(f), "vendedor": r["vendedor"] or None, "sucursal": r.get("sucursal") or None,
                "provincia": r.get("provincia") or None, "fecha": r["fecha"], "capturado": r.get("capturado") or None, "precio": num(r["precio"]),
                "litros": num(r["litros"]), "unidades": num(r["unidades"]) or 1, "precio_litro": round(pl, 2) if pl is not None else None,
-               "desvio_pct_vs_mediana": desvio, "url": r["url"] or None, "verificado": {"1": True, "0": False}.get(r.get("verificado") or ""),
-               "en_calculo": motivo is None, "motivo_exclusion": motivo}
+               "desvio_pct_vs_mediana": desvio, "url": r["url"] or None, "verificado": {"1": True, "0": False, "respaldo": False}.get(r.get("verificado") or ""),
+               "respaldo": r.get("verificado") == "respaldo", "en_calculo": motivo is None, "motivo_exclusion": motivo}
         if umbral is not None:
             pub["sobre_umbral"] = desvio is not None and desvio >= umbral
         pubs.append(pub)
@@ -2696,6 +2707,23 @@ def demo():
     assert ya["mas_barato"] == {"fuente": "sepa", "vendedor": None, "precio": 4000.0, "litros": 1.0, "precio_litro": 4000, "url": "a1"}, ya["mas_barato"]
     assert (ya["presentacion_comun_l"], ya["promedio_presentacion"]) == (1.0, 4000)                 # empate 1 L / 4 L: gana la chica
     assert ya["por_fuente"] == [{"fuente": "sepa", "n": 1, "promedio_litro": 4000}, {"fuente": "vtex_easy", "n": 1, "promedio_litro": 5000}]
+
+    # respaldo de ML: Grok sin verificar cuenta solo el día en que `ml` no tiene obs; otras grok_* nunca
+    G = lambda fu, f, pr, u: {**dict.fromkeys(GROK_ALM_F, ""), "fecha": f, "fuente": fu, "url": u, "titulo": u, "precio": pr, "litros": "1", "unidades": "1",
+                              "tipo": "producto", "verificado": "0", "producto_id": "ypf-b", "cargado": "T"}
+    dr = {**dv, "obs_base": [O("2026-11-05", "ml", "ypf-b", "5000", url="m5")],
+          "grok_meses": {"2026-11": [G("grok_mercadolibre", "2026-11-05", "9000", "r1"), G("grok_mercadolibre", "2026-11-06", "7000", "r2"),
+                                     G("grok_mercadolibre_www", "2026-11-06", "7200", "r3"), G("grok_helix", "2026-11-06", "6000", "r4")]}}
+    integrar_grok(dr)
+    gv = {r["url"]: r["verificado"] for r in dr["obs"] if r["url"] in ("r1", "r2", "r3", "r4")}
+    assert gv == {"r1": "0", "r2": "respaldo", "r3": "respaldo", "r4": "0"}, gv  # r1: ese día ml sí tuvo obs; r4: otra fuente
+    assert sorted(r["fuente"] for r in dr["obs"] if r.get("verificado") == "respaldo") == ["grok_mercadolibre", "grok_mercadolibre_www"]
+    rr = {r["url"]: r for r in dr["obs"]}
+    assert [r["url"] for _, r in _validos([{**rr[u], "pl": precio_litro(rr[u])} for u in ("r1", "r2", "r3", "r4")], False)] == ["r2", "r3"]
+    assert ultimo([rr["r2"]])[0]["verificado"] == "respaldo" and _celda([{**rr["r2"], "pl": 7000.0}])["verificado"] == "respaldo"
+    fg = {f["fuente"]: f for f in fuentes_grok({**dr, "grok": dr["obs"], "grok_sitios": []}, date(2026, 11, 24))}
+    assert "respaldo" in fg["grok_mercadolibre"]["nota"] and "respaldo" in fg["grok_mercadolibre_www"]["nota"]
+    assert "respaldo" in fuentes_grok({"grok": [], "grok_sitios": [{"fuente": "grok_mercadolibre"}]}, date(2026, 11, 24))[0]["nota"]
     ca = pv["ypf-a"]["competencia"]
     assert (ca["n"], ca["promedio_litro"], ca["min_litro"], ca["max_litro"]) == (2, 6500, 6000, 7000)  # el no_equivalente (1000) no promedia
     assert pv["ypf-a"]["dif_pct"] == round((6500 / 4500 - 1) * 100, 1) == 44.4
