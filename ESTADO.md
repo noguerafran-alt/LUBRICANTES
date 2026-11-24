@@ -1,5 +1,8 @@
 # ESTADO
 
+## Correo: `tarifas --resto` (2026-11-24, rama feat/correo-resto)
+- A pedido del usuario, carga inicial completa: `python correo.py tarifas --resto` cotiza los 6 grupos que no tocan hoy (presupuesto 6 x 12 min), con la fecha de hoy; no pisa los pares del grupo del día. Assert en `demo()` (grupo del día + resto = 576 x 4).
+
 ## Precio puesto con Correo Argentino (2026-11-24, rama feat/puesto-correo)
 - `correo.py tarifas`: capital -> capital 24x24 por envase (1, 4, 5, 20 L de `seed/envases_correo.csv`, aproximado), rotacion k=7 (~330 requests/dia), 12 min de presupuesto, solo ambiente prod; escribe `data/correo/AAAA-MM.csv` y la fila `correo_tarifas`. Paso `correo` en `tools/recolector_casa.py` solo si existe `.correo_local`; la Action no lo corre.
 - `/api/puesto` suma celdas `correo_ar` (`server.puesto_correo`): aviso con origen (provincia ISO de SEPA, o `seed/origen_fuentes.csv` para tiendas online con direccion ya documentada en `docs/relevamiento/envio-por-provincia.md` y CLAUDE.md) + tarifa de <= 14 dias. Los `online` sin origen (ML, VTEX, etc.) no participan. Visor: nombre, origen, plazo y nota fija en la capa Puesto.

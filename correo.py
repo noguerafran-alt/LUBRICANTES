@@ -1,6 +1,6 @@
 """Correo Argentino, API MiCorreo (PDF oficial 08/2022): token, validación de cuenta y cotización de envío.
 Credenciales solo en `.correo_local` (ignorado por git) o en CORREO_*; nunca en el repo ni en un GET.
-Uso: python correo.py alta | probar <cp_origen> <cp_destino> [peso_g] | tarifas [--fecha AAAA-MM-DD] [--tope N] | test"""
+Uso: python correo.py alta | probar <cp_origen> <cp_destino> [peso_g] | tarifas [--fecha AAAA-MM-DD] [--tope N] [--resto] | test"""
 import base64
 import getpass
 import json
@@ -127,7 +127,7 @@ def _litros(v):
     return f"{float(v):g}"
 
 
-def tarifas(raiz=AQUI, fecha=None, tope=None, cotizar=cotizar, reloj=time.monotonic, cred=None):
+def tarifas(raiz=AQUI, fecha=None, tope=None, cotizar=cotizar, reloj=time.monotonic, cred=None, resto=False):
     """Capital → capital (24 × 24) por envase de seed/envases_correo.csv, en rotación k=7 (como los envíos de ML).
     → (fila de fuentes.csv, filas de data/correo). La tarifa no depende del producto: sin filtro de relacionados. Sin credenciales o sin
     token no se pide nada. Un par sin tarifa legible = una fila `sin_cotizacion` (nunca un precio inventado)."""
@@ -136,7 +136,8 @@ def tarifas(raiz=AQUI, fecha=None, tope=None, cotizar=cotizar, reloj=time.monoto
     fila = dict(fecha=fecha, fuente="correo_tarifas", http="", n_items=0, n_con_precio=0, n_sin_stock=0, n_sin_match=0, error="", n_descartados=0)
     caps = rc.leer(os.path.join(raiz, "seed", "cp_capitales.csv"))
     envases = rc.leer(os.path.join(raiz, "seed", "envases_correo.csv"))
-    toca = [(o, d, e) for o in caps for d in caps for e in envases if rc.grupo_envios((o["cp"], d["cp"], _litros(e["litros"])), fecha)]
+    # resto=True: los otros 6 grupos (carga inicial de una vez, a pedido del usuario); el día sigue siendo `fecha`
+    toca = [(o, d, e) for o in caps for d in caps for e in envases if rc.grupo_envios((o["cp"], d["cp"], _litros(e["litros"])), fecha) != resto]
     if tope:
         toca = toca[:tope]
     if cred is None or not (cred.get("ambiente") == "prod" and token(cred)):
@@ -144,7 +145,7 @@ def tarifas(raiz=AQUI, fecha=None, tope=None, cotizar=cotizar, reloj=time.monoto
         return fila, None
     t0, filas, hechos = reloj(), [], set()
     for o, d, e in toca:
-        if reloj() - t0 > CORREO_SEGUNDOS:
+        if reloj() - t0 > CORREO_SEGUNDOS * (6 if resto else 1):
             fila["error"] = "cortado por tiempo"
             break
         http, fs = cotizar(cred, o["cp"], d["cp"], int(e["peso_g"]), int(e["alto_cm"]), int(e["ancho_cm"]), int(e["largo_cm"]))
@@ -169,7 +170,7 @@ def correr_tarifas(args):
     cred = cargar()
     if not cred:
         sys.exit("Sin credenciales de Correo (.correo_local): no se pidió nada.")
-    fila, filas = tarifas(fecha=fecha, tope=tope, cred=cred)
+    fila, filas = tarifas(fecha=fecha, tope=tope, cred=cred, resto="--resto" in args)
     if filas is None:
         sys.exit(fila["error"])
     rc.escribir_fuentes(os.path.join(AQUI, "data", "fuentes.csv"), [fila])
@@ -268,6 +269,8 @@ def demo():
         tarifas(t, "2026-11-24", cotizar=falso2, cred=cr)  # idempotente: no duplica
         assert len(rc.leer(t + "/data/correo/2026-11.csv")) == len(guardado) and len(visto2) == 2 * n0
         assert tarifas(t, "2026-11-25", tope=3, cotizar=falso2, cred=cr)[0]["n_items"] == 3
+        fr, _ = tarifas(t, "2026-11-24", cotizar=falso2, cred=cr, resto=True)  # los otros 6 grupos: completa los 24x24 x envases
+        assert fr["n_items"] + n0 == 576 * 4 and len(rc.leer(t + "/data/correo/2026-11.csv")) > len(guardado)
         reloj = iter(range(0, 10**6, 400))  # el tiempo corre 400 s por pedido: corta al segundo
         fc, _ = tarifas(t, "2026-11-26", cotizar=falso2, reloj=lambda: next(reloj), cred=cr)
         assert fc["error"] == "cortado por tiempo" and fc["n_items"] == 1
