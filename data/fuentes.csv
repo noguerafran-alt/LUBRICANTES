@@ -354,3 +354,4 @@ fecha,fuente,http,n_items,n_con_precio,n_sin_stock,n_sin_match,error,n_descartad
 2026-11-24,fx_bcra,200,5,5,0,0,,0
 2026-11-24,casa,,4,4,0,0,,0
 2026-11-24,correo_tarifas,,1947,1947,0,0,,0
+2026-11-24,ml,200,0,0,0,0,"token válido pero 0 publicaciones (298 productos encontrados; items: HTTP 403 ×298 ({""blocked_by"":""PolicyAgent"",""status"":403,""message"":""At least one policy returned UNAUTHORIZED."",""code"":""PA_UNAUTHORIZED_RESULT_FROM_POLICIES""}))",0
