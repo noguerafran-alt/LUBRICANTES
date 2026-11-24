@@ -1,5 +1,8 @@
 # ESTADO
 
+## Módulos JS con ?v=<hash> (2026-11-24, rama fix/cache-modulos)
+- Cloudflare (túnel) reescribía el `Cache-Control` de los `.js` a 4 h: el usuario veía el Índice 3D con los colores viejos con el HTML ya nuevo. Ahora `server.pagina` pone en `index.html` (no-store) el hash de los `.js` propios de `site/` y el importmap remapea `./indice3d.js`, `./mapa3d.js`, `./presentacion.js` a `?v=<hash>` (immutable). Asserts en `demo()`.
+
 ## Grok respalda a Mercado Libre (2026-11-24, rama feat/grok-respaldo-ml)
 - Decisión del usuario: `grok_mercadolibre` y `grok_mercadolibre_www` reemplazan a la API de ML los días en que `ml` no tiene NINGUNA fila en obs. `server.RESPALDO_GROK` + `integrar_grok`: esas filas con `verificado=0` pasan a `verificado="respaldo"` y entran a todos los cálculos (todos filtran `!= "0"`). Mismo día con obs de ml, u otra `grok_*`: siguen excluidas. Una mediana sigue sin mezclar fuentes.
 - `/api/producto` `publicaciones[]`: `verificado=false` y campo nuevo `respaldo` (bool; columna nueva en el CSV). `/api/ultimo`, celdas de `/api/provincias`/`/api/reventa` y `bi/precios`: `verificado="respaldo"`. Visor: «Grok · respaldo de Mercado Libre (sin verificar)». `/api/fuentes`: nota de respaldo en ambas fuentes.
