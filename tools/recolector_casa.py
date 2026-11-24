@@ -2,7 +2,7 @@
 
 Corre en un CLON DEDICADO (hace reset --hard) con el marcador `.recolector_casa` (o `.sepa_pc`, de la tarea de Windows) en la raíz.
 Ciclo: fetch/reset -> pasos -> fila fuente=casa en data/fuentes.csv -> un commit -> push (3 intentos). Un paso que falla no frena a los demás.
-Pasos: recolectar.py --sin ml, sepa.py, macro.py series, macro.py fx y macro.py energia SOLO si la SE publicó algo nuevo.
+Pasos: recolectar.py --sin ml, sepa.py, macro.py series, macro.py fx, correo.py tarifas (solo si existe .correo_local) y macro.py energia SOLO si la SE publicó algo nuevo.
 NUNCA toca Mercado Libre: el token de ML vive solo en GitHub (no se lee .ml_local ni ML_*).
 
 python tools/recolector_casa.py              # una corrida; log en recolector_casa.log; salida != 0 si falla algún paso
@@ -155,6 +155,8 @@ def pasos(raiz, consultar=consultar_lm):
     """[(nombre, función(raiz) -> (rc, texto))]; la SE solo si publicó algo nuevo (se decide con data/ ya actualizado)."""
     ps = [("recolectar", lambda r: paso(r, "recolectar.py", "--sin", "ml")), ("sepa", lambda r: paso(r, "sepa.py")),
           ("series", lambda r: paso(r, "macro.py", "series")), ("fx", lambda r: paso(r, "macro.py", "fx"))]
+    if (Path(raiz) / ".correo_local").is_file():  # solo donde están las credenciales de MiCorreo (nunca en la Action)
+        ps.append(("correo", lambda r: paso(r, "correo.py", "tarifas")))
     try:
         lm = consultar()
     except Exception as e:
@@ -226,6 +228,9 @@ def demo():
         (Path(d) / ORIGEN).write_text(json.dumps({"last_modified": "2026-11-10", "bajada": "2026-11-11"}))
         assert [n for n, _ in pasos(d, lambda: "2026-11-10")] == ["recolectar", "sepa", "series", "fx"]  # sin novedad
         assert pasos(d, lambda: "2026-11-12")[-1][0] == "energia"
+        (Path(d) / ".correo_local").write_text("{}")  # con credenciales de Correo: paso nuevo, después de fx
+        assert [n for n, _ in pasos(d, lambda: "2026-11-10")] == ["recolectar", "sepa", "series", "fx", "correo"]
+        (Path(d) / ".correo_local").unlink()
         def cae():
             raise OSError("sin red")
         assert pasos(d, cae)[-1][1](d)[0] == 1  # CKAN caído = paso energia fallido, no excepción

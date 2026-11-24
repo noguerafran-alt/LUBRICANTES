@@ -1,5 +1,11 @@
 # ESTADO
 
+## Precio puesto con Correo Argentino (2026-11-24, rama feat/puesto-correo)
+- `correo.py tarifas`: capital -> capital 24x24 por envase (1, 4, 5, 20 L de `seed/envases_correo.csv`, aproximado), rotacion k=7 (~330 requests/dia), 12 min de presupuesto, solo ambiente prod; escribe `data/correo/AAAA-MM.csv` y la fila `correo_tarifas`. Paso `correo` en `tools/recolector_casa.py` solo si existe `.correo_local`; la Action no lo corre.
+- `/api/puesto` suma celdas `correo_ar` (`server.puesto_correo`): aviso con origen (provincia ISO de SEPA, o `seed/origen_fuentes.csv` para tiendas online con direccion ya documentada en `docs/relevamiento/envio-por-provincia.md` y CLAUDE.md) + tarifa de <= 14 dias. Los `online` sin origen (ML, VTEX, etc.) no participan. Visor: nombre, origen, plazo y nota fija en la capa Puesto.
+- Verificado: `correo.py`, `server.py` y `recolector_casa.py` `test` OK (fixtures); `puesto()` con los datos reales de SEPA + tarifas sinteticas en memoria: 24 celdas `correo_ar`, 0,07 s; `node --check` del script del visor. Corrida real acotada (`--tope 10`, `.correo_local` prod copiado y borrado, data/ revertido): 10/10 cotizaciones, `productName` ya viene como «Correo Argentino Clasico/Expreso». **No verificado**: la corrida completa (~330) ni el visor en un navegador (sin tarifas reales no hay celdas en produccion todavia).
+- Pendiente: los CP de origen de las tiendas son la capital de la provincia (aproximacion); falta cargar `.correo_local` en el clon de casa (ambiente `prod`) para que el paso corra.
+
 ## Correo Argentino: prod responde 202 (2026-11-24, rama fix/correo-202)
 - Primera cotización real (credenciales del usuario, ambiente prod): `/rates` responde **202** (no 200 como dice el PDF) con `rates[]` que suma `deliveryTimeMin`/`deliveryTimeMax` (string, unidad no documentada). CABA 1001 → Córdoba 5000, 4 kg 30×20×15: sucursal Clásico $14.050 (2-5) y Expreso $19.327 (1-3); domicilio Clásico $16.914 (2-5) y Expreso $23.257 (1-3). `cotizar` acepta 200 y 202 y devuelve `plazo_dias`; assert con esa respuesta en `demo()`.
 

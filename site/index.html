@@ -844,7 +844,7 @@ obs = pd.read_csv("<span class="origen"></span>/api/obs?mes=2026-11&amp;formato=
 <script>
 const NOMBRE_FUENTE = { ypf_gql: "YPF catálogo", vtex_carrefour: "Carrefour", vtex_masonline: "Masonline", vtex_easy: "Easy",
   vtex_jumbo: "Jumbo", vtex_norauto: "Norauto", shopify_datri: "Tienda D'Atri", tn_lspalermo: "LS Palermo", tn_spch: "Casa González",
-  sepa: "Precios Claros (SEPA)", ml_cat: "ML categorías", ml: "Mercado Libre", ml_envios: "Mercado Libre (cotización de envíos)", vtex_norauto_envios: "Norauto (cotización de envíos)", vtex_br_pitstop: "Pitstop (Brasil)", vtex_br_altese: "Altese (Brasil)",
+  sepa: "Precios Claros (SEPA)", ml_cat: "ML categorías", ml: "Mercado Libre", ml_envios: "Mercado Libre (cotización de envíos)", correo_ar: "Correo Argentino (estimado desde la provincia del aviso)", vtex_norauto_envios: "Norauto (cotización de envíos)", vtex_br_pitstop: "Pitstop (Brasil)", vtex_br_altese: "Altese (Brasil)",
   helix_api: "Shell Helix combos (API helixturno, automática)", oficial_br_notaparana: "Nota Paraná (Brasil, notas fiscales)", fx_bcb_ptax: "BCB PTAX (tipo de cambio)", fx_bcra: "BCRA cotizaciones (tipo de cambio)", casa: "Servidor FLN Data Analysis (celular o PC)" };
 const MAYORISTAS = ["shopify_datri"]; // precio por caja o tambor, IVA no verificado: el índice no los usa
 const SEGMENTO = { pcmo: "Autos (PCMO)", hddo: "Pesados (HDDO)", moto4t: "Moto 4T", moto2t: "Moto 2T", transmision: "Transmisión",
@@ -2924,6 +2924,7 @@ try { if (localStorage.getItem("lub_mapa_vista") === "3d") MP.vista = "3d"; } ca
 MP.metodo = "domicilio";   // «Todos» deja ver un retiro en sucursal a $ 0 como mínimo: por defecto solo cuenta lo que llega a domicilio
 try { if (localStorage.getItem("lub_mp_metodo") === "todos") MP.metodo = ""; } catch (e) {}
 // envío de un aviso o mínimo: un retiro es retiro en sucursal (con su depósito), nunca «envío gratis»
+const origTxt = (m, f) => m.origen_provincia ? ` · origen: ${AR_GEO.provincias[m.origen_provincia]?.n || m.origen_provincia} (${m.origen_declarado ? "declarado por la tienda" : "provincia del aviso"}, ${nf(m.origen_fuente || f)})${m.plazo ? " · plazo " + m.plazo : ""}` : "";
 const envTxt = m => m.metodo === "retiro" ? "retiro en sucursal" + (m.deposito ? ": " + m.deposito : "") : m.envio ? pesos.format(m.envio) : "gratis";
 function mp3dCerrar() { MP.tok++; MP.v3?.cerrar(); MP.v3 = null; }
 const num2 = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 });
@@ -2964,7 +2965,7 @@ function opcionesEquiv() {
     eqs.map(e => `<option value="${esc(e.comp_id)}">${esc(et(e.comp_id))} · ${esc(TIPO[e.tipo] || e.tipo)}</option>`).join("");
 }
 
-const NOTA_PUESTO = "Envío cotizado a la capital de cada provincia (CP de la capital), el día indicado. Mercado Libre: con la cuenta de la app (logueado o con Mercado Puntos puede ser más barato); Norauto: simulación de carrito de la tienda. El interior puede costar distinto. «Retiro» es retiro en sucursal, no entrega en la provincia. No es tiempo real.";
+const NOTA_PUESTO = "Envío cotizado a la capital de cada provincia (CP de la capital), el día indicado. Mercado Libre: con la cuenta de la app (logueado o con Mercado Puntos puede ser más barato); Norauto: simulación de carrito de la tienda. El interior puede costar distinto. «Retiro» es retiro en sucursal, no entrega en la provincia. Correo Argentino: tarifa de MiCorreo de capital a capital con peso y medidas aproximadas del envase; el origen es la provincia del aviso (SEPA = sucursal física) o la declarada por la tienda. Estimado: el comercio puede no enviar. No es tiempo real.";
 
 function mpCapa() {
   const p = $("#mp-capa").value === "puesto";
@@ -2997,7 +2998,7 @@ function mpPintarPuesto() {
   const texto = iso => { const c = mejor(iso), g = AR_GEO.provincias[iso].n;
     if (!c) return `${g}: ${motivo(iso)}`;
     const m = c.minimo;
-    return `${g}: mínimo ${pl(c.minimo_litro_puesto)} puesto · ${nf(c.fuente)}${m.vendedor ? " · vendedor " + m.vendedor : ""} · ${m.metodo === "retiro" ? "" : "envío "}${envTxt(m)} · mediana ${pl(c.mediana_litro_puesto)} · ${c.n} ${c.n === 1 ? "aviso" : "avisos"} · ${fechaAR(c.fecha)}`; };
+    return `${g}: mínimo ${pl(c.minimo_litro_puesto)} puesto · ${nf(c.fuente)}${m.vendedor ? " · vendedor " + m.vendedor : ""} · ${m.metodo === "retiro" ? "" : "envío "}${envTxt(m)}${origTxt(m, c.fuente)} · mediana ${pl(c.mediana_litro_puesto)} · ${c.n} ${c.n === 1 ? "aviso" : "avisos"} · ${fechaAR(c.fecha)}`; };
   const attrs = iso => { const c = mejor(iso);
     return `class="mp-prov${c ? "" : " mp-sd"}${MP.sel === iso ? " sel" : ""}" data-iso="${iso}"${c ? ` fill="${mezcla(mx === mn ? .5 : (c.minimo_litro_puesto - mn) / (mx - mn))}"` : ""} tabindex="0" role="button" aria-label="${esc(texto(iso))}"`; };
   const c0 = AR_GEO.provincias["AR-C"].c;
@@ -3024,7 +3025,7 @@ function mpPintarPuesto() {
   $("#mp-panel").innerHTML = iso ? `<h3>${esc(AR_GEO.provincias[iso].n)} <span class="nota">· CP ${esc((por[iso] || [{}])[0].cp || "")}</span></h3>` +
     ((por[iso] || []).length ? (por[iso]).map(c => `<p class="nota">${esc(nf(c.fuente))}: ${c.n} ${c.n === 1 ? "aviso" : "avisos"} con precio${c.n_no_envia ? ` · ${c.n_no_envia} no envía` : ""}${c.n_sin_cotizacion ? ` · ${c.n_sin_cotizacion} sin cotización` : ""}</p>` +
       (c.avisos.length ? `<ul>${c.avisos.map(a => `<li><span class="v">${esc(pl(a.precio_litro_puesto))}</span> puesto · ${esc(pesos.format(a.precio))} + ${a.metodo === "retiro" ? "" : "envío "}${esc(envTxt(a))} (${esc(a.metodo)}${a.plazo_h ? ", " + a.plazo_h + " h" : ""})
-        <span class="m">${a.vendedor ? "vendedor " + esc(a.vendedor) + " · " : ""}${fechaAR(a.fecha)} · ${linkUrl(a.url, "ver aviso")}</span></li>`).join("")}</ul>` : `<p class="mp-sin">${esc(motivo(iso))}.</p>`)).join("")
+        <span class="m">${a.vendedor ? "vendedor " + esc(a.vendedor) + " · " : ""}${fechaAR(a.fecha)} · ${linkUrl(a.url, "ver aviso")}${esc(origTxt(a, c.fuente))}</span></li>`).join("")}</ul>` : `<p class="mp-sin">${esc(motivo(iso))}.</p>`)).join("")
       : `<p class="mp-sin">${esc(motivo(iso))}.</p>`) : '<p class="nota">Tocá una provincia para ver los avisos con su precio puesto.</p>'; };
   panel();
   $("#mp-online").innerHTML = "";
@@ -3047,7 +3048,7 @@ async function mp3d(por, mejor, motivo, mn, mx, panel) {
   const items = Object.entries(AR_GEO.provincias).map(([iso, g]) => { const c = mejor(iso), m = c?.minimo, v = c?.minimo_litro_puesto;
     if (!c) return { iso, d: g.d, altura: null, color: "", tip: [g.n], sd: motivo(iso) + "." };
     return { iso, d: g.d, altura: v, color: mezcla(mx === mn ? .5 : (v - mn) / (mx - mn)), sd: "",
-      tip: [g.n, `Mínimo ${pl(v)} puesto`, `${nf(c.fuente)}${m.vendedor ? " · vendedor " + m.vendedor : ""}`, (m.metodo === "retiro" ? "" : "Envío ") + envTxt(m),
+      tip: [g.n, `Mínimo ${pl(v)} puesto`, `${nf(c.fuente)}${m.vendedor ? " · vendedor " + m.vendedor : ""}`, (m.metodo === "retiro" ? "" : "Envío ") + envTxt(m) + origTxt(m, c.fuente),
         v > mn ? `${dec1.format((v / mn - 1) * 100)} % más cara que la más barata` : "La provincia más barata",
         `Mediana ${pl(c.mediana_litro_puesto)} · ${c.n} ${c.n === 1 ? "aviso" : "avisos"} · ${fechaAR(c.fecha)}`, "Clic o toque para ver los avisos"] }; });
   try { MP.v3 = mod.abrir(host, { items, sel: MP.sel, onSel: iso => { MP.sel = iso; panel(); },
