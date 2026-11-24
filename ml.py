@@ -167,7 +167,8 @@ def autorizar():
     http, d = pedir("/oauth/token", data=dict(grant_type="authorization_code", client_id=cid,
                                               client_secret=sec, code=code, redirect_uri=redirect, code_verifier=verifier))
     if not d or "refresh_token" not in d:
-        sys.exit(f"No se pudo canjear el code (HTTP {http}). El code dura minutos y sirve una sola vez: repetí.")
+        sys.exit(f"No se pudo canjear el code (HTTP {http}): {ULTIMO_ERROR.get(http, 'sin detalle')}\n"
+                 f"El code dura minutos y sirve una sola vez, y la Redirect URI tiene que ser idéntica a la del devcenter: repetí.")
     _guardar_local(dict(client_id=cid, client_secret=sec, refresh_token=d["refresh_token"]))
     tok = d["access_token"]
     print(f"\nOK: credenciales guardadas en {ARCHIVO_LOCAL} (está en .gitignore).\nPruebas:")
