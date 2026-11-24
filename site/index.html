@@ -579,6 +579,16 @@ body:has(#dl[open]), body:has(#ix-dl[open]) { overflow: hidden; }
 .ix-kpis div { border: 1px solid var(--borde); border-radius: 6px; padding: 6px 10px; }
 .ix-kpis b { display: block; font: 600 17px/1.2 var(--f-cifra); }
 .ix-kpis span { font-size: 12px; color: var(--mut); }
+.i3 { position: relative; height: clamp(360px, 68vh, 600px); background: var(--panel); border: 1px solid var(--borde); border-radius: 8px; overflow: hidden; }
+.i3 canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: grab; outline-offset: -3px; }
+.i3-rot { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.i3-l { position: absolute; left: 0; top: 0; font-size: 11px; color: var(--tx); white-space: nowrap; will-change: transform; }
+.i3-g { font-weight: 700; font-size: 12px; } .i3-z { color: var(--mut); } .i3-y { text-align: right; } .i3-ypf { color: var(--acento); font-weight: 700; }
+.i3-tip { position: absolute; z-index: 2; max-width: 260px; padding: 6px 9px; font-size: 12px; line-height: 1.35; color: var(--tx); background: var(--panel); border: 1px solid var(--borde-ctl); border-radius: 6px; box-shadow: 0 4px 14px rgba(0, 0, 0, .25); pointer-events: none; }
+.i3-tip b { display: block; }
+#ix-pan { margin-top: 8px; }
+#ix-pan .graf svg { max-width: 640px; }
+@media (max-width: 600px) { .i3 { height: min(70vh, 460px); } }
 .ix-links { margin: 4px 0; padding-left: 18px; }
 .ix-links li { margin: 4px 0; }
 @media (prefers-reduced-motion: no-preference) { .ix-c { transition: outline-color .12s ease-out; } }
@@ -748,8 +758,14 @@ body:has(#dl[open]), body:has(#ix-dl[open]) { overflow: hidden; }
     <div class="filtros">
       <label>Día <input type="date" id="ix-dia"></label>
       <button type="button" class="link" id="ix-hoy">Último día</button>
+      <div class="dl-rangos" role="group" aria-label="Vista del índice"><button type="button" data-ix-vista="tabla" aria-pressed="true">Tabla</button><button type="button" data-ix-vista="3d" aria-pressed="false">3D</button></div>
     </div>
     <div id="ind-out"></div>
+    <div id="ix-3d" hidden>
+      <div id="ix-3d-aviso" role="status"></div>
+      <div id="ix-3d-lienzo"></div>
+      <div id="ix-pan" aria-live="polite"></div>
+    </div>
     <p class="nota">Cada celda es la mediana de $/L de la marca dividida por la de YPF, en el mismo segmento, SAE y día, × 100. Sin YPF ese día no se calcula. Debajo de cada valor, los 90 días que terminan en el día elegido. Las fuentes mayoristas (precio por caja o tambor, IVA no verificado) no entran; en la API se suman con <code>?mayoristas=1</code>.</p>
   </section>
 
@@ -1145,7 +1161,20 @@ function setIxDia(f) {   // "" = el último día con datos
   indice();
 }
 
-function indice() {
+// ejes compartidos por la tabla y el 3D: catálogo completo (lo que podría haber) contra lo que tiene valor; el interruptor decide si lo vacío se muestra
+function ixEjes(filas, tiene) {
+  const delPais = D.productos.filter(p => p.producto_id.endsWith("-br") === (P.pais === "BR"));
+  const gTodos = [...new Set([...filas.map(r => r.segmento + "|" + r.sae), ...delPais.filter(p => p.marca === "YPF").map(p => p.segmento + "|" + p.sae)])];
+  const mTodas = [...new Set([...filas.map(r => r.marca), ...delPais.map(p => p.marca), "YPF"])];
+  const ordenG = g => IX_GRUPOS.findIndex(([n]) => n === grupoIx(g.split("|")[0]));
+  const cols = (SD.on ? gTodos.filter(g => mTodas.some(m => tiene(m, g))) : gTodos)
+    .sort((a, b) => ordenG(a) - ordenG(b) || a.localeCompare(b, "es", { numeric: true }));
+  const marcas = (SD.on ? mTodas.filter(m => cols.some(g => tiene(m, g))) : mTodas)
+    .sort((a, b) => (b === "YPF") - (a === "YPF") || a.localeCompare(b));
+  return { delPais, gTodos, mTodas, cols, marcas };
+}
+
+function indiceTabla() {
   const out = $("#ind-out");
   if (!D.indice.length) return out.innerHTML = `<div class="explica">Todavía no hay precios con producto asignado para calcular el índice.</div>`;
   const fechas = [...new Set(D.indice.map(r => r.fecha))].sort(), maxF = fechas.at(-1);
@@ -1163,17 +1192,9 @@ function indice() {
     const v = f => f ? `<button type="button" class="link" data-ix-dia="${f}">${fechaAR(f)}</button>` : "";
     return out.innerHTML = `<div class="explica">Sin datos el ${fechaAR(ultimo)}: no hay precios con producto asignado ese día y no se arrastra el de otro. Días con datos más cercanos: ${[v(ant), v(sig)].filter(Boolean).join(" · ")}.</div>`;
   }
-  const delPais = D.productos.filter(p => p.producto_id.endsWith("-br") === (P.pais === "BR"));
   const celdaDe = {};
   hoy.forEach(r => celdaDe[r.marca + "|" + r.segmento + "|" + r.sae] = r);
-  // catálogo completo (lo que podría haber) contra lo que hoy tiene valor; el interruptor decide si lo vacío se muestra
-  const gTodos = [...new Set([...hoy.map(r => r.segmento + "|" + r.sae), ...delPais.filter(p => p.marca === "YPF").map(p => p.segmento + "|" + p.sae)])];
-  const mTodas = [...new Set([...hoy.map(r => r.marca), ...delPais.map(p => p.marca), "YPF"])];
-  const ordenG = g => IX_GRUPOS.findIndex(([n]) => n === grupoIx(g.split("|")[0]));
-  const cols = (SD.on ? gTodos.filter(g => mTodas.some(m => celdaDe[m + "|" + g])) : gTodos)
-    .sort((a, b) => ordenG(a) - ordenG(b) || a.localeCompare(b, "es", { numeric: true }));
-  const marcas = (SD.on ? mTodas.filter(m => cols.some(g => celdaDe[m + "|" + g])) : mTodas)
-    .sort((a, b) => (b === "YPF") - (a === "YPF") || a.localeCompare(b));
+  const { delPais, gTodos, mTodas, cols, marcas } = ixEjes(hoy, (m, g) => !!celdaDe[m + "|" + g]);
   const aviso = avisoSD([[mTodas.length - marcas.length, "marca", "marcas", "f"], [gTodos.length - cols.length, "columna", "columnas", "f"]]);
   const celda = (marca, g) => {
     const r = celdaDe[marca + "|" + g];
@@ -1242,6 +1263,94 @@ $("#ind-out").addEventListener("click", e => { const b = e.target.closest("[data
 $("#ix-x").onclick = () => $("#ix-dl").close();
 $("#ix-dl").addEventListener("click", e => { if (e.target === $("#ix-dl") || e.target.closest("a[href^='#producto']")) $("#ix-dl").close(); });
 $("#ix-dl").addEventListener("close", () => { const td = IX.foco && document.querySelector(`#ind-out td[data-m="${CSS.escape(IX.foco.dataset.m)}"][data-g="${CSS.escape(IX.foco.dataset.g)}"]`); IX.foco = null; if (td && !$("#indice").hidden) td.focus(); });
+
+// ---------- Índice en 3D ----------
+// Vista alternativa a la tabla (la tabla sigue por defecto). Datos: /api/indice/celdas, mediana de los últimos 30 días que terminan en el día elegido.
+IX.modo = "tabla"; IX.tok = 0; IX.v3 = null;
+try { if (localStorage.getItem("lub_ix_vista") === "3d") IX.modo = "3d"; } catch (e) {}
+function indice() { indiceTabla(); ixModo(); }
+function ix3dCerrar() { IX.tok++; IX.v3?.cerrar(); IX.v3 = null; }
+function ixBotones() { document.querySelectorAll("[data-ix-vista]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.ixVista === IX.modo))); }
+function ixModo() {
+  const tres = IX.modo === "3d";
+  $("#ind-out").hidden = tres; $("#ix-3d").hidden = !tres;
+  ixBotones(); ix3dCerrar();
+  if (tres && !$("#indice").hidden) ix3d();
+}
+function ix3dMsg(t) { $("#ix-3d-lienzo").innerHTML = `<div class="explica">${esc(t)}</div>`; $("#ix-pan").innerHTML = ""; }
+function ix3dVolver(t) { IX.modo = "tabla"; ixModo(); $("#ind-out").insertAdjacentHTML("afterbegin", `<div class="explica" role="status">${esc(t)} Se muestra la tabla.</div>`); }   // la preferencia guardada no cambia: el fallo es de este navegador
+async function ix3d() {
+  const tok = ++IX.tok, lienzo = $("#ix-3d-lienzo");
+  $("#ix-3d-aviso").innerHTML = ""; $("#ix-pan").innerHTML = "";
+  if (!IX.ultimo) return ix3dMsg("Todavía no hay precios con producto asignado para calcular el índice.");
+  lienzo.innerHTML = `<p class="mut">Cargando el gráfico 3D…</p>`;
+  let v, mod;
+  try { [v, mod] = await Promise.all([apiP("indice/celdas?dias=30&hasta=" + IX.ultimo), import("./indice3d.js")]); }
+  catch (e) { if (tok === IX.tok) ix3dVolver("No se pudo cargar el gráfico 3D (" + e.message + ")."); return; }
+  if (tok !== IX.tok) return;
+  if (!mod.webgl()) return ix3dVolver("Este navegador no tiene WebGL, así que no puede dibujar el gráfico 3D.");
+  if (!v.celdas.length) return ix3dMsg(`Sin datos: ninguna publicación con producto asignado en los 30 días que terminan el ${fechaAR(IX.ultimo)}. No se dibuja nada ni se arrastra un precio viejo.`);
+  if (P.usd && v.celdas.every(c => typeof c.mediana_litro_usd !== "number")) return ix3dMsg(`Sin tipo de cambio oficial el ${fechaAR(v.hasta)}: no se convierte a USD y no se arrastra el de otro día. Elegí otra fecha en «Tipo de cambio del» o mirá el gráfico en pesos.`);
+  const mapa = Object.fromEntries(v.celdas.map(c => [c.marca + "|" + c.segmento + "|" + c.sae, c]));
+  const { delPais, gTodos, mTodas, cols, marcas } = ixEjes(v.celdas, (m, g) => !!mapa[m + "|" + g]);
+  const fm = P.usd ? dolares.format : mon.format, campo = P.usd ? "mediana_litro_usd" : "mediana_litro";
+  const item = (mk, g) => {
+    const c = mapa[mk + "|" + g], [seg, sae] = g.split("|"), tit = `${mk} · ${SEGMENTO[seg] || seg}${sae ? " · " + sae : ""}`;
+    if (!c) return { altura: null, indice: null, tip: [tit], sd: delPais.some(p => p.marca === mk && p.segmento + "|" + p.sae === g)
+      ? `Sin dato: ninguna fuente publicó precio de ${mk} en este segmento y SAE entre el ${fechaAR(v.desde)} y el ${fechaAR(v.hasta)}.` : `Sin dato: ${mk} no tiene un producto de este segmento y SAE en el catálogo.` };
+    const alt = c[campo], ok = typeof alt === "number";
+    return { c, altura: ok ? alt : null, indice: c.indice, sd: ok ? "" : `Sin cotización oficial el ${fechaAR(c.fx_fecha || v.hasta)}: no se convierte a USD y no se arrastra otra.`,
+      tip: [tit, `$/L mediano: ${ok ? fm(alt) : "sin conversión"}`, c.indice === null ? "Sin YPF en este segmento y SAE: índice no calculable" : mk === "YPF" ? "Índice: 100 (referencia)" : `Índice vs YPF: ${dec1.format(c.indice)}`,
+        `${c.n} ${c.n === 1 ? "aviso" : "avisos"} · del ${fechaAR(c.fecha_min)} al ${fechaAR(c.fecha_max)}`, "Clic o toque para ver la distribución"] };
+  };
+  $("#ix-3d-aviso").innerHTML = avisoSD([[mTodas.length - marcas.length, "marca", "marcas", "f"], [gTodos.length - cols.length, "columna", "columnas", "f"]])
+    + `<div class="ix-ley"><b>Altura = $/L mediano de los últimos ${v.dias} días (${fechaAR(v.desde)} al ${fechaAR(v.hasta)}). Color = índice contra YPF del mismo segmento y SAE (YPF = 100, en azul).</b>
+      <span class="ix-escala" aria-hidden="true"><span>más barato (70)</span><i></i><span>más caro (130)</span></span>
+      <span><span class="ix-sdsw" aria-hidden="true">–</span>base gris plana = sin dato</span></div>
+    <p class="nota ix-pista">Arrastrá para girar; rueda o pellizco para acercar; botón derecho o dos dedos para mover (con el foco en el gráfico, flechas y +/-). Una barra por marca y SAE; el SAE va de más fino a más grueso y YPF está adelante. Es la mediana de ${v.dias} días, no el índice de un solo día de la tabla.</p>`;
+  lienzo.innerHTML = "";
+  try {
+    IX.v3 = mod.abrir(lienzo, { fmt: x => fm(x), onSel: (mk, g, it) => ixPanel(mk, g, it, v),
+      cols: cols.map(g => ({ g, grupo: grupoIx(g.split("|")[0]), etiqueta: subIx(g) })), marcas, item });
+  } catch (e) { ix3dVolver("No se pudo dibujar el gráfico 3D (" + e.message + ")."); }
+}
+// panel de una celda: distribución real de los $/L de sus avisos; la curva es un ajuste, no un dato
+function ixPanel(mk, g, it, v) {
+  const c = it.c, [seg, sae] = g.split("|"), tit = `${mk} · ${SEGMENTO[seg] || seg}${sae ? " · " + sae : ""}`;
+  if (!c) return $("#ix-pan").innerHTML = `<div class="explica"><b>${esc(tit)}</b>: ${esc(it.sd)}</div>`;
+  const xs = P.usd ? c.precios_litro_usd : c.precios_litro, fm = P.usd ? dolares.format : mon.format;
+  const p0 = c.productos.length === 1 && D.prodPorId?.[c.productos[0]];
+  const link = c.productos.length === 1 ? `<p><a href="#producto/${encodeURIComponent(c.productos[0])}">Ver la página de producto: ${esc(p0 ? nombreCompleto(p0.marca, p0.linea, p0.nombre) : c.productos[0])}</a></p>`
+    : `<p class="mut">${c.productos.length} productos en esta celda (${esc(c.productos.join(", "))}): no hay una única página de producto.</p>`;
+  $("#ix-pan").innerHTML = `<div class="graf"><h3>${esc(tit)}: distribución de $/L de ${c.n} ${c.n === 1 ? "aviso" : "avisos"}</h3>
+    <p class="mut">Del ${fechaAR(c.fecha_min)} al ${fechaAR(c.fecha_max)}. Cada aviso cuenta una vez, con su observación más reciente de la ventana de ${v.dias} días.</p>
+    ${xs ? histograma(xs, fm, tit) : `<div class="vacio">Sin cotización oficial el ${fechaAR(c.fx_fecha || v.hasta)}: no se convierte a USD y no se arrastra otra.</div>`}${link}</div>`;
+  $("#ix-pan").scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
+function histograma(xs, fm, label) {
+  const n = xs.length, ord = xs.slice().sort((a, b) => a - b), mu = xs.reduce((a, b) => a + b, 0) / n, sd = n > 1 ? Math.sqrt(xs.reduce((a, b) => a + (b - mu) ** 2, 0) / (n - 1)) : 0;
+  const med = n % 2 ? ord[(n - 1) / 2] : (ord[n / 2 - 1] + ord[n / 2]) / 2;
+  const W = 640, H = 230, m = { l: 36, r: 12, t: 12, b: 42 }, lo = ord[0], hi = ord[n - 1], normal = n >= 5 && sd > 0, hol = ((hi - lo) || lo * .05 || 1) * .1;
+  const x0 = normal ? Math.min(lo, mu - 3 * sd) : lo - hol, x1 = normal ? Math.max(hi, mu + 3 * sd) : hi + hol;
+  const X = x => m.l + (x - x0) / (x1 - x0) * (W - m.l - m.r), base = H - m.b;
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc("Distribución de $/L: " + label)}"><line class="eje" x1="${m.l}" x2="${W - m.r}" y1="${base}" y2="${base}"/>`;
+  if (n < 5) {   // con tan pocos avisos un histograma o una curva dirían más de lo que hay: solo los puntos
+    xs.forEach((x, i) => s += `<circle cx="${X(x).toFixed(1)}" cy="${base - 14 - xs.slice(0, i).filter(w => Math.abs(X(w) - X(x)) < 10).length * 12}" r="5" fill="var(--c1)"><title>${esc(fm(x))}/L</title></circle>`);
+  } else {
+    const k = Math.min(12, Math.max(4, Math.ceil(Math.log2(n) + 1))), bw = (hi - lo) / k || 1, cuentas = Array(k).fill(0);
+    xs.forEach(x => cuentas[Math.min(k - 1, Math.floor((x - lo) / bw))]++);
+    const dens = x => n * bw * Math.exp(-((x - mu) ** 2) / (2 * sd * sd)) / (sd * Math.sqrt(2 * Math.PI));
+    const curva = normal ? Array.from({ length: 61 }, (_, i) => { const x = x0 + (x1 - x0) * i / 60; return [x, dens(x)]; }) : [];
+    const ymax = Math.max(...cuentas, ...curva.map(p => p[1])), Y = c => base - c / ymax * (base - m.t);
+    cuentas.forEach((c, i) => { if (c) s += `<rect x="${X(lo + i * bw).toFixed(1)}" y="${Y(c).toFixed(1)}" width="${Math.max(X(lo + (i + 1) * bw) - X(lo + i * bw) - 1, 1).toFixed(1)}" height="${(base - Y(c)).toFixed(1)}" fill="var(--c1)" opacity=".75"><title>${esc(fm(lo + i * bw) + " a " + fm(lo + (i + 1) * bw))}: ${c} ${c === 1 ? "aviso" : "avisos"}</title></rect>`; });
+    if (normal) s += `<polyline fill="none" stroke="var(--c2)" stroke-width="2" stroke-dasharray="5 3" points="${curva.map(([x, d]) => X(x).toFixed(1) + "," + Y(d).toFixed(1)).join(" ")}"/>`;
+    s += `<text x="${m.l - 6}" y="${Y(ymax) + 4}" text-anchor="end">${Math.round(ymax * 10) / 10}</text><text x="${m.l - 6}" y="${base}" text-anchor="end">0</text>`;
+  }
+  s += `<line x1="${X(mu).toFixed(1)}" x2="${X(mu).toFixed(1)}" y1="${m.t}" y2="${base}" stroke="var(--mut)" stroke-dasharray="2 3"/>`
+    + `<text x="${m.l}" y="${H - 22}">${esc(fm(x0))}</text><text x="${W - m.r}" y="${H - 22}" text-anchor="end">${esc(fm(x1))}</text><text x="${(m.l + W - m.r) / 2}" y="${H - 6}" text-anchor="middle">$/L (cada aviso una vez; eje Y: cantidad de avisos)</text></svg>`;
+  return s + `<p class="mut">Línea punteada gris: media ${esc(fm(mu))}/L${n > 1 ? ` · desvío ${esc(fm(sd))}` : ""} · mediana ${esc(fm(med))}.${normal ? " Curva naranja: <b>ajuste normal de referencia</b> con esa media y ese desvío (no es un dato: los precios no tienen por qué ser normales)." : n < 5 ? " Con menos de 5 avisos solo se muestran los puntos, sin curva." : ""}</p>`;
+}
+document.querySelectorAll("[data-ix-vista]").forEach(b => b.onclick = () => { IX.modo = b.dataset.ixVista; try { localStorage.setItem("lub_ix_vista", IX.modo); } catch (e) {} ixModo(); });
 
 function sparkline(filas, desde) {
   const W = 90, H = 22, pts = filas.filter(r => r.indice !== null);
@@ -3079,7 +3188,7 @@ $("#pr-desde").onchange = $("#pr-hasta").onchange = () => {
 
 // ---------- pestañas ----------
 // el Visualizador se carga solo (su propia ruta): no depende de que lleguen los demás datos
-const vistas = { visualizador: () => { if (VT.pista) vtIr(VT.pos, false); }, producto: () => {}, mercado: abrirMercado, mapa: initMapa, cobertura: abrirCobertura, comparador: () => {}, evolucion, indice: () => {}, fuentes: () => {}, cargar: mesCargado };
+const vistas = { visualizador: () => { if (VT.pista) vtIr(VT.pos, false); }, producto: () => {}, mercado: abrirMercado, mapa: initMapa, cobertura: abrirCobertura, comparador: () => {}, evolucion, indice: ixModo, fuentes: () => {}, cargar: mesCargado };
 // el hash es #<pestaña> o #producto/<producto_id>; #vitrina (el nombre viejo) sigue valiendo como alias de #visualizador
 function ir(hash) {
   let tab = hash === "vitrina" ? "visualizador" : hash.split("/")[0], pid = "";
@@ -3089,6 +3198,7 @@ function ir(hash) {
   document.querySelectorAll("nav button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === nav));
   document.querySelectorAll("main section").forEach(s => s.hidden = s.id !== tab);
   notaPais(tab); ubicarBarra(tab);
+  if (tab !== "indice") ix3dCerrar();   // libera la GPU al salir de la vista
   for (const id of ["#banner", "#pais-barra", "#pais-nota"]) $(id).style.display = tab === "mercado" ? "none" : "";  // Mercado es solo SE/INDEC: ni avisos de precios ni país/USD
   const h = tab === "producto" ? hash : tab;
   if (location.hash !== "#" + h) history.replaceState(null, "", "#" + h);
