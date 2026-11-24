@@ -1,5 +1,22 @@
 # ESTADO
 
+## Mapa 3D del precio puesto y video hero (2026-11-23, rama feat/puesto-ml, segunda tanda)
+- `site/mapa3d.js` (nuevo): vista «3D» de la capa «Puesto» del Mapa (selector «Plano | 3D», `lub_mapa_vista`). Provincias de `AR_GEO` extruidas con three.js on-demand; altura = mínimo $/L puesto, color = % más cara que la más barata, sin cotización = placa gris rayada con su motivo; hover/clic/orbit; vuelve a Plano sin WebGL. La cámara orbital se factorizó de `indice3d.js` a `controles()` (exportada; el Índice 3D la usa igual que antes).
+- Carreras corregidas en el Mapa: una respuesta de `mpCargar`/`mpPuesto` que llega después de cambiar de capa ya no pisa la vista.
+- Hero: video de presentación de primera visita (`site/media/`, `lub_hero_visto`), ▶ en el header para reabrirlo, Esc/× cierran, reduced-motion sin autoplay. `server.py` sirve `.mp4`/`.jpg` (`MEDIA`) con `Range` (206/416) y sin gzip; `rango_bytes()` y los tipos MIME tienen asserts en `demo()`.
+- Verificado: tests de `server`, `normalizar`, `tiendas`, `ml`, `recolectar` = OK. En Chrome headless con un `data/envios` de prueba (borrado): 3D con alturas/colores/rayado, hover, clic con panel, volver a Plano, cambio de pestaña y regreso, 375 px, hero reabre/Esc/recuerda, consola sin errores.
+- Sin verificar: autoplay con sonido real (el headless tenía reduced-motion), Safari/iOS, GPU real (se probó con SwiftShader), CABA en 3D (es chica y queda dentro de Buenos Aires; la tabla la tiene), data real de `data/envios` (todavía no hay).
+
+## Precio puesto en provincia, fase 1: Mercado Libre en la Action (2026-11-23, rama feat/puesto-ml)
+- Implementado según `docs/relevamiento/envio-por-provincia.md` solo para ML, con token (decisión del usuario). Norauto, Easy y Carrefour: no en esta fase.
+- `recolectar.py`: al final de la corrida `ml` (después de escribir `obs` y `fuentes`) cotiza `items/{MLA}/shipping_options?zip_code=` de las combinaciones vendedor × producto × envase de YPF del grupo de hoy (k=7, `grupo_envios`) a las 24 capitales de `seed/cp_capitales.csv`, con el token ya canjeado (`ml.TOKEN_HOY`). Escribe `data/envios/AAAA-MM.csv` (idempotente por fuente+fecha) y la fila `ml_envios` de `fuentes.csv`. Sin token: fila con `error="sin token"` y cero requests. Presupuesto propio de 22 min.
+- `ml.py`: `opciones()` (parseo: una fila por método, gratis = 0 declarado, 404/424/HTTP/sin opciones = `sin_cotizacion`) y `cotizar()` (se niega sin token).
+- `server.py`: `GET /api/puesto` (`puesto()`), `data/envios/` y `seed/cp_capitales.csv` en el estado (recarga incluida). `workflow`: `timeout-minutes` 30 → 50.
+- Visor: capa «Puesto en provincia (online + envío)» en el Mapa.
+- Asserts en `demo()` de `ml.py`, `recolectar.py` y `server.py` (fixtures con gratis, costo > 0, 404, 424; rotación; idempotencia; misma fecha; sin arrastre). `python <m>.py test` = OK en los tres.
+- **Sin verificar** (no hay token local y el robots.txt lo prohíbe sin él): el formato real de la respuesta. `ml.METODOS_ENVIO` asume `options[].shipping_option_type` = `address|agency|pickup` y `estimated_delivery_time.shipping` en horas (`unit=hour`); si los nombres son otros, todo queda `sin_cotizacion` y la fila `ml_envios` dice «ninguna de N cotizaciones respondió»: se corrige con un JSON real. Tampoco se midió el tiempo real de ~800 requests en la Action, ni la capa del Mapa en navegador.
+- Límite conocido: si el presupuesto de tiempo corta la corrida, siempre quedan sin cotizar las últimas combinaciones del grupo (`ponytail:` en `envios_ml`).
+
 ## Precio puesto en provincia: relevamiento y diseño (2026-11-23, rama docs/envio-provincia)
 - Solo documento: `docs/relevamiento/envio-por-provincia.md`. Sin código ni `data/`.
 - Idea: «vendedor más cercano» = aviso con menor precio + envío cotizado por la propia tienda a un CP de la provincia; no se deduce la ubicación del vendedor.

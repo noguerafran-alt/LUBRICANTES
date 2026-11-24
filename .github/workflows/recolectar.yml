@@ -15,7 +15,7 @@ concurrency:
 jobs:
   recolectar:
     runs-on: ubuntu-latest
-    timeout-minutes: 30  # ML con token tarda ~14 min
+    timeout-minutes: 50  # ML con token ~14 min + cotización de envíos ~13 min (tope propio de 22: ENVIOS_SEGUNDOS)
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

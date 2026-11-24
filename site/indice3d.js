@@ -10,6 +10,37 @@ export function webgl() {
   return !!(c.getContext("webgl2") || c.getContext("webgl"));
 }
 
+// Cámara orbital (girar, mover, zoom, pellizco, teclado) compartida por el Índice 3D y el Mapa 3D.
+// o = {objetivo, theta, phi, dist, ymax} se muta en vivo; pickea(e) -> objeto|null; hover(b, e) con el mouse (b null al salir o arrastrar); clic(b, e) con un toque sin arrastre.
+export function controles(canvas, o, { pedir, pickea, hover, clic }) {
+  const ptrs = new Map(); let mov = 0, t0 = 0, pinch = 0;
+  const d2 = () => { const [a, b] = [...ptrs.values()]; return Math.hypot(a.x - b.x, a.y - b.y) || 1; };
+  const girar = (dx, dy) => { o.theta -= dx * .008; o.phi = Math.min(Math.max(o.phi - dy * .008, .15), 1.5); };
+  const mover = (dx, dy) => { const k = o.dist * .0016; o.objetivo.x -= Math.cos(o.theta) * dx * k; o.objetivo.z += Math.sin(o.theta) * dx * k; o.objetivo.y = Math.min(Math.max(o.objetivo.y + dy * k, -2), o.ymax); };
+  const zoom = f => { o.dist = Math.min(Math.max(o.dist * f, 4), 90); };
+  const on = (t, f, op) => { canvas.addEventListener(t, f, op); return () => canvas.removeEventListener(t, f, op); };
+  const quitar = [
+    on("pointerdown", e => { canvas.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); mov = 0; t0 = performance.now(); if (ptrs.size === 2) pinch = d2(); }),
+    on("pointermove", e => {
+      const p = ptrs.get(e.pointerId);
+      if (!p) return e.pointerType === "mouse" ? hover(pickea(e), e) : 0;
+      const dx = e.clientX - p.x, dy = e.clientY - p.y; mov += Math.abs(dx) + Math.abs(dy);
+      p.x = e.clientX; p.y = e.clientY;
+      if (ptrs.size === 1) { (e.buttons & 2 || e.shiftKey || e.ctrlKey) ? mover(dx, dy) : girar(dx, dy); }
+      else if (ptrs.size === 2) { const d = d2(); zoom(pinch / d); pinch = d; mover(dx / 2, dy / 2); }
+      if (mov > 8) hover(null);
+      pedir();
+    }),
+    on("pointerup", e => { if (ptrs.size === 1 && mov < 8 && performance.now() - t0 < 600) clic(pickea(e), e); ptrs.delete(e.pointerId); }),   // un toque o clic sin arrastre
+    on("pointercancel", e => ptrs.delete(e.pointerId)),
+    on("pointerleave", e => { if (e.pointerType === "mouse" && !ptrs.size) hover(null); }),
+    on("contextmenu", e => e.preventDefault()),
+    on("wheel", e => { e.preventDefault(); zoom(Math.exp(e.deltaY * .001)); pedir(); }, { passive: false }),
+    on("keydown", e => { const k = e.key; if (k === "ArrowLeft") girar(-12, 0); else if (k === "ArrowRight") girar(12, 0); else if (k === "ArrowUp") girar(0, 12); else if (k === "ArrowDown") girar(0, -12); else if (k === "+" || k === "=") zoom(.85); else if (k === "-") zoom(1.18); else return; e.preventDefault(); pedir(); }),
+  ];
+  return () => quitar.forEach(q => q());
+}
+
 // host: contenedor vacío. cols: [{g, grupo, etiqueta}], marcas: [nombre] (YPF primero = adelante).
 // item(marca, g) -> {altura: número|null, indice: número|null, tip: [líneas], sd: motivo si no hay dato}. onSel(marca, g, item).
 // Devuelve {cerrar()}; tira Error si no hay WebGL.
@@ -66,14 +97,13 @@ export function abrir(host, { cols, marcas, item, onSel, fmt }) {
   [0, .5, 1].forEach(f => rot(fmt(maxV * f), new THREE.Vector3(ex, ALTO * f, ez), "i3-z"));
 
   // cámara orbital mínima
-  const objetivo = new THREE.Vector3(0, ALTO / 4, 0);
-  let theta = -.5, phi = 1.0, dist = Math.max(10, Math.max(m, n) * PASO * 1.05 + 4);   // desde el lado izquierdo: los nombres de las marcas quedan al frente
-  dist *= Math.max(1, 1.7 / (Math.max(caja.clientWidth, 200) / Math.max(caja.clientHeight, 200)));   // pantalla angosta: más lejos para que entren todas las columnas
+  const o = { objetivo: new THREE.Vector3(0, ALTO / 4, 0), theta: -.5, phi: 1.0, dist: Math.max(10, Math.max(m, n) * PASO * 1.05 + 4), ymax: ALTO * 2 };   // desde el lado izquierdo: los nombres de las marcas quedan al frente
+  o.dist *= Math.max(1, 1.7 / (Math.max(caja.clientWidth, 200) / Math.max(caja.clientHeight, 200)));   // pantalla angosta: más lejos para que entren todas las columnas
   const L = { w: 1, h: 1 };
   let pedido = 0, vivo = true;
   const dibujar = () => { pedido = 0; if (!vivo) return;
-    cam.position.set(objetivo.x + dist * Math.sin(phi) * Math.sin(theta), objetivo.y + dist * Math.cos(phi), objetivo.z + dist * Math.sin(phi) * Math.cos(theta));
-    cam.lookAt(objetivo); cam.updateMatrixWorld(); r.render(escena, cam);
+    cam.position.set(o.objetivo.x + o.dist * Math.sin(o.phi) * Math.sin(o.theta), o.objetivo.y + o.dist * Math.cos(o.phi), o.objetivo.z + o.dist * Math.sin(o.phi) * Math.cos(o.theta));
+    cam.lookAt(o.objetivo); cam.updateMatrixWorld(); r.render(escena, cam);
     const v = new THREE.Vector3();
     for (const [e, p] of puntos) { v.copy(p).project(cam); const ok = v.z < 1 && v.z > -1; e.style.display = ok ? "" : "none"; if (ok) e.style.transform = `translate(${(v.x * .5 + .5) * L.w}px, ${(-v.y * .5 + .5) * L.h}px) translate(-50%, -50%)`; }
   };
@@ -104,41 +134,13 @@ export function abrir(host, { cols, marcas, item, onSel, fmt }) {
     pedir();
   };
 
-  const ptrs = new Map(); let mov = 0, t0 = 0, pinch = 0;
-  const d2 = () => { const [a, b] = [...ptrs.values()]; return Math.hypot(a.x - b.x, a.y - b.y) || 1; };
-  const girar = (dx, dy) => { theta -= dx * .008; phi = Math.min(Math.max(phi - dy * .008, .15), 1.5); };
-  const mover = (dx, dy) => { const k = dist * .0016; objetivo.x -= Math.cos(theta) * dx * k; objetivo.z += Math.sin(theta) * dx * k; objetivo.y = Math.min(Math.max(objetivo.y + dy * k, -2), ALTO * 2); };
-  const zoom = f => { dist = Math.min(Math.max(dist * f, 4), 90); };
-  const on = (t, f, o) => { canvas.addEventListener(t, f, o); return () => canvas.removeEventListener(t, f, o); };
-  const quitar = [
-    on("pointerdown", e => { canvas.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); mov = 0; t0 = performance.now(); if (ptrs.size === 2) pinch = d2(); }),
-    on("pointermove", e => {
-      const p = ptrs.get(e.pointerId);
-      if (!p) return e.pointerType === "mouse" ? mostrar(pickea(e), e) : 0;
-      const dx = e.clientX - p.x, dy = e.clientY - p.y; mov += Math.abs(dx) + Math.abs(dy);
-      p.x = e.clientX; p.y = e.clientY;
-      if (ptrs.size === 1) { (e.buttons & 2 || e.shiftKey || e.ctrlKey) ? mover(dx, dy) : girar(dx, dy); }
-      else if (ptrs.size === 2) { const d = d2(); zoom(pinch / d); pinch = d; mover(dx / 2, dy / 2); }
-      if (mov > 8 && sobre) mostrar(null);
-      pedir();
-    }),
-    on("pointerup", e => {
-      if (ptrs.size === 1 && mov < 8 && performance.now() - t0 < 600) {   // un toque o clic sin arrastre: tooltip y panel
-        const b = pickea(e); mostrar(b, e);
-        if (b) onSel(b.userData.mk, b.userData.g, b.userData.it);
-      }
-      ptrs.delete(e.pointerId);
-    }),
-    on("pointercancel", e => ptrs.delete(e.pointerId)),
-    on("pointerleave", e => { if (e.pointerType === "mouse" && !ptrs.size) mostrar(null); }),
-    on("contextmenu", e => e.preventDefault()),
-    on("wheel", e => { e.preventDefault(); zoom(Math.exp(e.deltaY * .001)); pedir(); }, { passive: false }),
-    on("keydown", e => { const k = e.key; if (k === "ArrowLeft") girar(-12, 0); else if (k === "ArrowRight") girar(12, 0); else if (k === "ArrowUp") girar(0, 12); else if (k === "ArrowDown") girar(0, -12); else if (k === "+" || k === "=") zoom(.85); else if (k === "-") zoom(1.18); else return; e.preventDefault(); pedir(); }),
-  ];
+  const quitar = controles(canvas, o, { pedir, pickea,
+    hover: (b, e) => mostrar(b, e),
+    clic: (b, e) => { mostrar(b, e); if (b) onSel(b.userData.mk, b.userData.g, b.userData.it); } });
 
   return {
     cerrar() {   // todo lo de la GPU se libera: se llama al volver a la tabla, al cambiar de pestaña y antes de redibujar
-      vivo = false; cancelAnimationFrame(pedido); ro.disconnect(); mo.disconnect(); quitar.forEach(q => q());
+      vivo = false; cancelAnimationFrame(pedido); ro.disconnect(); mo.disconnect(); quitar();
       barras.forEach(b => b.material.dispose()); geo.dispose(); eje.geometry.dispose(); eje.material.dispose();
       r.dispose(); r.forceContextLoss(); caja.remove();
     },

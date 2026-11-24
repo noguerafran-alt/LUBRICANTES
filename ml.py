@@ -7,6 +7,7 @@ ML_REFRESH_TOKEN, o .ml_local en la PC): /products/search + /products/{id}/items
 """
 import json
 import os
+import re
 import sys
 import time
 import urllib.error
@@ -29,6 +30,8 @@ TOPE_PRODUCTOS = 50  # por búsqueda; se loguea cuántas búsquedas se cortan
 TOPE_ITEMS = 100     # publicaciones por producto
 
 _ultimo = {}  # host → hora del último request
+TOKEN_HOY = None  # access token que canjeó `avisos()` en esta corrida: lo reusa la cotización de envíos (el refresh rota en cada canje: no se canjea dos veces)
+METODOS_ENVIO = {"address": "domicilio", "agency": "agencia", "pickup": "retiro", "self_service": "retiro"}  # shipping_option_type → metodo; otro tipo no se adivina
 
 
 def https(u, base=""):
@@ -214,9 +217,11 @@ def avisos(filtro=None):
     """→ (http, avisos, error). Cada aviso con las columnas crudas de obs.
     `filtro(aviso)`: si da False el producto no se baja (no se piden sus publicaciones): ahorra el grueso del tiempo.
     /items/bulk e /items dan vacío/403 con este token: el aviso sale de products/{id}/items + atributos."""
+    global TOKEN_HOY
     tok, err = token()
     if not tok:
         return "", [], err
+    TOKEN_HOY = tok
     prods, cortadas, http, ajenos = {}, 0, 0, 0
     qs = busquedas()
     for q in qs:
@@ -242,6 +247,39 @@ def avisos(filtro=None):
     return http, out, ""
 
 
+def item_id(url):
+    """URL de un aviso (`.../MLA-1873751937`) → id de item (`MLA1873751937`) o None."""
+    m = re.search(r"/(MLA)-?(\d+)$", url or "")
+    return m and m.group(1) + m.group(2)
+
+
+def opciones(http, d):
+    """Respuesta de `items/{MLA}/shipping_options?zip_code=` → (estado, [(metodo, costo, plazo_h)]).
+    `ok` con la opción más barata de cada método (costo = options[].cost, lo que paga el comprador; 0 solo si la opción declara 0).
+    404/424/error HTTP/200 sin opciones legibles = `sin_cotizacion` (un hueco, nunca costo 0)."""
+    mejor = {}
+    for o in (d.get("options") or []) if http == 200 and isinstance(d, dict) else []:
+        metodo, c = METODOS_ENVIO.get(o.get("shipping_option_type")), o.get("cost")
+        if not metodo or isinstance(c, bool) or not isinstance(c, (int, float)) or c < 0:
+            continue
+        e = o.get("estimated_delivery_time") or {}
+        h = e.get("shipping") if isinstance(e.get("shipping"), (int, float)) else None
+        h = h if e.get("unit") == "hour" or h is None else h * 24 if e.get("unit") in ("day", "days") else None
+        if metodo not in mejor or c < mejor[metodo][0]:
+            mejor[metodo] = (c, "" if h is None else int(h))
+    return ("ok", [(m, c, h) for m, (c, h) in sorted(mejor.items())]) if mejor else ("sin_cotizacion", [])
+
+
+def cotizar(url, cp, tok):
+    """→ (http, estado, opciones). Solo con token (robots.txt de la API es Disallow: /; se usa bajo el Programa de Desarrolladores)."""
+    assert tok, "shipping_options nunca se pide sin token"
+    iid = item_id(url)
+    if not iid:
+        return 0, "sin_cotizacion", []
+    http, d = pedir(f"/items/{iid}/shipping_options?zip_code={cp}", tok)
+    return (http, *opciones(http, d))
+
+
 def demo():
     global ARCHIVO_LOCAL, pedir, token
     for k in ("ML_CLIENT_ID", "ML_CLIENT_SECRET", "ML_REFRESH_TOKEN"):
@@ -259,6 +297,19 @@ def demo():
         assert aceite(dict(domain_id="MLA-ENGINE_OILS")) and not aceite(dict(domain_id="MLA-SNEAKERS"))
         assert aviso(dict(name="Aceite 5W-30 4 L"), dict(item_id="MLA1", price=1, seller_id=2))["titulo"] == "Aceite 5W-30 4 L"
         assert token() == (None, "sin token")
+        assert item_id("https://articulo.mercadolibre.com.ar/MLA-1873751937") == "MLA1873751937" and item_id("https://x.com/a") is None
+        op = lambda c, t="address", h=None: dict(cost=c, shipping_option_type=t, **({} if h is None else dict(estimated_delivery_time=h)))
+        assert opciones(200, dict(options=[op(0)])) == ("ok", [("domicilio", 0, "")])  # gratis: 0 solo si la opción lo declara
+        assert opciones(200, dict(options=[op(6208, "address", dict(shipping=216, unit="hour")), op(7000), op(4500, "agency"), op(0, "pickup")])) == (
+            "ok", [("agencia", 4500, ""), ("domicilio", 6208, 216), ("retiro", 0, "")])  # la más barata de cada método
+        assert opciones(200, dict(options=[op(5, "address", dict(shipping=3, unit="days"))]))[1][0][2] == 72
+        assert opciones(404, None) == ("sin_cotizacion", []) and opciones(424, None) == ("sin_cotizacion", []) and opciones(0, None)[0] == "sin_cotizacion"
+        assert opciones(200, dict(options=[])) == ("sin_cotizacion", []) and opciones(200, dict(options=[op(5, "rara"), op(None)]))[0] == "sin_cotizacion"
+        try:
+            cotizar("https://articulo.mercadolibre.com.ar/MLA-1", "5000", None)
+            assert False
+        except AssertionError as e:
+            assert "sin token" in str(e)
         assert https("//x.com/a.jpg", "https://t.com/") == "https://x.com/a.jpg" and https("http://x.com/a.jpg") is None and https("") is None
         assert aviso(dict(name="A", pictures=[dict(url="https://http2.mlstatic.com/x.jpg")]), dict(item_id="MLA1", price=1))["imagen"].endswith("x.jpg")
         assert aviso(dict(name="A"), dict(item_id="MLA1", price=1))["imagen"] is None
