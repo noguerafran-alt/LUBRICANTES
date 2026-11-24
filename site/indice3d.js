@@ -3,7 +3,7 @@
 // El módulo solo dibuja; qué hay en cada celda (valores, textos, motivo de «sin dato») lo arma index.html.
 import * as THREE from "three";
 
-const PASO = 1.4, ANCHO = .9, ALTO = 7;
+const PASO = 2.2, ANCHO = .8, ALTO = 7;   // separación amplia: que una barra alta no tape a las de atrás (pedido del usuario 2026-11-24)
 
 export function webgl() {
   const c = document.createElement("canvas");
@@ -70,7 +70,7 @@ export function abrir(host, { cols, marcas, item, onSel, fmt }) {
     if (m === "YPF") return tk.ypf;
     if (it.indice == null || Math.abs(it.indice - 100) < .05) return tk.mut;   // sin YPF o igual: neutro; el tooltip dice cuál
     const t = Math.min(Math.abs(it.indice - 100) / 30, 1);   // misma escala que la tabla: 70 a 130
-    return tk.mut.clone().lerp(it.indice > 100 ? tk.caro : tk.barato, .2 + .8 * t);
+    return tk.mut.clone().lerp(it.indice > 100 ? tk.barato : tk.caro, .2 + .8 * t);   // color desde YPF: verde = la competencia es más cara (YPF más barato), rojo = YPF más caro
   };
 
   const geo = new THREE.BoxGeometry(1, 1, 1); geo.translate(0, .5, 0);
@@ -97,7 +97,7 @@ export function abrir(host, { cols, marcas, item, onSel, fmt }) {
   [0, .5, 1].forEach(f => rot(fmt(maxV * f), new THREE.Vector3(ex, ALTO * f, ez), "i3-z"));
 
   // cámara orbital mínima
-  const o = { objetivo: new THREE.Vector3(0, ALTO / 4, 0), theta: -.5, phi: 1.0, dist: Math.max(10, Math.max(m, n) * PASO * 1.05 + 4), ymax: ALTO * 2 };   // desde el lado izquierdo: los nombres de las marcas quedan al frente
+  const o = { objetivo: new THREE.Vector3(0, ALTO / 4, 0), theta: -.5, phi: 1.0, dist: Math.max(10, Math.max(m, n) * PASO * 1.2 + 4), ymax: ALTO * 2 };   // desde el lado izquierdo: los nombres de las marcas quedan al frente
   o.dist *= Math.max(1, 1.7 / (Math.max(caja.clientWidth, 200) / Math.max(caja.clientHeight, 200)));   // pantalla angosta: más lejos para que entren todas las columnas
   const L = { w: 1, h: 1 };
   let pedido = 0, vivo = true;
