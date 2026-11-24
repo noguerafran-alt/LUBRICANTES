@@ -731,6 +731,7 @@ body:has(#dl[open]), body:has(#ix-dl[open]) { overflow: hidden; }
     <div class="filtros">
       <label>Capa <select id="mp-capa"><option value="sepa">Sucursal física (SEPA)</option><option value="puesto">Puesto en provincia (online + envío)</option></select></label>
       <label id="mp-vista-l" hidden>Vista <select id="mp-vista"><option value="plano">Plano</option><option value="3d">3D</option></select></label>
+      <label id="mp-metodo-l" hidden>Envío <select id="mp-metodo"><option value="domicilio">Solo a domicilio</option><option value="">Todos</option></select></label>
       <label>Producto YPF <select id="mp-ypf"></select></label>
       <label>Producto a mostrar <select id="mp-prod"></select></label>
       <label>Fuente <select id="mp-fuente"></select></label>
@@ -2920,6 +2921,10 @@ function pintarCompuestos() {
 // Una sola fuente por mapa: el color nunca mezcla fuentes. Sin dato = gris rayado, nunca un color de la escala.
 const MP = { datos: null, sel: null, vista: "plano", v3: null, tok: 0 };
 try { if (localStorage.getItem("lub_mapa_vista") === "3d") MP.vista = "3d"; } catch (e) {}
+MP.metodo = "domicilio";   // «Todos» deja ver un retiro en sucursal a $ 0 como mínimo: por defecto solo cuenta lo que llega a domicilio
+try { if (localStorage.getItem("lub_mp_metodo") === "todos") MP.metodo = ""; } catch (e) {}
+// envío de un aviso o mínimo: un retiro es retiro en sucursal (con su depósito), nunca «envío gratis»
+const envTxt = m => m.metodo === "retiro" ? "retiro en sucursal" + (m.deposito ? ": " + m.deposito : "") : m.envio ? pesos.format(m.envio) : "gratis";
 function mp3dCerrar() { MP.tok++; MP.v3?.cerrar(); MP.v3 = null; }
 const num2 = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 });
 const pl = v => v == null ? "" : "$ " + num2.format(v) + "/L";
@@ -2939,6 +2944,8 @@ function initMapa() {
   if (MP.listo) { if (MP.vista === "3d" && !MP.v3 && $("#mp-capa").value === "puesto" && MP.puesto) mpPintarPuesto(); return; }   // al volver a la pestaña la GPU se había liberado
   MP.listo = true;
   $("#mp-vista").value = MP.vista;
+  $("#mp-metodo").value = MP.metodo;
+  $("#mp-metodo").onchange = () => { MP.metodo = $("#mp-metodo").value; try { localStorage.setItem("lub_mp_metodo", MP.metodo || "todos"); } catch (e) {} mpPuesto(); };
   $("#mp-vista").onchange = () => { MP.vista = $("#mp-vista").value; try { localStorage.setItem("lub_mapa_vista", MP.vista); } catch (e) {} mpPintarPuesto(); };
   opciones($("#mp-ypf"), ypfsAR().map(p => p.producto_id), "", id => { const p = prod(id); return `${p.nombre} ${p.sae || ""}`.trim(); });
   $("#mp-ypf").onchange = () => { opcionesEquiv(); mpCapa(); };
@@ -2961,7 +2968,7 @@ const NOTA_PUESTO = "Envío cotizado a la capital de cada provincia (CP de la ca
 
 function mpCapa() {
   const p = $("#mp-capa").value === "puesto";
-  mp3dCerrar(); $("#mp-vista-l").hidden = !p;
+  mp3dCerrar(); $("#mp-vista-l").hidden = $("#mp-metodo-l").hidden = !p;
   $("#mp-fuente").parentElement.hidden = $("#mp-nivel").parentElement.hidden = p;
   if (!p) $("#mp-panel").innerHTML = '<p class="nota">Tocá una provincia para ver todas las fuentes que tienen precio ahí, cada una por separado.</p>';
   return p ? mpPuesto() : mpCargar();
@@ -2971,7 +2978,7 @@ function mpCapa() {
 async function mpPuesto() {
   const id = $("#mp-prod").value;
   $("#mp-mapa").textContent = "Cargando…";
-  try { MP.puesto = await api("puesto?producto_id=" + encodeURIComponent(id)); } catch (e) { $("#mp-mapa").textContent = "No se pudo leer: " + e.message; return; }
+  try { MP.puesto = await api("puesto?producto_id=" + encodeURIComponent(id) + (MP.metodo ? "&metodo=" + MP.metodo : "")); } catch (e) { $("#mp-mapa").textContent = "No se pudo leer: " + e.message; return; }
   if ($("#mp-capa").value !== "puesto") return;   // cambió de capa mientras cargaba
   MP.sel = null;
   mpPintarPuesto();
@@ -2984,13 +2991,13 @@ function mpPintarPuesto() {
   // por provincia: la celda con el mínimo más barato; si ninguna tiene precio, el motivo
   const mejor = iso => (por[iso] || []).filter(c => c.minimo).sort((a, b) => a.minimo_litro_puesto - b.minimo_litro_puesto)[0];
   const motivo = iso => { const cs = por[iso] || [];
-    return !cs.length ? "sin datos en la ventana" : cs.some(c => c.n_no_envia) ? "no envía" : "sin cotización (la fuente no devolvió envío)"; };
+    return !cs.length ? (MP.metodo ? "sin envío a domicilio cotizado en la ventana (puede haber retiro en sucursal: elegí «Todos»)" : "sin datos en la ventana") : cs.some(c => c.n_no_envia) ? "no envía" : "sin cotización (la fuente no devolvió envío)"; };
   const vals = Object.keys(AR_GEO.provincias).map(iso => mejor(iso)?.minimo_litro_puesto).filter(v => v != null);
   const mn = Math.min(...vals), mx = Math.max(...vals), [x, y, w, h] = AR_GEO.viewBox;
   const texto = iso => { const c = mejor(iso), g = AR_GEO.provincias[iso].n;
     if (!c) return `${g}: ${motivo(iso)}`;
     const m = c.minimo;
-    return `${g}: mínimo ${pl(c.minimo_litro_puesto)} puesto · ${nf(c.fuente)}${m.vendedor ? " · vendedor " + m.vendedor : ""} · envío ${m.envio ? pesos.format(m.envio) : "gratis"} · mediana ${pl(c.mediana_litro_puesto)} · ${c.n} ${c.n === 1 ? "aviso" : "avisos"} · ${fechaAR(c.fecha)}`; };
+    return `${g}: mínimo ${pl(c.minimo_litro_puesto)} puesto · ${nf(c.fuente)}${m.vendedor ? " · vendedor " + m.vendedor : ""} · ${m.metodo === "retiro" ? "" : "envío "}${envTxt(m)} · mediana ${pl(c.mediana_litro_puesto)} · ${c.n} ${c.n === 1 ? "aviso" : "avisos"} · ${fechaAR(c.fecha)}`; };
   const attrs = iso => { const c = mejor(iso);
     return `class="mp-prov${c ? "" : " mp-sd"}${MP.sel === iso ? " sel" : ""}" data-iso="${iso}"${c ? ` fill="${mezcla(mx === mn ? .5 : (c.minimo_litro_puesto - mn) / (mx - mn))}"` : ""} tabindex="0" role="button" aria-label="${esc(texto(iso))}"`; };
   const c0 = AR_GEO.provincias["AR-C"].c;
@@ -3016,14 +3023,14 @@ function mpPintarPuesto() {
   const panel = () => { const iso = MP.sel;
   $("#mp-panel").innerHTML = iso ? `<h3>${esc(AR_GEO.provincias[iso].n)} <span class="nota">· CP ${esc((por[iso] || [{}])[0].cp || "")}</span></h3>` +
     ((por[iso] || []).length ? (por[iso]).map(c => `<p class="nota">${esc(nf(c.fuente))}: ${c.n} ${c.n === 1 ? "aviso" : "avisos"} con precio${c.n_no_envia ? ` · ${c.n_no_envia} no envía` : ""}${c.n_sin_cotizacion ? ` · ${c.n_sin_cotizacion} sin cotización` : ""}</p>` +
-      (c.avisos.length ? `<ul>${c.avisos.map(a => `<li><span class="v">${esc(pl(a.precio_litro_puesto))}</span> puesto · ${esc(pesos.format(a.precio))} + envío ${a.envio ? esc(pesos.format(a.envio)) : "gratis"} (${esc(a.metodo)}${a.plazo_h ? ", " + a.plazo_h + " h" : ""})
+      (c.avisos.length ? `<ul>${c.avisos.map(a => `<li><span class="v">${esc(pl(a.precio_litro_puesto))}</span> puesto · ${esc(pesos.format(a.precio))} + ${a.metodo === "retiro" ? "" : "envío "}${esc(envTxt(a))} (${esc(a.metodo)}${a.plazo_h ? ", " + a.plazo_h + " h" : ""})
         <span class="m">${a.vendedor ? "vendedor " + esc(a.vendedor) + " · " : ""}${fechaAR(a.fecha)} · ${linkUrl(a.url, "ver aviso")}</span></li>`).join("")}</ul>` : `<p class="mp-sin">${esc(motivo(iso))}.</p>`)).join("")
       : `<p class="mp-sin">${esc(motivo(iso))}.</p>`) : '<p class="nota">Tocá una provincia para ver los avisos con su precio puesto.</p>'; };
   panel();
   $("#mp-online").innerHTML = "";
   $("#mp-tabla").innerHTML = `<div class="tabla"><table><tr><th>Provincia</th><th>CP</th><th>Mínimo $/L puesto</th><th>Fuente</th><th>Vendedor</th><th>Envío</th><th>Mediana $/L</th><th>Avisos</th><th>Fecha</th></tr>` +
     Object.entries(AR_GEO.provincias).sort((a, b) => a[1].n.localeCompare(b[1].n, "es")).map(([k, g]) => { const c = mejor(k), m = c?.minimo;
-      return `<tr><td>${esc(g.n)}</td><td>${esc((por[k] || [{}])[0].cp || "")}</td>` + (c ? `<td class="n">${esc(pl(c.minimo_litro_puesto))}</td><td>${esc(nf(c.fuente))}</td><td>${esc(m.vendedor || "")}</td><td class="n">${m.envio ? esc(pesos.format(m.envio)) : "gratis"}</td><td class="n">${esc(pl(c.mediana_litro_puesto))}</td><td class="n">${c.n}</td><td>${fechaAR(c.fecha)}</td>`
+      return `<tr><td>${esc(g.n)}</td><td>${esc((por[k] || [{}])[0].cp || "")}</td>` + (c ? `<td class="n">${esc(pl(c.minimo_litro_puesto))}</td><td>${esc(nf(c.fuente))}</td><td>${esc(m.vendedor || "")}</td><td class="n">${esc(envTxt(m))}</td><td class="n">${esc(pl(c.mediana_litro_puesto))}</td><td class="n">${c.n}</td><td>${fechaAR(c.fecha)}</td>`
         : `<td colspan="7" class="mp-sin">${esc(motivo(k))}</td>`) + "</tr>"; }).join("") + "</table></div>";
   if (tres) mp3d(por, mejor, motivo, mn, mx, panel);
 }
@@ -3040,7 +3047,7 @@ async function mp3d(por, mejor, motivo, mn, mx, panel) {
   const items = Object.entries(AR_GEO.provincias).map(([iso, g]) => { const c = mejor(iso), m = c?.minimo, v = c?.minimo_litro_puesto;
     if (!c) return { iso, d: g.d, altura: null, color: "", tip: [g.n], sd: motivo(iso) + "." };
     return { iso, d: g.d, altura: v, color: mezcla(mx === mn ? .5 : (v - mn) / (mx - mn)), sd: "",
-      tip: [g.n, `Mínimo ${pl(v)} puesto`, `${nf(c.fuente)}${m.vendedor ? " · vendedor " + m.vendedor : ""}`, `Envío ${m.envio ? pesos.format(m.envio) : "gratis"}`,
+      tip: [g.n, `Mínimo ${pl(v)} puesto`, `${nf(c.fuente)}${m.vendedor ? " · vendedor " + m.vendedor : ""}`, (m.metodo === "retiro" ? "" : "Envío ") + envTxt(m),
         v > mn ? `${dec1.format((v / mn - 1) * 100)} % más cara que la más barata` : "La provincia más barata",
         `Mediana ${pl(c.mediana_litro_puesto)} · ${c.n} ${c.n === 1 ? "aviso" : "avisos"} · ${fechaAR(c.fecha)}`, "Clic o toque para ver los avisos"] }; });
   try { MP.v3 = mod.abrir(host, { items, sel: MP.sel, onSel: iso => { MP.sel = iso; panel(); },

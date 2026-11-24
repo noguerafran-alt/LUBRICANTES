@@ -104,7 +104,7 @@ CAMPOS["bi_equivalencias"] = EQUIV_F[1:]  # ypf_id, comp_id, tipo, criterio, evi
 CAMPOS["bi_fuentes"] = ["fuente", "canal", "pais", "tipo", "ultima_fecha"]
 CAMPOS["bi_provincias"] = ["codigo", "nombre", "region", "pais", "online"]
 CAMPOS["puesto"] = ["producto_id", "provincia", "cp", "fuente", "precio_puesto", "precio", "envio", "metodo", "vendedor", "url", "fecha",
-                    "minimo_litro_puesto", "mediana_litro_puesto", "n", "n_no_envia", "n_sin_cotizacion", "pais", "moneda"]
+                    "minimo_litro_puesto", "mediana_litro_puesto", "n", "n_no_envia", "n_sin_cotizacion", "pais", "moneda", "deposito"]
 CAMPOS["indice_con_mayoristas"] = CAMPOS["indice"]
 CAMPOS["indice_celdas"] = ["segmento", "sae", "marca", "mediana_litro", "indice", "n", "fecha_min", "fecha_max", "productos", "pais", "moneda", "desde", "hasta", "dias"]
 CAMPOS["macro"] = MACRO_F = ["fecha", "id", "valor", "signo"]
@@ -943,10 +943,14 @@ NOTA_PUESTO = ("Precio puesto = precio del aviso + envío cotizado a la capital 
                "Sin cotización no hay precio (nunca se arrastra ni se toma el de la vecina).")
 
 
-def puesto(d, pid, dias=7):
+METODOS_PUESTO = ("domicilio", "retiro", "agencia")
+
+
+def puesto(d, pid, dias=7, metodo=None):
     """Precio puesto en cada provincia de un producto: por (provincia, fuente), el mínimo y la mediana de $/L puesto sobre los avisos
     de la ventana (cada aviso una vez, con su cotización `ok` más reciente; precio y envío del MISMO día). Una mediana nunca mezcla fuentes.
-    No toca obs, índice, vitrina ni comparador. Provincia sin cotización ok: celda con minimo null y sus contadores (n_no_envia, n_sin_cotizacion)."""
+    No toca obs, índice, vitrina ni comparador. Provincia sin cotización ok: celda con minimo null y sus contadores (n_no_envia, n_sin_cotizacion).
+    `metodo` (domicilio|retiro|agencia): solo cuentan las cotizaciones ok de ese método (un retiro a $0 no se lee como envío gratis)."""
     envios = d.get("envios", [])
     hasta = max((r["fecha"] for r in envios), default="")
     desde = (date.fromisoformat(hasta) - timedelta(days=dias - 1)).isoformat() if hasta else ""
@@ -957,6 +961,8 @@ def puesto(d, pid, dias=7):
         if r["producto_id"] != pid or not desde <= r["fecha"] <= hasta:
             continue
         k = (r["fuente"], r["url"], r["provincia_destino"])
+        if metodo and r["estado"] == "ok" and r["metodo"] != metodo:
+            continue
         if r["estado"] == "ok" and num(r["costo_envio"]) is not None:
             if k not in ok or (r["fecha"], -num(r["costo_envio"])) > (ok[k]["fecha"], -num(ok[k]["costo_envio"])):  # la más reciente; ese día, el método más barato
                 ok[k] = r
@@ -985,12 +991,12 @@ def puesto(d, pid, dias=7):
         m = xs[0] if xs else None
         out.append({"provincia": pv, "cp": cp.get(pv, ""), "fuente": fu,
                     "minimo": m and {"precio_puesto": round(num(m["precio"]) + m["envio"], 2), "precio": num(m["precio"]), "envio": m["envio"], "vendedor": m["vendedor"] or None,
-                                     "url": m["url"], "fecha": m["fecha"], "metodo": m["metodo"]},
+                                     "url": m["url"], "fecha": m["fecha"], "metodo": m["metodo"], "deposito": m.get("deposito") or None},
                     "minimo_litro_puesto": m and round(m["pl"], 2), "mediana_litro_puesto": round(median(a["pl"] for a in xs), 2) if xs else None,
                     "n": len(xs), "n_no_envia": c["no_envia"], "n_sin_cotizacion": c["sin_cotizacion"], "fecha": max((a["fecha"] for a in xs), default=None),
-                    "avisos": [{"vendedor": a["vendedor"] or None, "url": a["url"], "fecha": a["fecha"], "precio": num(a["precio"]), "envio": a["envio"], "metodo": a["metodo"],
+                    "avisos": [{"vendedor": a["vendedor"] or None, "url": a["url"], "fecha": a["fecha"], "precio": num(a["precio"]), "envio": a["envio"], "metodo": a["metodo"], "deposito": a.get("deposito") or None,
                                 "plazo_h": num(a["plazo_h"]), "precio_puesto": round(num(a["precio"]) + a["envio"], 2), "precio_litro_puesto": round(a["pl"], 2)} for a in xs]})
-    return {"producto_id": pid, "pais": "AR", "moneda": "ARS", "dias": dias, "desde": desde or None, "hasta": hasta or None, "nota": NOTA_PUESTO, "celdas": out}
+    return {"producto_id": pid, "pais": "AR", "moneda": "ARS", "dias": dias, "metodo": metodo, "desde": desde or None, "hasta": hasta or None, "nota": NOTA_PUESTO, "celdas": out}
 
 
 def aplanar_puesto(v):
@@ -2239,7 +2245,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.enviar(200, a_csv("indice_celdas", filas), "text/csv; charset=utf-8")
         self.json(200, celdas_usd(v, d.get("fx_tabla", {}), self.fx_fecha) if self.usd else v)
     def puesto(self, q):
-        """/api/puesto: precio puesto por provincia (precio + envío cotizado a la capital). Solo AR; `dias` 7–366 (default 7)."""
+        """/api/puesto: precio puesto por provincia (precio + envío cotizado a la capital). Solo AR; `dias` 7–366 (default 7); `metodo` opcional (domicilio|retiro|agencia)."""
         pid = q.get("producto_id", "")
         if self.pais != "AR":
             return self.json(400, {"error": "puesto es solo Argentina"})
@@ -2251,7 +2257,10 @@ class Handler(BaseHTTPRequestHandler):
             dias = 0
         if not 7 <= dias <= 366:
             return self.json(400, {"error": "dias tiene que ser un entero entre 7 y 366"})
-        v = puesto(self.datos, pid, dias)
+        metodo = q.get("metodo") or None
+        if metodo and metodo not in METODOS_PUESTO:
+            return self.json(400, {"error": "metodo tiene que ser domicilio, retiro o agencia"})
+        v = puesto(self.datos, pid, dias, metodo)
         if q.get("formato") == "csv":
             return self.enviar(200, a_csv("puesto", aplanar_puesto(v)), "text/csv; charset=utf-8")
         self.json(200, v)
@@ -3155,6 +3164,15 @@ def demo():
     assert set(cn_) == {("AR-X", "ml"), ("AR-X", "vtex_norauto"), ("AR-A", "vtex_norauto")} and cn_[("AR-X", "ml")]["minimo"]["vendedor"] == "ML-V"
     assert cn_[("AR-X", "vtex_norauto")]["minimo"]["vendedor"] == "Norauto" and cn_[("AR-X", "vtex_norauto")]["minimo"]["precio_puesto"] == 46631
     assert (cn_[("AR-A", "vtex_norauto")]["minimo"], cn_[("AR-A", "vtex_norauto")]["n_no_envia"]) == (None, 1) and NOMBRE_FUENTE["vtex_norauto_envios"].startswith("Norauto")
+    # filtro por método: Norauto AMBA con retiro a $0 y domicilio 13452; sin filtro gana el retiro, con metodo=domicilio el domicilio
+    nm_ = lambda co, me, de: dict(nv_("AR-C", co, me), deposito=de)
+    dm_ = {"envios": [nm_("0", "retiro", "Norauto Lomas"), nm_("13452", "domicilio", "AMBA")],
+           "obs": [dict(fuente="vtex_norauto", url=NA_, fecha="2026-11-20", vendedor="Norauto")], "cp": []}
+    sf_, cd_ = puesto(dm_, "ypf-a-10w40")["celdas"][0]["minimo"], puesto(dm_, "ypf-a-10w40", metodo="domicilio")
+    assert (sf_["metodo"], sf_["envio"], sf_["deposito"]) == ("retiro", 0, "Norauto Lomas") and cd_["metodo"] == "domicilio"
+    assert (cd_["celdas"][0]["minimo"]["envio"], cd_["celdas"][0]["minimo"]["metodo"], cd_["celdas"][0]["n"]) == (13452, "domicilio", 1)
+    assert puesto(dm_, "ypf-a-10w40", metodo="agencia")["celdas"] == [] and puesto(dm_, "ypf-a-10w40")["metodo"] is None
+    assert json.loads(get("/api/puesto?producto_id=ypf-a-10w40&metodo=domicilio")[1])["metodo"] == "domicilio" and get("/api/puesto?producto_id=ypf-a-10w40&metodo=volando")[0] == 400
     cod, cuerpo = get("/api/producto?producto_id=ypf-a-10w40")  # lectura abierta
     pj_ = json.loads(cuerpo)
     assert cod == 200 and pj_["producto"]["es_ypf"] and [e["producto_id"] for e in pj_["equivalentes"]] == ["shell-b-10w40"] and pj_["publicaciones"] and "metodo" in pj_
