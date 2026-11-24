@@ -54,6 +54,7 @@ PAISES = {"AR": ("Argentina", "ARS"), "BR": ("Brasil", "BRL")}
 MONEDA_DEFECTO = {"AR": "ARS", "BR": "BRL", "CL": "CLP", "UY": "UYU", "PY": "PYG", "BO": "BOB"}  # países del relevamiento de limítrofes
 MONEDAS = {"ARS", "BRL", "CLP", "UYU", "PYG", "BOB", "USD"}
 NOTAS_FUENTE = {
+    "ml_envios": "pausada desde 2026-11-24 por decisión del usuario: Mercado Libre vuelve a pedir solo precios",
     "oficial_br_notaparana": "pausada desde 2026-11-18: la API devuelve datos señuelo al acceso automatizado; no se esquiva",
     "helix_api": "automática: combos Shell de helixturno.com.ar por su API JSON (servicios con mano de obra, no $/L de bidón)",
     "casa": "servidor FLN Data Analysis (celular o PC): SEPA, la SE y el resto; GitHub corre Mercado Libre y hace de respaldo",
@@ -455,7 +456,7 @@ def fuentes(d, hoy):
 
 
 # Cadencia esperada de cada fuente: lo que no está acá es diaria. `pausada` = decisión documentada, no falla; `manual` = carga a mano.
-CADENCIA = {"macro_energia": "mensual", "oficial_br_notaparana": "pausada"}
+CADENCIA = {"macro_energia": "mensual", "oficial_br_notaparana": "pausada", "ml_envios": "pausada"}
 MENSUAL_DIAS, MANUAL_DIAS = 45, 30  # tope de antigüedad de la última bajada buena (la SE publica una vez por mes) / de una carga manual
 # fuente → la que la cubre: si la cubridora está al día, la cubierta no es un aviso (la carga manual alternativa, la serie que ya no es la fuente del dato)
 CUBIERTA = {"grok_helix": "helix_api", "macro_92_2_tipo_cambiion_0_0_21_24": "fx_bcra",

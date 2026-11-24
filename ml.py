@@ -53,10 +53,11 @@ def busquedas(raiz=None):
     return BUSQUEDAS_YPF + sorted(comp)
 
 
-def pedir(ruta, token=None, data=None, texto=False):
+def pedir(ruta, token=None, data=None, texto=False, metodo=None):
     """→ (http, json o None). 1 req/s por host, timeout 30 s, un reintento ante red/5xx/429.
     `data` dict va como formulario; bytes, como JSON. `texto=True` devuelve el cuerpo como str
-    (HTML, XML, robots.txt). Lo usan también recolectar.py y tiendas.py."""
+    (HTML, XML, robots.txt). `metodo` (p. ej. "PUT") solo si no es el que corresponde por `data`.
+    Lo usan también recolectar.py y tiendas.py."""
     url = ruta if ruta.startswith("http") else API + ruta
     host = urllib.parse.urlsplit(url).netloc
     h = {"User-Agent": UA, "Accept": "*/*" if texto else "application/json"}
@@ -71,7 +72,7 @@ def pedir(ruta, token=None, data=None, texto=False):
         time.sleep(max(0, _ultimo.get(host, 0) + 1 - time.time()))
         _ultimo[host] = time.time()
         try:
-            with urllib.request.urlopen(urllib.request.Request(url, data=data, headers=h), timeout=30) as r:
+            with urllib.request.urlopen(urllib.request.Request(url, data=data, headers=h, method=metodo), timeout=30) as r:
                 if texto:
                     return r.status, r.read().decode("utf-8", "replace")
                 try:
@@ -301,6 +302,93 @@ def cotizar(url, cp, tok):
     return (http, *opciones(http, d))
 
 
+def _monto(v):
+    """Precio que ML manda como número o como {amount, usd_amount} → float o None (nunca se inventa)."""
+    if isinstance(v, dict):
+        v = v.get("amount")
+    return None if isinstance(v, bool) or not isinstance(v, (int, float)) else v
+
+
+def mis_items(tok, user_id):
+    """→ (ids, error): mis publicaciones (`/users/{id}/items/search`, de a 50). Error = texto; lo ya leído se devuelve."""
+    ids, off = [], 0
+    while True:
+        http, d = pedir(f"/users/{user_id}/items/search?offset={off}&limit=50", tok)
+        if http != 200 or not isinstance(d, dict):
+            return ids, f"items/search HTTP {http}"
+        r = d.get("results") or []
+        ids += r
+        off += 50
+        if not r or off >= ((d.get("paging") or {}).get("total") or 0):
+            return ids, ""
+
+
+def competencia(tok, item_id):
+    """price_to_win + suggestions de una publicación propia → dict plano. Cada parte falla sola:
+    `error` junta los motivos y lo que no vino queda None."""
+    out = dict(item_id=item_id, precio=None, precio_para_ganar=None, estado=None, ganador_precio=None, ganador_item=None,
+               motivos=None, precio_sugerido=None, precio_minimo=None, similares=None, error=None)
+    errs = []
+    http, d = pedir(f"/items/{item_id}/price_to_win?version=v2", tok)
+    if http == 200 and isinstance(d, dict):
+        w = d.get("winner") or {}
+        out.update(precio=_monto(d.get("current_price")), precio_para_ganar=_monto(d.get("price_to_win")), estado=d.get("status"),
+                   ganador_precio=_monto(w.get("price")), ganador_item=w.get("item_id"), motivos=d.get("reason"))
+    else:
+        errs.append(f"price_to_win HTTP {http}")
+    http, d = pedir(f"/suggestions/items/{item_id}/details", tok)
+    if http == 200 and isinstance(d, dict):
+        if out["precio"] is None:
+            out["precio"] = _monto(d.get("current_price"))
+        out.update(precio_sugerido=_monto(d.get("suggested_price")), precio_minimo=_monto(d.get("lowest_price")))
+        g = (d.get("metadata") or {}).get("graph")
+        out["similares"] = [dict(titulo=(x.get("info") or {}).get("title"), precio=_monto(x.get("price")),
+                                 vendidos=(x.get("info") or {}).get("sold_quantity")) for x in g or [] if isinstance(x, dict)]
+    else:
+        errs.append(f"suggestions HTTP {http}")
+    out["error"] = "; ".join(errs) or None
+    return out
+
+
+def actualizar(tok, item_id, precio=None, stock=None):
+    """PUT /items/{id} con exactamente uno de precio o stock (positivo) → (http, warning o None).
+    Con automatización de precios activa ML ignora el precio y avisa: se informa, no se reintenta."""
+    if (precio is None) == (stock is None):
+        raise ValueError("exactamente uno de precio o stock")
+    campo, v = ("price", precio) if precio is not None else ("available_quantity", stock)
+    if isinstance(v, bool) or not isinstance(v, (int, float)) or v <= 0:
+        raise ValueError(f"{campo} tiene que ser un número positivo")
+    http, d = pedir(f"/items/{item_id}", tok, data=json.dumps({campo: v}).encode(), metodo="PUT")
+    w = d.get("warnings") if isinstance(d, dict) else None
+    return http, (json.dumps(w, ensure_ascii=False) if w else None)
+
+
+def _yo(tok):
+    http, d = pedir("/users/me", tok)
+    return d["id"] if http == 200 and isinstance(d, dict) and d.get("id") else None
+
+
+def vendedor():
+    """Imprime mis publicaciones y su competencia. No escribe nada en data/."""
+    tok, err = token()
+    uid = _yo(tok) if tok else None
+    if not uid:
+        sys.exit(err or "users/me falló")
+    ids, err = mis_items(tok, uid)
+    for i in ids:
+        print(json.dumps(competencia(tok, i), ensure_ascii=False))
+    print(f"{len(ids)} publicaciones" + (f" (error: {err})" if err else ""))
+
+
+def precio(iid, valor):
+    tok, err = token()
+    if not tok:
+        sys.exit(err)
+    if input(f"Poner {iid} a ${valor}? [y/N] ").strip().lower() != "y":
+        return print("cancelado")
+    print(actualizar(tok, iid, precio=float(valor)))
+
+
 def demo():
     global ARCHIVO_LOCAL, pedir, token
     for k in ("ML_CLIENT_ID", "ML_CLIENT_SECRET", "ML_REFRESH_TOKEN"):
@@ -360,6 +448,56 @@ def demo():
         assert r403[1] == [] and 'items: HTTP 403 ×2 ({"message":"forbidden"})' in r403[2], r403
         q = busquedas()
         assert q[:4] == BUSQUEDAS_YPF and "castrol edge" in q and "shell helix" in q and len(q) == len(set(q)) and "bardahl" not in q
+        # funciones de vendedor, con fixtures
+        assert _monto(5) == 5 and _monto(dict(amount=7.5, usd_amount=1)) == 7.5 and _monto(None) is None and _monto("x") is None and _monto(True) is None
+        pedir0, resp, vistos = pedir, {}, []
+        def pedir(ruta, tok=None, data=None, metodo=None, **k):
+            vistos.append((ruta, data, metodo))
+            return next(v for p, v in resp.items() if p in ruta)
+        fake = pedir
+        try:
+            n = [0]
+            def pag(ruta, tok=None, **k):
+                n[0] += 1
+                return 200, dict(results=["A"] * 50 if n[0] == 1 else ["B"] * 10, paging=dict(total=60))
+            pedir = pag
+            assert mis_items("t", 9) == (["A"] * 50 + ["B"] * 10, "") and n[0] == 2
+            pedir = lambda *a, **k: (403, None)
+            assert mis_items("t", 9) == ([], "items/search HTTP 403")
+            ptw = dict(item_id="MLA1", current_price=100, price_to_win=90, status="competing", reason=["x"],
+                       winner=dict(item_id="MLA2", price=90))
+            sug = dict(current_price=dict(amount=100, usd_amount=0.1), suggested_price=dict(amount=95), lowest_price=80,
+                       metadata=dict(graph=[dict(price=dict(amount=96), info=dict(title="Otro", sold_quantity=3))]))
+            pedir = fake
+            resp = {"price_to_win": (200, ptw), "suggestions": (200, sug)}
+            c = competencia("t", "MLA1")
+            assert (c["precio"], c["precio_para_ganar"], c["estado"], c["ganador_precio"], c["ganador_item"]) == (100, 90, "competing", 90, "MLA2")
+            assert (c["precio_sugerido"], c["precio_minimo"], c["error"]) == (95, 80, None)
+            assert c["similares"] == [dict(titulo="Otro", precio=96, vendidos=3)]
+            ptw2 = dict(current_price=100, status="winning", price_to_win=None)
+            resp = {"price_to_win": (200, ptw2), "suggestions": (404, None)}
+            c = competencia("t", "MLA1")  # una parte cae sola: la otra no se tapa
+            assert c["estado"] == "winning" and c["ganador_precio"] is None and c["precio_sugerido"] is None and c["similares"] is None
+            assert c["error"] == "suggestions HTTP 404"
+            resp = {"price_to_win": (200, dict(status="listed", reason=["item_not_opted_in"], current_price=5)), "suggestions": (200, dict(status="x"))}
+            c = competencia("t", "MLA1")
+            assert c["estado"] == "listed" and c["motivos"] == ["item_not_opted_in"] and c["similares"] == [] and c["precio"] == 5
+            resp = {"price_to_win": (404, None), "suggestions": (401, None)}
+            assert competencia("t", "MLA1")["error"] == "price_to_win HTTP 404; suggestions HTTP 401"
+            for mal in (dict(), dict(precio=1, stock=1), dict(precio=0), dict(precio=-3), dict(stock=0), dict(precio=True)):
+                try:
+                    actualizar("t", "MLA1", **mal)
+                    assert False, mal
+                except ValueError:
+                    pass
+            vistos.clear()
+            resp = {"/items/MLA1": (200, dict(id="MLA1", warnings=[dict(code="price_automation", message="ignorado")]))}
+            http, w = actualizar("t", "MLA1", precio=120)
+            assert http == 200 and "price_automation" in w and vistos == [("/items/MLA1", b'{"price": 120}', "PUT")], vistos
+            resp = {"/items/MLA1": (200, dict(id="MLA1"))}
+            assert actualizar("t", "MLA1", stock=4) == (200, None)
+        finally:
+            pedir = pedir0
         import tempfile
         with tempfile.TemporaryDirectory() as d:  # un par AR y uno con comp_id -br (y otro con ypf_id -br)
             os.mkdir(os.path.join(d, "seed"))
@@ -377,3 +515,7 @@ if __name__ == "__main__":
         demo()
     elif sys.argv[1:] == ["autorizar"]:
         autorizar()
+    elif sys.argv[1:] == ["vendedor"]:
+        vendedor()
+    elif len(sys.argv) == 4 and sys.argv[1] == "precio":
+        precio(sys.argv[2], sys.argv[3])
