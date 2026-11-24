@@ -90,6 +90,11 @@ def _entero(nombre, v, lo, hi):
     return v
 
 
+def _dias(v):
+    """deliveryTimeMin/Max vienen como string («2»); la API no documenta la unidad (se lee como días); otra cosa = None, no se adivina."""
+    return int(v) if isinstance(v, str) and v.isdigit() else None
+
+
 def cotizar(cred, cp_origen, cp_destino, peso_g, alto, ancho, largo):
     """→ (http, [{metodo, producto, precio}]). Sin token o respuesta ilegible: (http, [])."""
     dim = dict(weight=_entero("peso_g", peso_g, 1, 25000), height=_entero("alto", alto, 1, 150),
@@ -101,13 +106,14 @@ def cotizar(cred, cp_origen, cp_destino, peso_g, alto, ancho, largo):
                   postalCodeDestination=str(cp_destino), dimensions=dim)
     http, d = _pedir("/rates", cred, data=json.dumps(cuerpo).encode(), headers={"Authorization": "Bearer " + tk})
     filas = []
-    for r in (d.get("rates") if http == 200 and isinstance(d, dict) else None) or []:
+    for r in (d.get("rates") if http in (200, 202) and isinstance(d, dict) else None) or []:  # prod responde 202 (visto 2026-11-24)
         try:
             m, p = METODOS.get(r.get("deliveredType")), float(r["price"])
         except (AttributeError, KeyError, TypeError, ValueError):
             continue
         if m and p > 0:  # tipo desconocido o precio no numérico: se descarta, nunca 0
-            filas.append(dict(metodo=m, producto=r.get("productName") or r.get("productType") or "", precio=p))
+            filas.append(dict(metodo=m, producto=r.get("productName") or r.get("productType") or "", precio=p,
+                              plazo_dias=(_dias(r.get("deliveryTimeMin")), _dias(r.get("deliveryTimeMax")))))
     return http, filas
 
 
@@ -130,7 +136,7 @@ def probar(origen, destino, peso=4000):
     http, filas = cotizar(cred, origen, destino, int(peso), 15, 30, 20)
     print("HTTP", http, "" if filas else ULTIMO_ERROR)
     for f in filas:
-        print(f"{f['metodo']:9} {f['producto']:30} ${f['precio']:,.2f}")
+        print(f"{f['metodo']:9} {f['producto']:30} ${f['precio']:,.2f}  plazo {f['plazo_dias'][0]}-{f['plazo_dias'][1]}")
 
 
 def demo():
@@ -160,6 +166,9 @@ def demo():
         assert validar(cred, "a@b", "x") == "0090000025"
         http, f = cotizar(cred, "1001", "5000", 4000, 15, 30, 20)
         assert http == 200 and [x["metodo"] for x in f] == ["domicilio", "sucursal"] and f[0]["precio"] == 5000.5  # el no numérico se descartó
+        ml.pedir = falso(dict(rates=(202, dict(rates=[dict(deliveredType="S", productType="CP", productName="Clasico", price=14050.0, deliveryTimeMin="2", deliveryTimeMax="5")]))))
+        http, f = cotizar(cred, "1001", "5000", 4000, 15, 20, 30)
+        assert http == 202 and f == [dict(metodo="sucursal", producto="Clasico", precio=14050.0, plazo_dias=(2, 5))], f  # respuesta real de prod
         assert visto[-1][1]["headers"]["Authorization"] == "Bearer TK"
         ml.pedir = falso(dict(rates=(200, dict()), validate=(404, None)))
         assert cotizar(cred, "1001", "5000", 1, 1, 1, 1) == (200, [])

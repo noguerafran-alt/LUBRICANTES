@@ -1,5 +1,8 @@
 # ESTADO
 
+## Correo Argentino: prod responde 202 (2026-11-24, rama fix/correo-202)
+- Primera cotización real (credenciales del usuario, ambiente prod): `/rates` responde **202** (no 200 como dice el PDF) con `rates[]` que suma `deliveryTimeMin`/`deliveryTimeMax` (string, unidad no documentada). CABA 1001 → Córdoba 5000, 4 kg 30×20×15: sucursal Clásico $14.050 (2-5) y Expreso $19.327 (1-3); domicilio Clásico $16.914 (2-5) y Expreso $23.257 (1-3). `cotizar` acepta 200 y 202 y devuelve `plazo_dias`; assert con esa respuesta en `demo()`.
+
 ## Correo Argentino: credenciales (2026-11-24, rama feat/correo-credenciales)
 - `correo.py` nuevo: token Basic cacheado, `validar` (customerId), `cotizar` (D/S, validación de rangos, parseo tolerante: precio no numérico = fila descartada) y CLI `alta` / `probar`. Credenciales en `.correo_local` (en `.gitignore`, modo 600, sin la contraseña de MiCorreo) o `CORREO_*`. `ml.pedir` suma `headers` opcional (sin romper usos). No escribe en `data/`; tabla de tarifas y cruce: etapa siguiente.
 - Verificado: `correo.py test` y los demás módulos OK (fixtures); un archivo ignorado sobrevive a `git reset --hard`. **No verificado contra la API real** (sin credenciales a mano): formato exacto de `expires`, y si `/token` acepta POST sin cuerpo.
