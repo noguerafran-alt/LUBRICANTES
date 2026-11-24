@@ -105,7 +105,7 @@ CAMPOS["bi_equivalencias"] = EQUIV_F[1:]  # ypf_id, comp_id, tipo, criterio, evi
 CAMPOS["bi_fuentes"] = ["fuente", "canal", "pais", "tipo", "ultima_fecha"]
 CAMPOS["bi_provincias"] = ["codigo", "nombre", "region", "pais", "online"]
 CAMPOS["puesto"] = ["producto_id", "provincia", "cp", "fuente", "precio_puesto", "precio", "envio", "metodo", "vendedor", "url", "fecha",
-                    "minimo_litro_puesto", "mediana_litro_puesto", "n", "n_no_envia", "n_sin_cotizacion", "pais", "moneda", "deposito"]
+                    "minimo_litro_puesto", "mediana_litro_puesto", "n", "n_no_envia", "n_sin_cotizacion", "pais", "moneda", "deposito", "origen_provincia", "origen_fuente", "plazo"]
 CAMPOS["indice_con_mayoristas"] = CAMPOS["indice"]
 CAMPOS["indice_celdas"] = ["segmento", "sae", "marca", "mediana_litro", "indice", "n", "fecha_min", "fecha_max", "productos", "pais", "moneda", "desde", "hasta", "dias"]
 CAMPOS["macro"] = MACRO_F = ["fecha", "id", "valor", "signo"]
@@ -236,6 +236,9 @@ def cargar(raiz):
         "fx": leer_csv(raiz / "data" / "fx.csv"),
         "envios": [r for p in sorted((raiz / "data" / "envios").glob("*.csv")) for r in leer_csv(p)],
         "cp": leer_csv(raiz / "seed" / "cp_capitales.csv"),
+        "correo": [r for p in sorted((raiz / "data" / "correo").glob("*.csv")) for r in leer_csv(p)],
+        "envases_correo": leer_csv(raiz / "seed" / "envases_correo.csv"),
+        "origen_fuentes": leer_csv(raiz / "seed" / "origen_fuentes.csv"),
     }
     integrar_grok(d)
     d["energia_por_producto"] = defaultdict(list)
@@ -941,7 +944,101 @@ def provincias(d, pid, dias=30, fuente="", mayoristas=False, pais="AR", desde=No
 
 NOTA_PUESTO = ("Precio puesto = precio del aviso + envío cotizado a la capital de cada provincia (CP de la capital), el mismo día. Fuentes: Mercado Libre (con la cuenta de la app; logueado o con Mercado Puntos puede ser más barato) y Norauto (simulación de carrito de la tienda, sin usuario); "
                "el interior puede costar distinto. «Retiro» es retiro en sucursal, no entrega en la provincia. No es tiempo real: cada aviso se cotiza en rotación semanal, por eso la ventana es de al menos 7 días. "
-               "Sin cotización no hay precio (nunca se arrastra ni se toma el de la vecina).")
+               "Sin cotización no hay precio (nunca se arrastra ni se toma el de la vecina). Correo Argentino: tarifa de MiCorreo de capital a capital con peso y medidas aproximadas del envase; el origen es la provincia del aviso (SEPA = sucursal física) o la declarada por la tienda. Estimado: el comercio puede no enviar.")
+
+CORREO_VENCE_DIAS = 14  # una tarifa más vieja que esto (contra el último día con datos) no se usa: no se arrastra
+CORREO_METODOS = {"domicilio": "domicilio", "retiro": "sucursal"}  # método de puesto → `metodo` de data/correo (la API: D / S)
+
+
+def _idx_correo(d):
+    """{(cp_origen, cp_destino, litros, metodo_correo): [(fecha, precio, producto, plazo_min, plazo_max)]} de las tarifas ok; se arma una vez por carga de datos."""
+    if "_cache_correo" not in d:
+        idx = defaultdict(list)
+        for r in d.get("correo", []):
+            if r["estado"] == "ok" and num(r["precio"]) is not None:
+                idx[(r["cp_origen"], r["cp_destino"], num(r["litros"]), r["metodo"])].append(
+                    (r["fecha"], num(r["precio"]), r["producto"], num(r["plazo_min"]), num(r["plazo_max"])))
+        d["_cache_correo"] = idx
+    return d["_cache_correo"]
+
+
+def _plazo_correo(mn, mx):
+    if mn is None and mx is None:
+        return None
+    mn = mx if mn is None else mn
+    mx = mn if mx is None else mx
+    return f"{int(mn)} días" if mn == mx else f"{int(mn)} a {int(mx)} días"
+
+
+def puesto_correo(d, pid, dias, metodo):
+    """Celdas `correo_ar` de /api/puesto: cada aviso con origen conocido (provincia ISO de obs; o, si es `online`, la que declara seed/origen_fuentes.csv)
+    y un envase de seed/envases_correo.csv sale de la capital de SU provincia; a cada destino se le suma la tarifa más reciente (≤ 14 días) del par
+    capital → capital. Por destino queda la opción más barata por $/L puesto. Online sin origen o envase fuera de la tabla no participan (nunca se inventan).
+    → (celdas, hasta, {avisos, sin_origen, sin_envase})."""
+    idx = _idx_correo(d)
+    cp = {c["provincia"]: c["cp"] for c in d.get("cp", [])}
+    info = {"avisos": 0, "sin_origen": 0, "sin_envase": 0}
+    if not idx or metodo == "agencia" or not cp:
+        return [], "", info
+    envases = {num(e["litros"]): e for e in d.get("envases_correo", [])}
+    declarado = {o["fuente"]: o["provincia"] for o in d.get("origen_fuentes", [])}
+    hasta, por = _avisos(d, dias, {pid}, True)
+    if not hasta:
+        return [], "", info
+    vence = (date.fromisoformat(hasta) - timedelta(days=CORREO_VENCE_DIAS)).isoformat()
+    xs = _validos(por.get(pid, []), False)
+    xs = cuerdos(xs) if xs else []
+    por_dest = defaultdict(lambda: {"opts": [], "sin": 0})
+    for _, r in xs:
+        if r.get("pais", "AR") not in ("", "AR"):
+            continue
+        prov = r.get("provincia", "")
+        decl = False
+        if prov not in cp:
+            if prov == ONLINE and r["fuente"] in declarado and declarado[r["fuente"]] in cp:
+                prov, decl = declarado[r["fuente"]], True
+            else:
+                info["sin_origen"] += 1
+                continue
+        lit = round((num(r["litros"]) or 0) * (num(r.get("unidades")) or 1), 3)
+        if lit not in envases:
+            info["sin_envase"] += 1
+            continue
+        info["avisos"] += 1
+        precio = num(r["precio"])
+        for dest, cpd in cp.items():
+            mejor = None
+            for mp, mc in CORREO_METODOS.items():
+                if metodo and metodo != mp:
+                    continue
+                tf = [t for t in idx.get((cp[prov], cpd, lit, mc), []) if t[0] >= vence]
+                if not tf:
+                    continue
+                f0 = max(t[0] for t in tf)
+                t = min((t for t in tf if t[0] == f0), key=lambda t: t[1])
+                pl = (precio + t[1]) / lit
+                if mejor is None or pl < mejor["pl"]:
+                    mejor = {"pl": pl, "envio": t[1], "metodo": mp, "deposito": t[2] if t[2].startswith("Correo Argentino") else f"Correo Argentino {t[2]}".strip(),  # la API ya nombra «Correo Argentino Clasico»
+                             "plazo": _plazo_correo(t[3], t[4]),
+                             "plazo_h": t[4] * 24 if t[4] is not None else None, "tarifa_fecha": f0, "vendedor": r["vendedor"] or None, "url": r["url"], "fecha": r["fecha"],
+                             "precio": precio, "origen_provincia": prov, "origen_fuente": r["fuente"], "origen_declarado": decl}
+            if mejor:
+                por_dest[dest]["opts"].append(mejor)
+            else:
+                por_dest[dest]["sin"] += 1
+    out = []
+    for dest, c in sorted(por_dest.items()):
+        o = sorted(c["opts"], key=lambda a: a["pl"])
+        m = o[0] if o else None
+        out.append({"provincia": dest, "cp": cp[dest], "fuente": "correo_ar",
+                    "minimo": m and {"precio_puesto": round(m["precio"] + m["envio"], 2),
+                                     **{k: m[k] for k in ("precio", "envio", "vendedor", "url", "fecha", "metodo", "deposito", "plazo", "tarifa_fecha", "origen_provincia", "origen_fuente", "origen_declarado")}},
+                    "minimo_litro_puesto": m and round(m["pl"], 2), "mediana_litro_puesto": round(median(a["pl"] for a in o), 2) if o else None,
+                    "n": len(o), "n_no_envia": 0, "n_sin_cotizacion": c["sin"], "fecha": max((a["fecha"] for a in o), default=None),
+                    "avisos": [{"vendedor": a["vendedor"], "url": a["url"], "fecha": a["fecha"], "precio": a["precio"], "envio": a["envio"], "metodo": a["metodo"], "deposito": a["deposito"],
+                                "plazo": a["plazo"], "plazo_h": a["plazo_h"], "precio_puesto": round(a["precio"] + a["envio"], 2), "precio_litro_puesto": round(a["pl"], 2),
+                                "origen_provincia": a["origen_provincia"], "origen_fuente": a["origen_fuente"], "origen_declarado": a["origen_declarado"]} for a in o]})
+    return out, hasta, info
 
 
 METODOS_PUESTO = ("domicilio", "retiro", "agencia")
@@ -997,7 +1094,13 @@ def puesto(d, pid, dias=7, metodo=None):
                     "n": len(xs), "n_no_envia": c["no_envia"], "n_sin_cotizacion": c["sin_cotizacion"], "fecha": max((a["fecha"] for a in xs), default=None),
                     "avisos": [{"vendedor": a["vendedor"] or None, "url": a["url"], "fecha": a["fecha"], "precio": num(a["precio"]), "envio": a["envio"], "metodo": a["metodo"], "deposito": a.get("deposito") or None,
                                 "plazo_h": num(a["plazo_h"]), "precio_puesto": round(num(a["precio"]) + a["envio"], 2), "precio_litro_puesto": round(a["pl"], 2)} for a in xs]})
-    return {"producto_id": pid, "pais": "AR", "moneda": "ARS", "dias": dias, "metodo": metodo, "desde": desde or None, "hasta": hasta or None, "nota": NOTA_PUESTO, "celdas": out}
+    cc, h_obs, info = puesto_correo(d, pid, dias, metodo)
+    if not hasta and cc:  # sin envíos de ML/Norauto pero con tarifas de Correo: la ventana es la de los avisos
+        hasta = h_obs
+        desde = (date.fromisoformat(hasta) - timedelta(days=dias - 1)).isoformat()
+    out = sorted(out + cc, key=lambda c: (c["provincia"], c["fuente"]))
+    return {"producto_id": pid, "pais": "AR", "moneda": "ARS", "dias": dias, "metodo": metodo, "desde": desde or None, "hasta": hasta or None, "nota": NOTA_PUESTO, "celdas": out,
+            "correo": info}
 
 
 def aplanar_puesto(v):
@@ -1055,7 +1158,7 @@ NOMBRE_FUENTE = {"ypf_gql": "YPF catálogo", "vtex_carrefour": "Carrefour", "vte
                  "tn_exporepuestos": "Exporepuestos", "tn_netrenault": "Net Renault", "tn_gramaglia": "Gramaglia Repuestos", "tn_torooils": "Toro Oils",
                  "woo_larutaok": "Neumáticos La Ruta OK", "woo_ceridono": "Ceridono", "woo_fiatturin": "Fiatturin", "tn_comprarmarket": "Comprar Market",
                  "odoo_performancelube": "Performance Lube", "presta_motoracing": "Motoracing",
-                 "sepa": "Precios Claros (SEPA)", "ml": "Mercado Libre", "ml_envios": "Mercado Libre (cotización de envíos)",
+                 "sepa": "Precios Claros (SEPA)", "ml": "Mercado Libre", "ml_envios": "Mercado Libre (cotización de envíos)", "correo_ar": "Correo Argentino (estimado desde la provincia del aviso)",
                  "vtex_norauto_envios": "Norauto (cotización de envíos)", "vtex_br_pitstop": "Pitstop (Brasil)", "vtex_br_altese": "Altese (Brasil)",
                  "oficial_br_notaparana": "Nota Paraná (Brasil, notas fiscales)"}
 METODO = ("Misma lógica que la vitrina (/api/vitrina). Cada aviso (fuente + url + ean + título + vendedor + envase; la provincia no entra) cuenta una vez, con su observación más reciente de la ventana "
@@ -3176,6 +3279,28 @@ def demo():
     assert (cd_["celdas"][0]["minimo"]["envio"], cd_["celdas"][0]["minimo"]["metodo"], cd_["celdas"][0]["n"]) == (13452, "domicilio", 1)
     assert puesto(dm_, "ypf-a-10w40", metodo="agencia")["celdas"] == [] and puesto(dm_, "ypf-a-10w40")["metodo"] is None
     assert json.loads(get("/api/puesto?producto_id=ypf-a-10w40&metodo=domicilio")[1])["metodo"] == "domicilio" and get("/api/puesto?producto_id=ypf-a-10w40&metodo=volando")[0] == 400
+    # Correo Argentino: aviso con origen (SEPA AR-X, o tienda online con origen declarado) + tarifa capital → capital
+    ob_ = lambda fu, pv, li, pr, ur="": dict(fuente=fu, url=ur, ean="", titulo="t" + fu + pv + li, vendedor="v" + fu, litros=li, unidades="1", provincia=pv, fecha="2026-11-20",
+                                              precio=pr, producto_id="ypf-a-10w40", pais="AR", sucursal="")
+    tf_ = lambda co, cd, me, pr, fe="2026-11-18": dict(fecha=fe, cp_origen=co, cp_destino=cd, litros="4", metodo=me, producto="Correo Argentino Clasico", precio=pr, plazo_min="2", plazo_max="4", estado="ok")
+    dc_ = {"envios": [], "cp": [{"provincia": "AR-X", "cp": "5000"}, {"provincia": "AR-C", "cp": "1001"}, {"provincia": "AR-V", "cp": "9410"}],
+           "obs": [ob_("sepa", "AR-X", "4", "40000"), ob_("tn_lspalermo", "online", "4", "44000", "https://ls/p"), ob_("ml", "online", "4", "30000", "https://ml/p"), ob_("sepa", "AR-X", "2", "20000")],
+           "envases_correo": [{"litros": "4"}], "origen_fuentes": [{"fuente": "tn_lspalermo", "provincia": "AR-C"}],
+           "correo": [tf_("5000", "1001", "domicilio", "6000"), tf_("5000", "1001", "sucursal", "4000"), tf_("1001", "1001", "domicilio", "3000"), tf_("5000", "9410", "domicilio", "1", "2026-11-01")]}
+    pc_ = puesto(dc_, "ypf-a-10w40")
+    cc_ = {c["provincia"]: c for c in pc_["celdas"] if c["fuente"] == "correo_ar"}
+    m_ = cc_["AR-C"]["minimo"]
+    assert (m_["precio_puesto"], m_["metodo"], m_["origen_provincia"], m_["origen_fuente"], m_["deposito"], m_["plazo"]) == (44000, "retiro", "AR-X", "sepa", "Correo Argentino Clasico", "2 a 4 días")
+    assert (cc_["AR-C"]["minimo_litro_puesto"], cc_["AR-C"]["n"], cc_["AR-C"]["mediana_litro_puesto"]) == (11000, 2, 11375)  # online sin origen (ML) y 2 L (fuera de la tabla) no participan
+    assert pc_["correo"] == {"avisos": 2, "sin_origen": 1, "sin_envase": 1} and pc_["hasta"] == "2026-11-20"
+    assert (cc_["AR-V"]["minimo"], cc_["AR-V"]["n_sin_cotizacion"]) == (None, 2) and cc_["AR-X"]["minimo"] is None  # tarifa de 20 días: no se usa; sin tarifa, celda sin precio y con su motivo
+    ad_ = {a["origen_provincia"]: a for a in cc_["AR-C"]["avisos"]}
+    assert ad_["AR-C"]["origen_declarado"] is True and ad_["AR-X"]["origen_declarado"] is False and ad_["AR-C"]["precio_puesto"] == 47000
+    pd_ = {c["provincia"]: c for c in puesto(dc_, "ypf-a-10w40", metodo="domicilio")["celdas"] if c["fuente"] == "correo_ar"}["AR-C"]
+    assert (pd_["minimo"]["metodo"], pd_["minimo"]["precio_puesto"], pd_["n"]) == ("domicilio", 46000, 2)  # ?metodo=domicilio: solo D
+    pr_ = {c["provincia"]: c for c in puesto(dc_, "ypf-a-10w40", metodo="retiro")["celdas"] if c["fuente"] == "correo_ar"}["AR-C"]
+    assert (pr_["minimo"]["metodo"], pr_["n"], pr_["n_sin_cotizacion"]) == ("retiro", 1, 1) and puesto(dc_, "ypf-a-10w40", metodo="agencia")["celdas"] == []
+    assert puesto({k: v for k, v in dc_.items() if k not in ("correo", "_cache_correo")}, "ypf-a-10w40")["celdas"] == [] and NOMBRE_FUENTE["correo_ar"].startswith("Correo Argentino")
     cod, cuerpo = get("/api/producto?producto_id=ypf-a-10w40")  # lectura abierta
     pj_ = json.loads(cuerpo)
     assert cod == 200 and pj_["producto"]["es_ypf"] and [e["producto_id"] for e in pj_["equivalentes"]] == ["shell-b-10w40"] and pj_["publicaciones"] and "metodo" in pj_

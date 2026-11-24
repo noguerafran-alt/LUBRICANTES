@@ -1,0 +1,5 @@
+litros,peso_g,alto_cm,ancho_cm,largo_cm,nota
+1,1000,25,10,7,aproximado: densidad ~0.88 kg/L mas envase; no es una medida oficial
+4,3800,30,20,12,aproximado: densidad ~0.88 kg/L mas envase; no es una medida oficial
+5,4700,32,22,13,aproximado: densidad ~0.88 kg/L mas envase; no es una medida oficial
+20,18500,40,30,30,aproximado: densidad ~0.88 kg/L mas envase; no es una medida oficial
