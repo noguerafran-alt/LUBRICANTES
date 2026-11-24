@@ -463,7 +463,7 @@ CUBIERTA = {"grok_helix": "helix_api", "macro_92_2_tipo_cambiion_0_0_21_24": "fx
             **{f"grok_{s}": f"tn_{s}" for s in ("rano", "olafil", "lubrimaster", "lubricentrodg", "exporepuestos", "netrenault", "gramaglia", "torooils")},
             "grok_larutaok": "woo_larutaok", "grok_ceridono": "woo_ceridono",
             # 2026-11-23: Allende y Daytona; Tienda Neumáticos es el mismo catálogo VTEX que Daytona (misma cubridora)
-            "grok_allende": "woo_allende", "grok_daytona": "vtex_daytona", "grok_tiendaneumaticos": "vtex_daytona"}
+            "grok_motoracing": "presta_motoracing", "grok_allende": "woo_allende", "grok_daytona": "vtex_daytona", "grok_tiendaneumaticos": "vtex_daytona"}
 
 
 def cadencia(f):
@@ -1052,7 +1052,8 @@ NOMBRE_FUENTE = {"ypf_gql": "YPF catálogo", "vtex_carrefour": "Carrefour", "vte
                  "vtex_norauto": "Norauto", "shopify_datri": "Tienda D'Atri", "tn_lspalermo": "LS Palermo", "tn_spch": "Casa González",
                  "tn_rano": "Repuestos Rano", "tn_olafil": "Olafil", "tn_lubrimaster": "Lubrimaster", "tn_lubricentrodg": "Lubricentro DG",
                  "tn_exporepuestos": "Exporepuestos", "tn_netrenault": "Net Renault", "tn_gramaglia": "Gramaglia Repuestos", "tn_torooils": "Toro Oils",
-                 "woo_larutaok": "Neumáticos La Ruta OK", "woo_ceridono": "Ceridono",
+                 "woo_larutaok": "Neumáticos La Ruta OK", "woo_ceridono": "Ceridono", "woo_fiatturin": "Fiatturin", "tn_comprarmarket": "Comprar Market",
+                 "odoo_performancelube": "Performance Lube", "presta_motoracing": "Motoracing",
                  "sepa": "Precios Claros (SEPA)", "ml": "Mercado Libre", "ml_envios": "Mercado Libre (cotización de envíos)",
                  "vtex_norauto_envios": "Norauto (cotización de envíos)", "vtex_br_pitstop": "Pitstop (Brasil)", "vtex_br_altese": "Altese (Brasil)",
                  "oficial_br_notaparana": "Nota Paraná (Brasil, notas fiscales)"}
@@ -2507,6 +2508,7 @@ def demo():
     h_ = _av([("2026-11-19", "helix_api", "")], grok=[g_])["grok_helix"]   # 49 días: alertaría, pero helix_api lo cubre
     assert not h_["alerta"] and h_["aviso"] == "cubierto por helix_api", h_
     assert _av([("2026-11-17", "helix_api", "")], grok=[g_])["grok_helix"]["alerta"]   # helix_api atrasada no cubre
+    assert CUBIERTA["grok_motoracing"] == "presta_motoracing" and "presta_motoracing" in NOMBRE_FUENTE and nombre_fuente({}, "tn_comprarmarket").endswith("(mayorista)")
     assert CUBIERTA["grok_tiendaneumaticos"] == CUBIERTA["grok_daytona"] == "vtex_daytona" and CUBIERTA["grok_allende"] == "woo_allende"
     assert not {f["fuente"] for f in fuentes_grok({"grok": [dict(g_, fuente="woo_allende"), dict(g_, fuente="vtex_daytona")], "grok_sitios": []}, date.today())}  # escriben en data/grok pero su estado es el de fuentes.csv
     s_ = _av([("2026-11-05", "macro_x", ""), ("2026-11-19", "macro_series", "")])
