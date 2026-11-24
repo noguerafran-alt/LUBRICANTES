@@ -506,6 +506,10 @@ def correr(fuente, fecha, rel=None, imgs=None):
             fila["http"], avisos, fila["error"] = tiendas.tiendanube(fuente, fecha)
         elif fuente in tiendas.WOOCOMMERCE:
             fila["http"], avisos, fila["error"] = tiendas.woocommerce(fuente, fecha)
+        elif fuente in tiendas.ODOO:
+            fila["http"], avisos, fila["error"] = tiendas.odoo(fuente, fecha)
+        elif fuente in tiendas.PRESTASHOP:
+            fila["http"], avisos, fila["error"] = tiendas.prestashop(fuente, fecha)
         elif fuente == "oficial_br_notaparana":
             fila["http"], avisos, fila["error"] = notaparana()
         else:
@@ -539,7 +543,7 @@ PAUSADAS = {"oficial_br_notaparana"}  # desde 2026-11-18: la API devuelve datos 
 
 
 def fuentes_por_defecto(env=os.environ):
-    todas = ["ypf_gql", *VTEX, *tiendas.SHOPIFY, *tiendas.TIENDANUBE, *tiendas.WOOCOMMERCE, "oficial_br_notaparana", "helix_api", "ml_cat", "ml"]
+    todas = ["ypf_gql", *VTEX, *tiendas.SHOPIFY, *tiendas.TIENDANUBE, *tiendas.WOOCOMMERCE, *tiendas.ODOO, *tiendas.PRESTASHOP, "oficial_br_notaparana", "helix_api", "ml_cat", "ml"]
     return [f for f in todas if f not in PAUSADAS and not (env.get("GITHUB_ACTIONS") == "true" and f in FUENTES_PC)]
 
 
@@ -749,6 +753,7 @@ def demo():
     assert C("Kit de filtros + aceite Kwid 1.0") and C("Cambio de Aceite Semi Sintético Total Quartz 7000 10W-40 + Filtro de Aceite")
     assert not C("ACEITE ELAION 4L 10W40 SEMISINTETICO F30") and not C("Aceite ELAION AURO 5W30 sintético 4L") and not C("Botella 1 Litro Total Refrigerante Glacelf")
     assert tiendas.COMBOS == {"woo_allende", "vtex_daytona"} and "vtex_daytona" in VTEX and VTEX["vtex_daytona"][1] == "C:/3/" and "vtex_tiendaneumaticos" not in VTEX
+    assert {"woo_fiatturin", "tn_comprarmarket", "odoo_performancelube", "presta_motoracing"} <= set(fuentes_por_defecto({}))
     assert "woo_allende" in tiendas.WOOCOMMERCE and "woo_allende" in fuentes_por_defecto({}) and "vtex_daytona" in fuentes_por_defecto({})
     sv, sin = servicios_combo("vtex_daytona", [
         dict(url="https://d/a/p", titulo="Cambio de Aceite Semi Sintético Total Quartz 7000 10W-40 + Filtro de Aceite", precio=122115.0, stock=None),

@@ -1,7 +1,7 @@
 """Tiendas sin catálogo VTEX: Shopify (D'Atri, mayorista), Tiendanube y WooCommerce (Store API).
 
 Cada lector devuelve (http, avisos, error) como `recolectar.vtex`. Respeta robots.txt de cada host
-(urllib.robotparser) y usa ml.pedir: 1 req/s por host y el User-Agent honesto de ml.UA.
+(`robots`, propio: soporta `*`, `$` y Crawl-delay) y usa ml.pedir: 1 req/s por host y el User-Agent honesto de ml.UA.
 `python tiendas.py test` corre los asserts (sin red).
 """
 import hashlib
@@ -11,7 +11,6 @@ import re
 import sys
 import time
 import urllib.parse
-import urllib.robotparser
 from datetime import date
 
 import ml
@@ -22,11 +21,16 @@ TIENDANUBE = {"tn_lspalermo": "https://lspalermo.com.ar", "tn_spch": "https://sp
               "tn_rano": "https://repuestosrano.com.ar", "tn_olafil": "https://www.olafil.com.ar",
               "tn_lubrimaster": "https://lubrimaster.mitiendanube.com", "tn_lubricentrodg": "https://lubricentrodg.mitiendanube.com",
               "tn_exporepuestos": "https://www.exporepuestos.com", "tn_netrenault": "https://www.netrenault.com.ar",
-              "tn_gramaglia": "https://gramagliarepuestos.com.ar", "tn_torooils": "https://lubricentrotorooils.mitiendanube.com"}
+              "tn_gramaglia": "https://gramagliarepuestos.com.ar", "tn_torooils": "https://lubricentrotorooils.mitiendanube.com",
+              "tn_comprarmarket": "https://comprarmarket.com.ar"}
 WOOCOMMERCE = {"woo_larutaok": "https://neumaticoslarutaok.com", "woo_ceridono": "https://ceridono.ar",
-               "woo_allende": "https://www.allenderepuestos.com.ar"}
+               "woo_allende": "https://www.allenderepuestos.com.ar", "woo_fiatturin": "https://www.fiatturin.com.ar"}
+ODOO = {"odoo_performancelube": "https://www.performance-lube.com.ar"}
+PRESTASHOP = {"presta_motoracing": "https://motoracing.com.ar"}
+TERMINOS_ODOO = ("elaion", "extravida", "helix", "rimula", "quartz", "castrol", "mobil")
+PRESTA_CATEGORIA = "/20-lubricantes"
 TERMINOS_WOO = ("aceite", "lubricante")
-MAYORISTAS = {"shopify_datri", "tn_olafil", "woo_ceridono"}  # precio por caja/tambor, IVA no verificado: /api/indice los excluye
+MAYORISTAS = {"shopify_datri", "tn_olafil", "woo_ceridono", "tn_comprarmarket"}  # precio por caja/tambor, IVA no verificado: /api/indice los excluye
 
 # product_type de D'Atri que son lubricantes de motor, transmisión o industriales (el resto es repuesto).
 TIPOS_DATRI = {"LUBRICANTES", "LUBRICANTE", "SINTÉTICO", "SEMISINTÉTICO", "MINERAL", "MULTIGRADO", "MONOGRADO"}
@@ -70,23 +74,71 @@ def envase(titulo, variante=""):
 
 # ---------- robots.txt ----------
 _robots = {}
+CRAWL_MAX = 1.0  # s: nuestro ritmo es 1 req/s; un Crawl-delay mayor y la fuente no corre
 
 
-def permitido(url):
-    """True si el robots.txt del host deja pedir `url`. Sin robots.txt (404) se puede; si no se pudo leer, no."""
+def reglas_robots(txt, ua):
+    """robots.txt → ([(permite, patrón)], crawl_delay) del grupo que aplica a `ua` (el agente más específico que esté
+    contenido en el UA; si no, `*`). urllib.robotparser no entiende `*` ni `$` dentro de los patrones: por eso esto."""
+    grupos, agentes, reglas, delay, nuevo = [], [], [], None, True
+    for linea in txt.splitlines():
+        k, _, v = linea.split("#", 1)[0].partition(":")
+        k, v = k.strip().lower(), v.strip()
+        if k == "user-agent":
+            if not nuevo:
+                grupos.append((agentes, reglas, delay))
+                agentes, reglas, delay = [], [], None
+            agentes.append(v.lower())
+            nuevo = True
+        elif k in ("allow", "disallow"):
+            nuevo = False
+            if v:
+                reglas.append((k == "allow", v))
+        elif k == "crawl-delay":
+            nuevo = False
+            try:
+                delay = float(v)
+            except ValueError:
+                pass
+    grupos.append((agentes, reglas, delay))
+    mejor = max(((len(a), r, d) for ags, r, d in grupos for a in ags if a != "*" and a in ua.lower()), default=None, key=lambda x: x[0])
+    if mejor:
+        return mejor[1], mejor[2]
+    # varios grupos `*` se juntan, como pide el RFC 9309
+    ast = [(r, d) for ags, r, d in grupos if "*" in ags]
+    return [x for r, _ in ast for x in r], next((d for _, d in ast if d is not None), None)
+
+
+def ruta_permitida(reglas, ruta):
+    """RFC 9309: gana la regla de patrón más largo que matchea `ruta` (path + query); en empate, Allow. Sin regla = permitido."""
+    mejor = (-1, True)
+    for permite, pat in reglas:
+        rx = re.escape(pat).replace(r"\*", ".*")
+        rx = rx[:-2] + r"\Z" if rx.endswith(r"\$") else rx
+        if re.match(rx, ruta) and (len(pat), permite) > mejor:
+            mejor = (len(pat), permite)
+    return mejor[1]
+
+
+def robots(url):
+    """→ (permitido, motivo). Sin robots.txt (404) se puede; si no se pudo leer, no; Crawl-delay mayor a CRAWL_MAX, no."""
     p = urllib.parse.urlsplit(url)
     base = f"{p.scheme}://{p.netloc}"
     if base not in _robots:
         http, txt = ml.pedir(base + "/robots.txt", texto=True)
-        rp = urllib.robotparser.RobotFileParser()
-        if txt is not None:
-            rp.parse(txt.splitlines())
-            _robots[base] = rp
-        else:
-            rp.parse([])
-            _robots[base] = rp if http == 404 else None
-    rp = _robots[base]
-    return rp is not None and rp.can_fetch(ml.UA, url)
+        _robots[base] = reglas_robots(txt, ml.UA) if txt is not None else ([], None) if http == 404 else None
+    r = _robots[base]
+    if r is None:
+        return False, "no se pudo leer robots.txt"
+    if r[1] is not None and r[1] > CRAWL_MAX:
+        return False, f"robots.txt pide Crawl-delay {r[1]:g} s (leemos a 1 req/s)"
+    if not ruta_permitida(r[0], p.path + ("?" + p.query if p.query else "")):
+        return False, f"robots.txt no deja leer {p.path}"
+    return True, ""
+
+
+def permitido(url):
+    return robots(url)[0]
 
 
 # ---------- Shopify ----------
@@ -110,8 +162,9 @@ def avisos_shopify(base, productos):
 
 def shopify(fuente):
     base = SHOPIFY[fuente]
-    if not permitido(base + "/products.json"):
-        return 0, [], "robots.txt no deja leer /products.json"
+    ok, motivo = robots(base + "/products.json")
+    if not ok:
+        return 0, [], motivo
     avisos, http = [], 0
     for pag in range(1, 31):
         http, d = ml.pedir(f"{base}/products.json?limit=250&page={pag}")
@@ -226,8 +279,9 @@ def avisos_woo(productos, combos=False):
 def woocommerce(fuente, fecha):
     base = WOOCOMMERCE[fuente]
     api = base + "/wp-json/wc/store/v1/products"
-    if not permitido(api):
-        return 0, [], "robots.txt no deja leer /wp-json/wc/store/v1/products"
+    ok, motivo = robots(api + "?per_page=100&page=1&search=aceite")  # con query: `Disallow: /*?` bloquea la Store API
+    if not ok:
+        return 0, [], motivo
     vistos, avisos, http = set(), [], 0
     for t in TERMINOS_WOO:
         for pag in range(1, 11):
@@ -239,6 +293,95 @@ def woocommerce(fuente, fecha):
             avisos += avisos_woo(nuevos, fuente in COMBOS)
             if len(d) < 100:
                 break
+    return http, avisos, ""
+
+
+# ---------- Odoo (website_sale) ----------
+def avisos_odoo(pagina, base):
+    """HTML de /shop → avisos. Precio = PRIMER oe_currency_value (ARS con IVA, formato inglés 96,566.23); el segundo es otro
+    valor (parece USD, no confirmado) y no se usa. Un ribbon out_of_stock_ribbon es sin stock."""
+    out = []
+    for c in re.split(r'(?=<form[^>]*oe_product_cart)', pagina)[1:]:
+        a = re.search(r'<a\b[^>]*itemprop="name"[^>]*>', c)
+        href = a and re.search(r'href="([^"]+)"', a[0])
+        nombre = a and re.match(r'([^<]*)', c[a.end():])[1]
+        v = re.search(r'oe_currency_value">([\d.,]+)<', c)
+        if not (href and nombre and v):
+            continue
+        try:
+            precio = float(v[1].replace(",", ""))
+        except ValueError:
+            continue
+        av = dict(url=urllib.parse.urljoin(base, html.unescape(href[1]).split("?")[0]), ean="", titulo=html.unescape(nombre).strip(),
+                  marca_cruda="", precio=precio, stock=0 if "out_of_stock_ribbon" in c else None, vendedor="",
+                  imagen=ml.https((re.search(r'<img[^>]*\bsrc="([^"]+)"', c) or [0, ""])[1], base + "/"))
+        e = envase(av["titulo"])
+        if e:
+            av["litros"], av["unidades"] = e
+        out.append(av)
+    return out
+
+
+def odoo(fuente, fecha):
+    base = ODOO[fuente]
+    ok, motivo = robots(base + "/shop?search=elaion")
+    if not ok:
+        return 0, [], motivo
+    vistos, avisos, http = set(), [], 0
+    for t in TERMINOS_ODOO:
+        for pag in range(1, 11):
+            ruta = "/shop" + (f"/page/{pag}" if pag > 1 else "")
+            http, h = ml.pedir(f"{base}{ruta}?search={t}", texto=True)
+            if h is None:
+                return http, [], f"HTTP {http} en search={t} page={pag}"
+            nuevos = [a for a in avisos_odoo(h, base) if a["url"] not in vistos]
+            if not nuevos:
+                break
+            vistos.update(a["url"] for a in nuevos)
+            avisos += nuevos
+    return http, avisos, ""
+
+
+# ---------- PrestaShop ----------
+def avisos_presta(pagina, base):
+    """HTML del listado → [(id, aviso)]. Precio argentino ($ 90.301,68); `Stock: <b>Sin Stock</b>` es sin stock."""
+    out = []
+    for c in re.split(r'(?=<article )', pagina)[1:]:
+        i = re.search(r'data-id-product="(\d+)"', c)
+        href = re.search(r'<a href="([^"]+)"', c)
+        nombre = re.search(r'itemprop="name">([^<]+)', c)
+        v = re.search(r'class="price"[^>]*>[^\d<]*([\d.]+,\d+)', c)
+        if not (i and href and nombre and v):
+            continue
+        av = dict(url=html.unescape(href[1]), ean="", titulo=html.unescape(nombre[1]).strip(), marca_cruda="",
+                  precio=float(v[1].replace(".", "").replace(",", ".")), vendedor="",
+                  stock=0 if re.search(r"Stock: <b>Sin Stock", c) else None,
+                  imagen=ml.https((re.search(r'<img src="([^"]+)"', c) or [0, ""])[1], base + "/"))
+        e = envase(av["titulo"])
+        if e:
+            av["litros"], av["unidades"] = e
+        out.append((i[1], av))
+    return out
+
+
+def prestashop(fuente, fecha):
+    """Lee la categoría de lubricantes (24 por página, `?page=N`), no la búsqueda: el robots.txt de Motoracing
+    bloquea `/*controller=search` y `/*ag/busqueda`."""
+    base = PRESTASHOP[fuente]
+    url = base + PRESTA_CATEGORIA
+    ok, motivo = robots(url + "?page=1")
+    if not ok:
+        return 0, [], motivo
+    vistos, avisos, http = set(), [], 0
+    for pag in range(1, 11):
+        http, h = ml.pedir(f"{url}?page={pag}", texto=True)
+        if h is None:
+            return http, [], f"HTTP {http} en page={pag}"
+        nuevos = [x for x in avisos_presta(h, base) if x[0] not in vistos]
+        if not nuevos:
+            break
+        vistos.update(x[0] for x in nuevos)
+        avisos += [a for _, a in nuevos]
     return http, avisos, ""
 
 
@@ -309,6 +452,44 @@ def demo():
     d2, c2 = elegir(urls, "2026-11-05")
     assert len(d1) + c1 == 250 and len(d1) <= TOPE_PAGINAS and not set(d1) & set(d2) and set(d1) | set(d2) == set(urls)
     assert elegir(urls, "2026-11-04")[0] == d1 and elegir(urls[:100], "2026-11-04") == (sorted(urls[:100], key=lambda u: hashlib.sha1(u.encode()).hexdigest()), 0)
+    # robots.txt propio: comodines, $, regla más larga, Allow gana el empate, grupo por UA, Crawl-delay
+    R = lambda txt: reglas_robots(txt, ml.UA)
+    rm = R("User-agent: *\nDisallow: /*?\nCrawl-delay: 60\n")
+    assert not ruta_permitida(rm[0], "/wp-json/wc/store/v1/products?per_page=100") and ruta_permitida(rm[0], "/producto/x") and rm[1] == 60
+    pdf = R("User-agent: *\nDisallow: /*.pdf$")[0]
+    assert not ruta_permitida(pdf, "/a/b.pdf") and ruta_permitida(pdf, "/a/b.pdf?x=1")
+    al = R("User-agent: *\nDisallow: /tienda\nAllow: /tienda/aceites")[0]
+    assert ruta_permitida(al, "/tienda/aceites/x") and not ruta_permitida(al, "/tienda/otro")
+    assert ruta_permitida(R("User-agent: *\nDisallow: /a\nAllow: /a")[0], "/a")  # empate: Allow
+    assert ruta_permitida(R("User-agent: *\nDisallow:\n")[0], "/x") and ruta_permitida(R("")[0], "/x")
+    g = R("User-agent: *\nDisallow: /\n\nUser-agent: Otro\nUser-agent: lubricantes\nAllow: /\nCrawl-delay: 0.5\n")
+    assert ruta_permitida(g[0], "/x") and g[1] == 0.5  # el grupo del repo gana al `*`
+    assert not ruta_permitida(R("User-agent: bot\nAllow: /\n\nUser-agent: *\nDisallow: /")[0], "/x")
+    _robots["https://r.com"] = rm
+    assert robots("https://r.com/producto/x")[0] is False and "Crawl-delay 60" in robots("https://r.com/producto/x")[1]
+    _robots["https://r.com"] = R("User-agent: *\nDisallow: /*?\n")
+    assert robots("https://r.com/producto/x") == (True, "") and "/wp-json" in robots("https://r.com/wp-json/a?b=1")[1]
+    del _robots["https://r.com"]
+    # Odoo: tarjeta con stock (precio con coma de miles, el 2º valor es USD y no se usa), agotada, sin precio
+    T = lambda nom, href, precio, ribbon="": (
+        f'<form action="/en/shop/cart/update" class="oe_product_cart h-100"><img src="/web/image/p/1" itemprop="image"/>'
+        f'<span class="o_ribbon {ribbon}"></span><a class="t" itemprop="name" href="{href}" content="x">{nom}</a>'
+        + (f'<span data-oe-type="monetary">$<span class="oe_currency_value">{precio}</span></span>'
+           f'<div class="product_price_usd">USD<span class="oe_currency_value">61.12</span></div>' if precio else "") + "</form>")
+    pg = (T("YPF ELAION FS 5W40 - 4L (EX F50)", "/en/shop/176095-ypf-elaion-23117?search=elaion", "115,923.23")
+          + T("YPF ELAION MOTO 2T BALDE 20L", "/en/shop/9-x?search=e", "1,234,567.00", "out_of_stock_ribbon") + T("SIN PRECIO", "/en/shop/8-y", ""))
+    o = avisos_odoo(pg, "https://p.com")
+    assert len(o) == 2 and o[0]["precio"] == 115923.23 and o[0]["stock"] is None and o[0]["url"] == "https://p.com/en/shop/176095-ypf-elaion-23117"
+    assert o[0]["titulo"] == "YPF ELAION FS 5W40 - 4L (EX F50)" and o[1]["stock"] == 0 and o[1]["precio"] == 1234567.0 and (o[1]["litros"], o[1]["unidades"]) == (20.0, 1)
+    assert o[0]["imagen"] == "https://p.com/web/image/p/1"
+    # PrestaShop: precio argentino, «Sin Stock», título sin litros queda sin litros
+    A = lambda i, nom, precio, stock: (f'<article class="item" data-id-product="{i}"><a href="https://m.com/inicio/{i}-x.html" class="thumbnail"><img src="https://m.com/i.jpg"></a>'
+                                        f'<h6 itemprop="name">{nom}</h6>title="Stock: <b>{stock}</b>"<span class="price">$\xa0{precio}</span></article>')
+    pp = A(1, "ACEITE MAGNATEC 10W40 A3 SEMI-SINTETICO x 4lts (CASTROL)", "90.301,68", "Bajo") + A(2, "ACEITE EDGE 5W30 SUELTO", "1.234,50", "Sin Stock")
+    pr = avisos_presta(pp, "https://m.com")
+    assert [i for i, _ in pr] == ["1", "2"] and pr[0][1]["precio"] == 90301.68 and pr[0][1]["stock"] is None and pr[0][1]["url"] == "https://m.com/inicio/1-x.html"
+    assert pr[1][1]["stock"] == 0 and pr[1][1]["precio"] == 1234.5 and "litros" not in pr[1][1] and pr[0][1]["titulo"].startswith("ACEITE MAGNATEC")
+    assert "tn_comprarmarket" in MAYORISTAS and "woo_fiatturin" in WOOCOMMERCE
     print("OK")
 
 
