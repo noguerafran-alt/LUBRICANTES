@@ -1,5 +1,10 @@
 # ESTADO
 
+## Vuelven los GLB originales (2026-11-23, rama fix/glb-originales)
+- Reclamo del usuario con capturas: las manijas seguían corrugadas y con la etiqueta arrastrada; en el video BRAG (GLB originales de LUB-MODELOS3D `6cbe919`) se veían bien. Render comparado en Blender de las tres versiones de la Elaion TS 1040: la original es la buena; las regeneradas (`585d157`, `0f02700`) deforman la manija.
+- LUB-MODELOS3D `b717ae3`: vuelven los 92 GLB de `6cbe919`; quedan los 5 que solo existen después (Röd 4T 10W30/10W40/20W50, Quartz 9000 Future, Ineo Long Life). El submódulo apunta ahí.
+- Abierto: los baldes Extravida (XV 100, XV 300) salen con la tapa estirada y una costura al costado **en las dos versiones**: hace falta arreglar el generador, no alcanza con volver atrás. No regenerar con `--forzar` hasta arreglarlo.
+
 ## Video de presentación: solo con ▶ y a pantalla completa (2026-11-23, rama fix/hero-play)
 - Pedido del usuario con captura: el video no se muestra más al entrar; ▶ del header lo abre a pantalla completa, con sonido, y se cierra con ×, Esc o al terminar. Sale `lub_hero_visto` (ya no se usa).
 
