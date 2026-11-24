@@ -1,5 +1,9 @@
 # ESTADO
 
+## Baldes 3D: tapa plana con su color y costados sin costura (2026-11-24, rama fix/baldes-3d)
+- Reclamo del usuario (Extravida XV 300 con la tapa estirada y una costura al costado). LUB-MODELOS3D `a03ee40`: el generador, solo en el camino de baldes, pone tapa plana con el color de la tapa de la foto y costados/dorso de un solo color de cuerpo con fundido de 40° a 58°. Se regeneraron solo los 17 baldes (Extravida, Náutico 2T, Súper 20W50, Transferencia térmica, Rimula R3 L/R6 LM/R6 MS); bidones y botellas dan el mismo sha256 que antes.
+- Verificado: self-test del generador OK; render antes/después (frente 3/4 y costado) de los 17, juzgado por 3 revisores independientes: 17 «mejor», 0 igual o peor. Queda una cuña chica en el canto de la tapa del Rimula R6 LM (la muestra la propia foto).
+
 ## Cuatro tiendas nuevas y robots.txt con comodines (2026-11-24, rama feat/tiendas-candidatas)
 - **Bug de robots**: `tiendas.permitido` usaba `urllib.robotparser`, que no entiende `*` ni `$` dentro de un patrón y no mira el `Crawl-delay`. Ahora `tiendas.robots(url)` → `(permitido, motivo)` con parser propio (grupo del UA del repo o `*`; RFC 9309: regla más larga gana, Allow gana el empate; path + query). Un `Crawl-delay` mayor a 1 s corta la fuente con error claro en `fuentes.csv`. `permitido` sigue como envoltorio booleano. Asserts en `demo()` de `tiendas.py` (caso lubricentromaximo, `$`, Allow más largo, grupo por UA, Crawl-delay 60).
 - **Chequeo de las fuentes en uso con el parser nuevo** (shopify_datri; las 12 tn_*; woo_larutaok, woo_ceridono, woo_allende; vtex_br_pitstop y vtex_br_altese): **todas siguen permitidas**, ninguna pasó a bloqueada ni tiene Crawl-delay.
