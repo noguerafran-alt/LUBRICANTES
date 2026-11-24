@@ -30,6 +30,7 @@ TOPE_PRODUCTOS = 50  # por búsqueda; se loguea cuántas búsquedas se cortan
 TOPE_ITEMS = 100     # publicaciones por producto
 
 _ultimo = {}  # host → hora del último request
+ULTIMO_ERROR = {}  # código HTTP → cuerpo recortado de la última respuesta de error (para el diagnóstico en fuentes.csv)
 TOKEN_HOY = None  # access token que canjeó `avisos()` en esta corrida: lo reusa la cotización de envíos (el refresh rota en cada canje: no se canjea dos veces)
 METODOS_ENVIO = {"address": "domicilio", "agency": "agencia", "pickup": "retiro", "self_service": "retiro"}  # shipping_option_type → metodo; otro tipo no se adivina
 
@@ -79,6 +80,10 @@ def pedir(ruta, token=None, data=None, texto=False):
                     return r.status, None
         except urllib.error.HTTPError as e:
             if intento == 2 or (e.code < 500 and e.code != 429):
+                try:   # el cuerpo del error de ML dice el motivo (política, scope); nunca trae el token
+                    ULTIMO_ERROR[e.code] = " ".join(e.read(400).decode("utf-8", "replace").split())[:300]
+                except OSError:
+                    pass
                 return e.code, None
         except (urllib.error.URLError, TimeoutError, OSError):
             if intento == 2:
@@ -242,7 +247,8 @@ def avisos(filtro=None):
         codigos[h] = codigos.get(h, 0) + 1
         out += [aviso(p, r) for r in rs if r.get("item_id") and r.get("condition", "new") == "new"]
     # con 0 avisos, el HTTP de /items es lo único que dice si ML cambió la API o cerró el permiso (2026-11-23: 0 sin rastro)
-    vistos = ", ".join(f"HTTP {c} ×{n}" for c, n in sorted(codigos.items(), key=lambda x: -x[1]))
+    vistos = ", ".join(f"HTTP {c} ×{n}" + (f" ({ULTIMO_ERROR[c]})" if c in ULTIMO_ERROR else "")
+                       for c, n in sorted(codigos.items(), key=lambda x: -x[1]))
     print(f"ml: {len(qs)} búsquedas, {len(prods)} productos relacionados con YPF ({ajenos} de aceite descartados), {cortadas} búsquedas cortadas "
           f"en {TOPE_PRODUCTOS}, {len(out)} avisos; products/{{id}}/items: {vistos}", flush=True)
     if not out:
@@ -330,11 +336,13 @@ def demo():
             items_http = 403   # /items cerrado: el error tiene que decir el código, no solo "0 publicaciones"
             pedir_ok = pedir
             pedir = lambda ruta, tok=None, **k: (items_http, None) if "/items" in ruta else pedir_ok(ruta, tok)
+            ULTIMO_ERROR[403] = '{"message":"forbidden"}'
             r403 = avisos()
+            ULTIMO_ERROR.clear()
         finally:
             pedir, token = pedir0, token0
         assert len(r[1]) == 1 and r[1][0]["titulo"] == "Elaion F 50" and not any("/products/B" in x for x in pedidos), (r, pedidos)
-        assert r403[1] == [] and "items: HTTP 403 ×2" in r403[2], r403
+        assert r403[1] == [] and 'items: HTTP 403 ×2 ({"message":"forbidden"})' in r403[2], r403
         q = busquedas()
         assert q[:4] == BUSQUEDAS_YPF and "castrol edge" in q and "shell helix" in q and len(q) == len(set(q)) and "bardahl" not in q
         import tempfile
