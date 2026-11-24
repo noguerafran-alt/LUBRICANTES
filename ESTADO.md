@@ -501,7 +501,7 @@ Junto a 1A/3A/5A/10A/Todo hay dos selectores «Desde» y «Hasta» con todos los
 - No verificado: la pestaña Cargar y las etiquetas "Grok · host" se revisaron solo por sintaxis JS y por el HTML servido, no en un navegador; la Contents API real (GitHub) nunca se llamó; el prompt de la Task es una reconstrucción, no el texto exacto que ya tiene el usuario.
 - Pendiente del usuario: cargar `LUB_CARGA_CLAVE` y `GH_CARGA_TOKEN` en Render (`GH_CARGA_TOKEN` = fine-grained PAT solo de LUBRICANTES, Contents: read and write). Sin token las cargas quedan en el disco efímero.
 - 2026-11-04: la primera carga real de Grok rebotó con 400 en las 33 filas: mandó `fuente` `helix_combos` y después `grok_helixturno`; la única válida para www.helixturno.com.ar es `grok_helix`. Ahora el error de fuente dice cuál usar (`...: usar grok_helix`), assert en `server.py test`.
-- Cada commit de carga redeploya Render. Las cargas de un día no cuentan si otra carga las pisa por completo (tope de 10 por día contra abuso, no contabilidad).
+- Cada commit de carga redeploya Render. Las cargas de un día no cuentan si otra carga las pisa por completo (tope de 30 por día contra abuso, no contabilidad).
 
 ## Seed sin match (2026-11-04)
 - Cambió el seed: +57 productos en `seed/productos.csv` (`verificado=inferido`, specs solo si las dice el título) y +59 alias en `seed/alias.csv` (+73 líneas tocadas en el diff, 7 reemplazadas; el archivo pasó de 287 a 346 líneas). Prioridad por cantidad de avisos de ML: Petronas, Valvoline, Motul, Liqui Moly, Shell, Castrol. `normalizar.py`: el alias genérico `edge` ya no atrapa Professional ni Titan, y un aviso de ML con varios EAN se matchea por EAN si uno solo identifica.
