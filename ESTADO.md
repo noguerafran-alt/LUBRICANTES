@@ -1,5 +1,11 @@
 # ESTADO
 
+## Precio puesto en provincia: relevamiento y diseño (2026-11-23, rama docs/envio-provincia)
+- Solo documento: `docs/relevamiento/envio-por-provincia.md`. Sin código ni `data/`.
+- Idea: «vendedor más cercano» = aviso con menor precio + envío cotizado por la propia tienda a un CP de la provincia; no se deduce la ubicación del vendedor.
+- Cotizan de verdad: Norauto (VTEX `orderForms/simulation`, por distancia) y Mercado Libre (`shipping_options?zip_code=`; su robots.txt prohíbe la API y la corrida pasa el límite de tiempo de la Action). No: Tiendanube (robots `Disallow: /envio/`), WooCommerce (sin monto: «gratis»/«a convenir»), transportistas sin contrato.
+- Pendiente decisión del usuario: arrancar por Norauto o por ML.
+
 ## Índice según la competencia (30 días) y los índices para Power BI (2026-11-23, rama feat/indice-competencia-bi)
 - Pedido del usuario: mostrar el índice calculado según la competencia como dato adicional, con 30 días de historia siempre, y dejar la API de índices lista para Power BI.
 - `/api/vitrina` suma por producto `indice_30d` (mediana $/L YPF / mediana $/L competencia × 100, competencia = 100; `indice30_*` en CSV). Reusa `_avisos`/`_validos`/`cuerdos`/`RANGO_EQ`: coincide con `/api/producto?dias=30` (assert en `demo()`; con los datos reales, 116 productos, 0 diferencias). Tarjeta del Visualizador: bloque «Índice vs competencia (30 días)», aclara que no es el de la pestaña Índice (YPF = 100).
