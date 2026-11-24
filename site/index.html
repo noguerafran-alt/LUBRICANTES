@@ -843,7 +843,7 @@ obs = pd.read_csv("<span class="origen"></span>/api/obs?mes=2026-11&amp;formato=
 <script>
 const NOMBRE_FUENTE = { ypf_gql: "YPF catálogo", vtex_carrefour: "Carrefour", vtex_masonline: "Masonline", vtex_easy: "Easy",
   vtex_jumbo: "Jumbo", vtex_norauto: "Norauto", shopify_datri: "Tienda D'Atri", tn_lspalermo: "LS Palermo", tn_spch: "Casa González",
-  sepa: "Precios Claros (SEPA)", ml_cat: "ML categorías", ml: "Mercado Libre", ml_envios: "Mercado Libre (cotización de envíos)", vtex_br_pitstop: "Pitstop (Brasil)", vtex_br_altese: "Altese (Brasil)",
+  sepa: "Precios Claros (SEPA)", ml_cat: "ML categorías", ml: "Mercado Libre", ml_envios: "Mercado Libre (cotización de envíos)", vtex_norauto_envios: "Norauto (cotización de envíos)", vtex_br_pitstop: "Pitstop (Brasil)", vtex_br_altese: "Altese (Brasil)",
   helix_api: "Shell Helix combos (API helixturno, automática)", oficial_br_notaparana: "Nota Paraná (Brasil, notas fiscales)", fx_bcb_ptax: "BCB PTAX (tipo de cambio)", fx_bcra: "BCRA cotizaciones (tipo de cambio)", casa: "Servidor FLN Data Analysis (celular o PC)" };
 const MAYORISTAS = ["shopify_datri"]; // precio por caja o tambor, IVA no verificado: el índice no los usa
 const SEGMENTO = { pcmo: "Autos (PCMO)", hddo: "Pesados (HDDO)", moto4t: "Moto 4T", moto2t: "Moto 2T", transmision: "Transmisión",
@@ -2957,7 +2957,7 @@ function opcionesEquiv() {
     eqs.map(e => `<option value="${esc(e.comp_id)}">${esc(et(e.comp_id))} · ${esc(TIPO[e.tipo] || e.tipo)}</option>`).join("");
 }
 
-const NOTA_PUESTO = "Envío cotizado a la capital de cada provincia (CP de la capital), con la cuenta de la app, el día indicado. El interior puede costar distinto. Mercado Libre con usuario logueado o con Mercado Puntos puede ser más barato. No es tiempo real.";
+const NOTA_PUESTO = "Envío cotizado a la capital de cada provincia (CP de la capital), el día indicado. Mercado Libre: con la cuenta de la app (logueado o con Mercado Puntos puede ser más barato); Norauto: simulación de carrito de la tienda. El interior puede costar distinto. «Retiro» es retiro en sucursal, no entrega en la provincia. No es tiempo real.";
 
 function mpCapa() {
   const p = $("#mp-capa").value === "puesto";
@@ -2984,7 +2984,7 @@ function mpPintarPuesto() {
   // por provincia: la celda con el mínimo más barato; si ninguna tiene precio, el motivo
   const mejor = iso => (por[iso] || []).filter(c => c.minimo).sort((a, b) => a.minimo_litro_puesto - b.minimo_litro_puesto)[0];
   const motivo = iso => { const cs = por[iso] || [];
-    return !cs.length ? "sin datos en la ventana" : cs.some(c => c.n_no_envia) ? "no envía" : "sin cotización (Mercado Libre no devolvió envío)"; };
+    return !cs.length ? "sin datos en la ventana" : cs.some(c => c.n_no_envia) ? "no envía" : "sin cotización (la fuente no devolvió envío)"; };
   const vals = Object.keys(AR_GEO.provincias).map(iso => mejor(iso)?.minimo_litro_puesto).filter(v => v != null);
   const mn = Math.min(...vals), mx = Math.max(...vals), [x, y, w, h] = AR_GEO.viewBox;
   const texto = iso => { const c = mejor(iso), g = AR_GEO.provincias[iso].n;

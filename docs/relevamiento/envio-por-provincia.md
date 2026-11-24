@@ -68,7 +68,7 @@ fecha,capturado,fuente,url,producto_id,litros,unidades,precio,cp_destino,provinc
 | Carrefour y Masonline | en casa, **semanal**, si se quiere | disponibilidad por provincia de cada aviso YPF (con `geoCoordinates` de cada capital, tabla fija) | unas 1.150 por semana |
 | Tiendanube, Woo, transportistas | no corren | — | 0 |
 
-En Norauto y Easy el plan supone que el envío depende del envase y la provincia, no del aviso, y que el precio puesto sale de `precio del aviso + envío del envase en esa provincia`, del mismo día y la misma tienda. **Eso no está verificado**: se vio un solo SKU por tienda. Antes de implementar hay que cotizar dos SKU distintos del mismo envase en dos CP. Si la tarifa da igual, vale un SKU por envase. Si no, hay que cotizar cada aviso, unos 61 × 24 ≈ 1.460 requests por día entre las dos, o hacerlo semanal.
+**Resuelto el 2026-11-24 (fase 2): el envío depende del producto, no del envase.** Shell Helix HX7 10W40 4 L (item 1292): CABA 1001 domicilio AMBA 13.452 y Andreani 27.921 más retiros en sucursal (0 y 13.450), Córdoba 5000 Andreani 30.631, Salta 4400 Andreani 33.510. Total Quartz 7000 10W40 4 L (item 538): CABA solo retiros a 0; Córdoba y Salta sin slas y `messages[].code == "cannotBeDelivered"`. Por eso se cotiza **cada aviso** (`recolectar.envios_vtex`, k=7) y solo Norauto; Easy queda afuera por términos (§4.3). Lo que sigue es el plan original, ya superado en ese punto: En Norauto y Easy el plan supone que el envío depende del envase y la provincia, no del aviso, y que el precio puesto sale de `precio del aviso + envío del envase en esa provincia`, del mismo día y la misma tienda. **Eso no está verificado**: se vio un solo SKU por tienda. Antes de implementar hay que cotizar dos SKU distintos del mismo envase en dos CP. Si la tarifa da igual, vale un SKU por envase. Si no, hay que cotizar cada aviso, unos 61 × 24 ≈ 1.460 requests por día entre las dos, o hacerlo semanal.
 
 ### Cómo se vería en el Mapa
 
@@ -96,6 +96,13 @@ En Norauto y Easy el plan supone que el envío depende del envase y la provincia
    - Rotación semanal de las 24 provincias: unas 800 requests por día, unos 13 min más. Sumado a los unos 14 que ya usa `ml`, quedan unos 28 de los 30 min del job: entra muy justo.
    - 8 capitales todos los días: unas 1.800 requests, unos 30 min más. No entra en el job actual: necesita un job propio o subir el timeout.
 3. **Términos de uso de las tiendas VTEX.** Solo se miró robots.txt: bloquea `/checkout/*` pero no `/api/checkout/`. ¿Leemos los términos de Norauto y Easy antes de sumarlas? Recomendado: sí.
+
+### 4.3 Veredicto de términos de las tiendas VTEX (leídos el 2026-11-24)
+- **Norauto: permitido.** Términos y condiciones (https://www.norauto.com.ar/ayuda/Terminos-y-condiciones): sin cláusula contra bots ni extracción; la 1.11 protege el contenido pero no prohíbe leerlo; `robots.txt` no bloquea `/api/`. Se implementó (`vtex_norauto_envios`).
+- **Easy: dudoso, no se implementa.** Sección «Utilización del PORTAL. Propiedad intelectual»: «cualquier retransmisión, reproducción, alteración, publicación o utilización de cualquier material… se encuentra estrictamente prohibido».
+- **Carrefour: dudoso, no se implementa.** Punto 12) Propiedad Intelectual: «uso indebido y/o su copia, imitación, utilización o reproducción total o parcial de dichos contenidos quedan prohibidos, salvo previa autorización expresa y por escrito de INC S.A.» (el patrón de Coto).
+- **Más Online: no evaluable**: los términos publicados están vacíos. No se implementa.
+- Las cláusulas de Easy y Carrefour también alcanzan a la lectura de catálogo que `vtex_easy` y `vtex_carrefour` ya hacen hoy. **Decisión pendiente del usuario**; no se tocaron esas fuentes.
 4. **Carrefour y Masonline.** ¿Interesa «se consigue o no en esta provincia» (semanal), o se dejan afuera porque su flete es plano?
 5. **Mínimo, mediana o los dos** como color del mapa. Recomendado: mínimo para el color y mediana en el tooltip.
 6. **`origen_despacho` declarado** de Tiendanube y Woo (provincia + texto + URL + fecha, en el seed): ¿se carga solo para mostrarlo en la ficha?

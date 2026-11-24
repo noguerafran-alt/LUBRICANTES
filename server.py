@@ -938,8 +938,8 @@ def provincias(d, pid, dias=30, fuente="", mayoristas=False, pais="AR", desde=No
             "n_sin_provincia": sum(1 for r in rs if r.get("provincia", "") not in validas and r.get("provincia", "") != ONLINE)}
 
 
-NOTA_PUESTO = ("Precio puesto = precio del aviso + envío cotizado a la capital de cada provincia (CP de la capital), el mismo día. Mercado Libre, con la cuenta de la app: "
-               "el interior puede costar distinto y con usuario logueado o Mercado Puntos puede ser más barato. No es tiempo real: ML se cotiza en rotación semanal, por eso la ventana es de al menos 7 días. "
+NOTA_PUESTO = ("Precio puesto = precio del aviso + envío cotizado a la capital de cada provincia (CP de la capital), el mismo día. Fuentes: Mercado Libre (con la cuenta de la app; logueado o con Mercado Puntos puede ser más barato) y Norauto (simulación de carrito de la tienda, sin usuario); "
+               "el interior puede costar distinto. «Retiro» es retiro en sucursal, no entrega en la provincia. No es tiempo real: cada aviso se cotiza en rotación semanal, por eso la ventana es de al menos 7 días. "
                "Sin cotización no hay precio (nunca se arrastra ni se toma el de la vecina).")
 
 
@@ -951,7 +951,7 @@ def puesto(d, pid, dias=7):
     hasta = max((r["fecha"] for r in envios), default="")
     desde = (date.fromisoformat(hasta) - timedelta(days=dias - 1)).isoformat() if hasta else ""
     cp = {c["provincia"]: c["cp"] for c in d.get("cp", [])}
-    vend = {(r["url"], r["fecha"]): r["vendedor"] for r in d["obs"] if r["fuente"] == "ml"}  # ponytail: solo ML cotiza hoy; otra fuente suma su clave
+    vend = {(r["fuente"], r["url"], r["fecha"]): r["vendedor"] for r in d["obs"] if r["fuente"] in {e["fuente"] for e in envios}}
     ok, otros = {}, defaultdict(set)
     for r in envios:
         if r["producto_id"] != pid or not desde <= r["fecha"] <= hasta:
@@ -967,7 +967,7 @@ def puesto(d, pid, dias=7):
         env = num(r["costo_envio"])
         pl = precio_litro({**r, "precio": (num(r["precio"]) or 0) + env}) if num(r["precio"]) else None
         if pl is not None:
-            avisos.append({**r, "pl": pl, "envio": env, "vendedor": vend.get((r["url"], r["fecha"]), "")})
+            avisos.append({**r, "pl": pl, "envio": env, "vendedor": vend.get((r["fuente"], r["url"], r["fecha"]), "")})
     por_fuente = defaultdict(list)
     for a in avisos:
         por_fuente[a["fuente"]].append((a["pl"], a))
@@ -1047,7 +1047,8 @@ NOMBRE_FUENTE = {"ypf_gql": "YPF catálogo", "vtex_carrefour": "Carrefour", "vte
                  "tn_rano": "Repuestos Rano", "tn_olafil": "Olafil", "tn_lubrimaster": "Lubrimaster", "tn_lubricentrodg": "Lubricentro DG",
                  "tn_exporepuestos": "Exporepuestos", "tn_netrenault": "Net Renault", "tn_gramaglia": "Gramaglia Repuestos", "tn_torooils": "Toro Oils",
                  "woo_larutaok": "Neumáticos La Ruta OK", "woo_ceridono": "Ceridono",
-                 "sepa": "Precios Claros (SEPA)", "ml": "Mercado Libre", "ml_envios": "Mercado Libre (cotización de envíos)", "vtex_br_pitstop": "Pitstop (Brasil)", "vtex_br_altese": "Altese (Brasil)",
+                 "sepa": "Precios Claros (SEPA)", "ml": "Mercado Libre", "ml_envios": "Mercado Libre (cotización de envíos)",
+                 "vtex_norauto_envios": "Norauto (cotización de envíos)", "vtex_br_pitstop": "Pitstop (Brasil)", "vtex_br_altese": "Altese (Brasil)",
                  "oficial_br_notaparana": "Nota Paraná (Brasil, notas fiscales)"}
 METODO = ("Misma lógica que la vitrina (/api/vitrina). Cada aviso (fuente + url + ean + título + vendedor + envase; la provincia no entra) cuenta una vez, con su observación más reciente de la ventana "
           f"(por defecto {VENTANA_DIAS} días, termina en el último día con datos; con dias/desde/hasta se amplía). precio_litro = precio / (litros × unidades). Quedan fuera del cálculo (en_calculo=false, con motivo_exclusion): "
@@ -3145,6 +3146,15 @@ def demo():
     assert puesto({"envios": [], "obs": [], "cp": []}, "x")["celdas"] == [] and "token" not in json.dumps(pu_).lower()
     vd_ = puesto({"envios": [dict(ENV[0])], "obs": [dict(fuente="ml", url=A_, fecha="2026-11-20", vendedor="55 tienda:7")], "cp": []}, "ypf-a-10w40")["celdas"][0]
     assert vd_["minimo"]["vendedor"] == "55 tienda:7"   # el vendedor sale de obs por url + fecha
+    # Norauto: otra fuente de envíos, celda aparte de ML; su vendedor sale de SUS obs; no_envia es un dato (n_no_envia), no un precio
+    NA_ = "https://www.norauto.com.ar/helix-1/p"
+    nv_ = lambda pv, co, me, es="ok": dict(ENV[0], fuente="vtex_norauto", url=NA_, provincia_destino=pv, costo_envio=co, metodo=me, estado=es, precio="16000")
+    dn_ = {"envios": [dict(ENV[0]), nv_("AR-X", "30631", "domicilio"), nv_("AR-A", "", "", "no_envia")],
+           "obs": [dict(fuente="ml", url=A_, fecha="2026-11-20", vendedor="ML-V"), dict(fuente="vtex_norauto", url=NA_, fecha="2026-11-20", vendedor="Norauto")], "cp": []}
+    cn_ = {(c["provincia"], c["fuente"]): c for c in puesto(dn_, "ypf-a-10w40")["celdas"]}
+    assert set(cn_) == {("AR-X", "ml"), ("AR-X", "vtex_norauto"), ("AR-A", "vtex_norauto")} and cn_[("AR-X", "ml")]["minimo"]["vendedor"] == "ML-V"
+    assert cn_[("AR-X", "vtex_norauto")]["minimo"]["vendedor"] == "Norauto" and cn_[("AR-X", "vtex_norauto")]["minimo"]["precio_puesto"] == 46631
+    assert (cn_[("AR-A", "vtex_norauto")]["minimo"], cn_[("AR-A", "vtex_norauto")]["n_no_envia"]) == (None, 1) and NOMBRE_FUENTE["vtex_norauto_envios"].startswith("Norauto")
     cod, cuerpo = get("/api/producto?producto_id=ypf-a-10w40")  # lectura abierta
     pj_ = json.loads(cuerpo)
     assert cod == 200 and pj_["producto"]["es_ypf"] and [e["producto_id"] for e in pj_["equivalentes"]] == ["shell-b-10w40"] and pj_["publicaciones"] and "metodo" in pj_

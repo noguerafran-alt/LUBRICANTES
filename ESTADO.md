@@ -1,5 +1,11 @@
 # ESTADO
 
+## Precio puesto, fase 2: envíos de Norauto (2026-11-24, rama feat/puesto-norauto)
+- `recolectar.envios_vtex` (genérica; `ENVIOS_VTEX = ("vtex_norauto",)`) cotiza cada aviso YPF de Norauto a las 24 capitales con la simulación de carrito de VTEX (`orderForms/simulation`), rotación k=7, presupuesto propio de 15 min; escribe `data/envios/` con `fuente=vtex_norauto` y la fila `vtex_norauto_envios` en `fuentes.csv`. Corre en casa y en la Action de respaldo. Pruebas reales: el envío depende del producto (Quartz no llega a Córdoba/Salta, Helix sí), así que se cotiza por aviso, no por envase.
+- `server.puesto` toma el vendedor de la obs de la misma fuente (antes solo ML) y la celda de Norauto sale separada de la de ML; nombre legible y textos del Mapa generalizados («la fuente no devolvió envío»). Asserts en `demo()` de `recolectar.py` (números reales) y `server.py`; los tres `test` dan OK.
+- Términos (2026-11-24): Norauto permitido; Easy y Carrefour dudosos (propiedad intelectual), Más Online no evaluable: no se implementan. Esas cláusulas también alcanzan a la lectura de catálogo ya existente de Easy y Carrefour: decisión pendiente del usuario. Detalle en `docs/relevamiento/envio-por-provincia.md` §4.3.
+- Corrida real acotada (`--solo vtex_norauto`, datos revertidos): 17 avisos YPF, 1 toca hoy, 24 cotizaciones 24 ok (26 filas: 24 domicilio + 2 retiro en CABA y AR-B). Un «retiro» a 0 es retiro en sucursal y gana como mínimo de su provincia.
+
 ## Consulta a ML: ticket y formulario (2026-11-24, rama docs/ml-ticket-formulario)
 - `docs/ml-soporte-403.md`: el canal es un ticket de Soporte para Integradores (DPP), no un mail; tabla con los campos del ticket. Suma el borrador del formulario de alta de apps que ML exige desde el 2026-11-17 (solo para cuentas que nunca crearon una app: la cuenta actual no califica). Solo docs.
 

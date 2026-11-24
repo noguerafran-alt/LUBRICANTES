@@ -585,6 +585,89 @@ def envios_ml(obs, fecha, rel, tok, capitales, cotizar=ml.cotizar, reloj=time.mo
     return fila, filas
 
 
+ENVIOS_VTEX = ("vtex_norauto",)  # Easy y Carrefour no (cláusulas de propiedad intelectual), Más Online no se pudo evaluar: ver docs/relevamiento/envio-por-provincia.md §4.3
+ENVIOS_VTEX_SEGUNDOS = 15 * 60  # propio: cada combinación son 25 requests a 1 req/s (~25 s)
+_ITEMS_VTEX = {}  # url del aviso → (itemId, sellerId) o None; un aviso se resuelve una vez por corrida
+
+
+def cuerpo_simulacion(item_id, seller, cp):
+    return json.dumps({"items": [{"id": item_id, "quantity": 1, "seller": seller}], "postalCode": cp, "country": "ARG"}).encode()
+
+
+def plazo_vtex(s):
+    """shippingEstimate VTEX → horas. Solo `Nd` (días corridos) y `Nh`; `Nbd` son días hábiles y `Nm` minutos: no se convierten, se dejan vacíos."""
+    m = re.fullmatch(r"(\d+)(d|h)", s or "")
+    return "" if not m else int(m.group(1)) * (24 if m.group(2) == "d" else 1)
+
+
+def opciones_vtex(http, d):
+    """Respuesta de `orderForms/simulation` → (estado, [(metodo, costo, plazo_h, deposito)]). Precios en centavos: costo = (sla.price + la
+    ventana de entrega más barata, si hay) / 100. `pickup-in-point` = retiro, el resto domicilio; la más barata de cada método.
+    200 sin slas = no_envia (el sitio dice que no lo lleva: es un dato). HTTP error o JSON que no es un orderForm = sin_cotizacion (un hueco)."""
+    if http != 200 or not isinstance(d, dict) or not isinstance(d.get("logisticsInfo"), list):
+        return "sin_cotizacion", []
+    mejor = {}
+    for li in d["logisticsInfo"]:
+        for s in (li or {}).get("slas") or []:
+            p = s.get("price")
+            if isinstance(p, bool) or not isinstance(p, (int, float)) or p < 0:
+                continue
+            ventanas = [w["price"] for w in s.get("availableDeliveryWindows") or [] if isinstance(w.get("price"), (int, float)) and not isinstance(w.get("price"), bool)]
+            metodo = "retiro" if s.get("deliveryChannel") == "pickup-in-point" else "domicilio"
+            costo = (p + (min(ventanas) if ventanas else 0)) / 100
+            dep = ((s.get("pickupStoreInfo") or {}).get("friendlyName") or s.get("name") or "").strip()
+            if metodo not in mejor or costo < mejor[metodo][0]:
+                mejor[metodo] = (costo, plazo_vtex(s.get("shippingEstimate")), dep)
+    return ("ok", [(m, c, h, dep) for m, (c, h, dep) in sorted(mejor.items())]) if mejor else ("no_envia", [])
+
+
+def cotizar_vtex(url, cp):
+    """→ (http, estado, opciones). Resuelve itemId/seller por el slug de la URL (1 request por aviso, con caché) y simula el carrito a ese CP."""
+    u = urllib.parse.urlsplit(url)
+    base = f"{u.scheme}://{u.netloc}"
+    if url not in _ITEMS_VTEX:
+        slug = u.path.rstrip("/").removesuffix("/p").rsplit("/", 1)[-1]
+        http, d = ml.pedir(f"{base}/api/catalog_system/pub/products/search/{urllib.parse.quote(slug)}/p")
+        try:
+            it = d[0]["items"][0]
+            _ITEMS_VTEX[url] = (str(it["itemId"]), str(it["sellers"][0]["sellerId"]))
+        except (TypeError, KeyError, IndexError):
+            _ITEMS_VTEX[url] = None
+        if not _ITEMS_VTEX[url]:
+            return http, "sin_cotizacion", []
+    if not _ITEMS_VTEX[url]:
+        return 0, "sin_cotizacion", []
+    http, d = ml.pedir(f"{base}/api/checkout/pub/orderForms/simulation?sc=1", data=cuerpo_simulacion(*_ITEMS_VTEX[url], cp))
+    return (http, *opciones_vtex(http, d))
+
+
+def envios_vtex(obs, fecha, ypf, capitales, fuente, cotizar=cotizar_vtex, reloj=time.monotonic):
+    """Avisos de YPF que `fuente` escribió hoy → (fila `<fuente>_envios`, filas data/envios). Cada aviso (clave = url) del grupo de hoy
+    (k=7) se cotiza a la capital de las 24 provincias. Como el envío depende del producto, se cotiza cada aviso, no cada envase."""
+    fila = dict(fecha=fecha, fuente=fuente + "_envios", http="", n_items=0, n_con_precio=0, n_sin_stock=0, n_sin_match=0, error="", n_descartados=0)
+    combos = {}
+    for r in sorted((r for r in obs if r["fuente"] == fuente and r["producto_id"] in ypf and r["fecha"] == fecha), key=lambda r: r["url"]):
+        combos.setdefault((r["url"],), r)
+    hoy = [r for k, r in combos.items() if grupo_envios(k, fecha)]
+    capturado, filas, limite = ahora_utc(), [], reloj() + ENVIOS_VTEX_SEGUNDOS
+    for i, r in enumerate(hoy):
+        if reloj() > limite:
+            fila["error"] = f"cortado por tiempo: {i} de {len(hoy)} avisos"
+            break
+        for c in capitales:
+            http, estado, ops = cotizar(r["url"], c["cp"])
+            fila["http"], fila["n_items"] = http, fila["n_items"] + 1
+            fila["n_con_precio"] += estado == "ok"
+            base = dict(fecha=fecha, capturado=capturado, fuente=fuente, url=r["url"], producto_id=r["producto_id"], litros=r["litros"],
+                        unidades=r["unidades"], precio=r["precio"], cp_destino=c["cp"], provincia_destino=c["provincia"])
+            filas += [dict(base, costo_envio=num(co), metodo=m, plazo_h=h, estado=estado, deposito=dep) for m, co, h, dep in ops] or \
+                     [dict(base, costo_envio="", metodo="", plazo_h="", estado=estado, deposito="")]
+    if hoy and not fila["n_con_precio"] and not fila["error"] and not any(f["estado"] == "no_envia" for f in filas):
+        fila["error"] = f"ninguna de {fila['n_items']} cotizaciones respondió"
+    print(f"{fuente}_envios: {len(hoy)} de {len(combos)} avisos hoy, {fila['n_items']} cotizaciones, {fila['n_con_precio']} ok", flush=True)
+    return fila, filas
+
+
 def main(args):
     if "--renormalizar" in args:
         return renormalizar()
@@ -635,6 +718,20 @@ def main(args):
         escribir_fuentes(os.path.join(DATA, "fuentes.csv"), [fila])
         if env is not None:  # idempotente: reemplaza las filas de esa fuente y fecha
             reemplazar(os.path.join(DATA, "envios", fecha[:7] + ".csv"), ENVIOS, env, lambda f: (f["fuente"], f["fecha"]), {("ml", fecha)})
+    for fu in ENVIOS_VTEX:  # solo fuentes que corrieron bien hoy; aislado: si falla, los precios del día ya están guardados
+        if (fecha, fu) not in corridas:
+            continue
+        try:
+            ypf = {p["producto_id"] for p in leer(os.path.join(AQUI, "seed", "productos.csv")) if p["marca"] == "YPF"}
+            fila, env = envios_vtex(obs, fecha, ypf, leer(os.path.join(AQUI, "seed", "cp_capitales.csv")), fu)
+        except Exception:
+            traceback.print_exc()
+            fila, env = dict(fecha=fecha, fuente=fu + "_envios", http="", n_items=0, n_con_precio=0, n_sin_stock=0, n_sin_match=0, n_descartados=0,
+                             error="excepcion: " + traceback.format_exc().strip().splitlines()[-1][:200]), None
+        print(",".join(str(fila[k]) for k in FUENTES), flush=True)
+        escribir_fuentes(os.path.join(DATA, "fuentes.csv"), [fila])
+        if env is not None:
+            reemplazar(os.path.join(DATA, "envios", fecha[:7] + ".csv"), ENVIOS, env, lambda f: (f["fuente"], f["fecha"]), {(fu, fecha)})
 
 
 def demo():
@@ -725,6 +822,41 @@ def demo():
     assert fc["error"].startswith("cortado por tiempo") and 0 < fc["n_items"] < fx["n_items"]
     fn, _ = envios_ml(flota, "2026-11-23", {PID}, "tok", caps_, lambda u, c, t: (403, "sin_cotizacion", []))
     assert fn["n_con_precio"] == 0 and fn["error"].startswith("ninguna de")
+    # ---- envios_vtex: simulación de carrito de Norauto (números reales del 2026-11-24, en centavos) ----
+    sla = lambda n, p, canal="delivery", est="3bd", **k: dict(name=n, price=p, deliveryChannel=canal, shippingEstimate=est, **k)
+    caba = dict(logisticsInfo=[dict(slas=[sla("Envío a domicilio AMBA", 1000000, availableDeliveryWindows=[dict(price=345200), dict(price=400000)]),
+                                          sla("Envío a domicilio Andreani", 2792100, est="5d"),
+                                          sla("Retiro Norauto Lomas", 0, "pickup-in-point", "1h", pickupStoreInfo=dict(friendlyName="Norauto Lomas", isPickupStore=True)),
+                                          sla("Retiro Norauto Tigre", 1345000, "pickup-in-point", "1bd")])], messages=[])
+    assert opciones_vtex(200, caba) == ("ok", [("domicilio", 13452.0, "", "Envío a domicilio AMBA"), ("retiro", 0.0, 1, "Norauto Lomas")])  # ventana más barata sumada; 0 solo si la tienda dice 0; 3bd no se convierte
+    assert opciones_vtex(200, dict(logisticsInfo=[dict(slas=[sla("Andreani", 3063100, est="5d")])])) == ("ok", [("domicilio", 30631.0, 120, "Andreani")])
+    assert opciones_vtex(200, dict(logisticsInfo=[dict(slas=[])], messages=[dict(code="cannotBeDelivered")])) == ("no_envia", [])
+    assert opciones_vtex(500, None) == ("sin_cotizacion", []) and opciones_vtex(200, None) == ("sin_cotizacion", []) and opciones_vtex(200, dict(items=[])) == ("sin_cotizacion", [])
+    assert plazo_vtex("3bd") == "" and plazo_vtex("2d") == 48 and plazo_vtex("5h") == 5 and plazo_vtex("30m") == "" and plazo_vtex(None) == ""
+    assert json.loads(cuerpo_simulacion("1292", "1", "5000")) == dict(items=[dict(id="1292", quantity=1, seller="1")], postalCode="5000", country="ARG")
+    nu = lambda i, pid=PID, fu="vtex_norauto": dict(fuente=fu, fecha="2026-11-23", url=f"https://www.norauto.com.ar/helix-{i}/p", vendedor="Norauto",
+                                                   producto_id=pid, litros="4", unidades=1, precio="63355")
+    fnor = [nu(i) for i in range(40)]
+    pv = []
+    def cot(url, cp):
+        pv.append((url, cp))
+        return {"1001": (200, "ok", [("domicilio", 13452.0, "", "AMBA"), ("retiro", 0.0, "", "Norauto Lomas")]), "5000": (200, "ok", [("domicilio", 30631.0, 120, "Andreani")]),
+                "4400": (200, "no_envia", []), "9410": (500, "sin_cotizacion", [])}[cp]
+    caps4 = [c for c in caps if c["provincia"] in ("AR-C", "AR-X", "AR-A", "AR-V")]
+    fv, ev = envios_vtex(fnor + [nu(99, "otro"), nu(98, fu="ml")], "2026-11-23", {PID}, caps4, "vtex_norauto", cot)
+    hn = [r for r in fnor if grupo_envios((r["url"],), "2026-11-23")]
+    assert fv["fuente"] == "vtex_norauto_envios" and fv["n_items"] == len(pv) == 4 * len(hn) and fv["n_con_precio"] == 2 * len(hn) and fv["error"] == "" and hn
+    assert {x["url"] for x in ev} == {r["url"] for r in hn} and {x["fuente"] for x in ev} == {"vtex_norauto"} and set(ev[0]) == set(ENVIOS)  # ni el producto ajeno ni otra fuente
+    pn = [(x["provincia_destino"], x["metodo"], x["costo_envio"], x["estado"], x["deposito"]) for x in ev if x["url"] == hn[0]["url"]]
+    assert sorted(pn) == sorted([("AR-C", "domicilio", "13452", "ok", "AMBA"), ("AR-C", "retiro", "0", "ok", "Norauto Lomas"), ("AR-X", "domicilio", "30631", "ok", "Andreani"),
+                                 ("AR-A", "", "", "no_envia", ""), ("AR-V", "", "", "sin_cotizacion", "")])
+    assert [x["estado"] for x in ev if x["provincia_destino"] == "AR-A"] == ["no_envia"] * len(hn) and all(x["costo_envio"] == "" for x in ev if x["estado"] != "ok")
+    assert {x["plazo_h"] for x in ev if x["provincia_destino"] == "AR-X"} == {120}
+    fm, _ = envios_vtex(fnor, "2026-11-23", {PID}, caps4, "vtex_norauto", lambda u, c: (500, "sin_cotizacion", []))
+    assert fm["n_con_precio"] == 0 and fm["error"].startswith("ninguna de")
+    tv = iter(range(0, 10**6, 400))
+    fk, _ = envios_vtex(fnor, "2026-11-23", {PID}, caps4, "vtex_norauto", cot, lambda: next(tv))
+    assert fk["error"].startswith("cortado por tiempo") and 0 < fk["n_items"] < fv["n_items"]
     filas, sin_stock, _, desc = a_obs("vtex_x", "2026-11-03", avisos)
     assert sin_stock == 2 and len(filas) == 2 and desc == 0, (sin_stock, filas)
     assert filas[0]["precio"] == "159999" and filas[0]["litros"] == "4" and filas[0]["stock"] == 1
