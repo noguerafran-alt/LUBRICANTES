@@ -1,5 +1,8 @@
 # ESTADO
 
+## Consulta a ML: ticket y formulario (2026-11-24, rama docs/ml-ticket-formulario)
+- `docs/ml-soporte-403.md`: el canal es un ticket de Soporte para Integradores (DPP), no un mail; tabla con los campos del ticket. Suma el borrador del formulario de alta de apps que ML exige desde el 2026-11-17 (solo para cuentas que nunca crearon una app: la cuenta actual no califica). Solo docs.
+
 ## ML trae 0 publicaciones: el error dice el HTTP de /items (2026-11-23, rama fix/ml-items-http)
 - Discrepancia: desde la corrida del 2026-11-23 (00:34 UTC del 24) `ml` da «token válido pero 0 publicaciones (283 productos encontrados)»; hasta el 22 traía ~1.855. Búsqueda y token andan; `products/{id}/items` vuelve vacío para todos. El código de ML no cambió desde el 22: la causa es de ML. Sin publicaciones, `ml_envios` (precio puesto, #87) tampoco cotiza.
 - `ml.avisos` cuenta el HTTP de cada `products/{id}/items` y lo suma al log y al `error` de la fila `ml` (`items: HTTP 403 ×283`); antes `_paginar` lo tragaba sin rastro. Assert en `demo()` (mock 403). `python ml.py test` y `recolectar.py test` = OK.
