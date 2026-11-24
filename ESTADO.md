@@ -1,5 +1,10 @@
 # ESTADO
 
+## ML trae 0 publicaciones: el error dice el HTTP de /items (2026-11-23, rama fix/ml-items-http)
+- Discrepancia: desde la corrida del 2026-11-23 (00:34 UTC del 24) `ml` da «token válido pero 0 publicaciones (283 productos encontrados)»; hasta el 22 traía ~1.855. Búsqueda y token andan; `products/{id}/items` vuelve vacío para todos. El código de ML no cambió desde el 22: la causa es de ML. Sin publicaciones, `ml_envios` (precio puesto, #87) tampoco cotiza.
+- `ml.avisos` cuenta el HTTP de cada `products/{id}/items` y lo suma al log y al `error` de la fila `ml` (`items: HTTP 403 ×283`); antes `_paginar` lo tragaba sin rastro. Assert en `demo()` (mock 403). `python ml.py test` y `recolectar.py test` = OK.
+- Pendiente: correr la Action con este cambio, leer el código y corregir según lo que diga (scope del token, endpoint, bloqueo).
+
 ## Vuelven los GLB originales (2026-11-23, rama fix/glb-originales)
 - Reclamo del usuario con capturas: las manijas seguían corrugadas y con la etiqueta arrastrada; en el video BRAG (GLB originales de LUB-MODELOS3D `6cbe919`) se veían bien. Render comparado en Blender de las tres versiones de la Elaion TS 1040: la original es la buena; las regeneradas (`585d157`, `0f02700`) deforman la manija.
 - LUB-MODELOS3D `b717ae3`: vuelven los 92 GLB de `6cbe919`; quedan los 5 que solo existen después (Röd 4T 10W30/10W40/20W50, Quartz 9000 Future, Ineo Long Life). El submódulo apunta ahí.

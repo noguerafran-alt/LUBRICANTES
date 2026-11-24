@@ -236,14 +236,17 @@ def avisos(filtro=None):
                     prods[p["id"]] = p
                 else:
                     ajenos += 1
-    out = []
+    out, codigos = [], {}
     for pid, p in prods.items():
-        _, rs, _ = _paginar(f"/products/{pid}/items", TOPE_ITEMS, tok)  # 404 = sin publicaciones, no es caída
+        h, rs, _ = _paginar(f"/products/{pid}/items", TOPE_ITEMS, tok)  # 404 = sin publicaciones, no es caída
+        codigos[h] = codigos.get(h, 0) + 1
         out += [aviso(p, r) for r in rs if r.get("item_id") and r.get("condition", "new") == "new"]
+    # con 0 avisos, el HTTP de /items es lo único que dice si ML cambió la API o cerró el permiso (2026-11-23: 0 sin rastro)
+    vistos = ", ".join(f"HTTP {c} ×{n}" for c, n in sorted(codigos.items(), key=lambda x: -x[1]))
     print(f"ml: {len(qs)} búsquedas, {len(prods)} productos relacionados con YPF ({ajenos} de aceite descartados), {cortadas} búsquedas cortadas "
-          f"en {TOPE_PRODUCTOS}, {len(out)} avisos", flush=True)
+          f"en {TOPE_PRODUCTOS}, {len(out)} avisos; products/{{id}}/items: {vistos}", flush=True)
     if not out:
-        return http, [], f"token válido pero 0 publicaciones ({len(prods)} productos encontrados)"
+        return http, [], f"token válido pero 0 publicaciones ({len(prods)} productos encontrados; items: {vistos})"
     return http, out, ""
 
 
@@ -324,9 +327,14 @@ def demo():
         token = lambda: ("t", "")
         try:
             r = avisos(filtro=lambda a: "Elaion" in a["titulo"])
+            items_http = 403   # /items cerrado: el error tiene que decir el código, no solo "0 publicaciones"
+            pedir_ok = pedir
+            pedir = lambda ruta, tok=None, **k: (items_http, None) if "/items" in ruta else pedir_ok(ruta, tok)
+            r403 = avisos()
         finally:
             pedir, token = pedir0, token0
         assert len(r[1]) == 1 and r[1][0]["titulo"] == "Elaion F 50" and not any("/products/B" in x for x in pedidos), (r, pedidos)
+        assert r403[1] == [] and "items: HTTP 403 ×2" in r403[2], r403
         q = busquedas()
         assert q[:4] == BUSQUEDAS_YPF and "castrol edge" in q and "shell helix" in q and len(q) == len(set(q)) and "bardahl" not in q
         import tempfile
