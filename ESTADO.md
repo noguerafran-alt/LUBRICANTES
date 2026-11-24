@@ -1,5 +1,12 @@
 # ESTADO
 
+## Grok respalda a Mercado Libre (2026-11-24, rama feat/grok-respaldo-ml)
+- Decisión del usuario: `grok_mercadolibre` y `grok_mercadolibre_www` reemplazan a la API de ML los días en que `ml` no tiene NINGUNA fila en obs. `server.RESPALDO_GROK` + `integrar_grok`: esas filas con `verificado=0` pasan a `verificado="respaldo"` y entran a todos los cálculos (todos filtran `!= "0"`). Mismo día con obs de ml, u otra `grok_*`: siguen excluidas. Una mediana sigue sin mezclar fuentes.
+- `/api/producto` `publicaciones[]`: `verificado=false` y campo nuevo `respaldo` (bool; columna nueva en el CSV). `/api/ultimo`, celdas de `/api/provincias`/`/api/reventa` y `bi/precios`: `verificado="respaldo"`. Visor: «Grok · respaldo de Mercado Libre (sin verificar)». `/api/fuentes`: nota de respaldo en ambas fuentes.
+- Datos reales: 104 filas (2026-11-23 y 24) pasan a respaldo; vitrina YPF 468 -> 522 avisos, competencia 2057 -> 2093, índice 1327 -> 1330 celdas. Assert en `demo()` de server.py.
+- La nota de `/api/fuentes` sale de `fuentes_grok` (`NOTAS_FUENTE`), con assert en `demo()`.
+- Sin verificar: el rótulo, las pestañas, la consola y 375 px en navegador (solo sintaxis); cuando la API de ML vuelva, esos días ya no cambian (ml tiene obs) solo para los días nuevos.
+
 ## Índice (tabla): colores desde YPF (2026-11-24, rama fix/indice-tabla-colores)
 - Pedido del usuario: la tabla usa el mismo criterio que la vista 3D. Celda verde = la marca es más cara que YPF (YPF más barato), roja = YPF más caro. El número y el texto de la celda no cambian (siguen siendo la marca contra YPF); la leyenda lo explica y usa `.ix-escala-ypf`.
 
