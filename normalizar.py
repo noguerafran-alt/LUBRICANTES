@@ -11,7 +11,7 @@ import unicodedata
 AQUI = os.path.dirname(os.path.abspath(__file__))
 
 MARCAS = [  # (canónica, regex sobre texto normalizado). El orden importa: gana la primera.
-    ("YPF", r"\b(elaion|ypf|extravida|rod)\b"),
+    ("YPF", r"\b(elaion|ypf|extravida|extra\s*vida|rod)\b"),
     ("Shell", r"\b(shell|helix|rimula)\b"),
     ("Castrol", r"\b(castrol|edge|magnatec|gtx|vecton)\b"),
     ("Mobil", r"\b(mobil|delvac)\b"),
@@ -279,7 +279,7 @@ def demo():
     assert n("Aceite Quartz 9000 5w40 x 12 unidades 1 l")["unidades"] == 12
     # Acentos rotos de YPF GraphQL y marca VTEX compuesta.
     assert texto("Sint�tico Lubricación") == "sinttico lubricacion"
-    assert marca_de("Elaion Ypf") == "YPF" and marca_de("QUARTZ") == "TotalEnergies" and marca_de("Quim Bat") == ""
+    assert marca_de("Elaion Ypf") == "YPF" and marca_de("Extra Vida") == "YPF" and marca_de("QUARTZ") == "TotalEnergies" and marca_de("Quim Bat") == ""
     # Elaion sin SAE: el código de línea habilita "x 4".
     assert n("ACEITE ELAION MI 1540 X 4", "YPF")["litros"] == 4.0
     assert n("ACEITE ELAION TS 1040 X 1")["litros"] == 1.0 and n("ACEITE ELAION FS 540 X 4")["litros"] == 4.0
@@ -326,6 +326,32 @@ def demo():
     assert m("Aceite Valvoline Advanced Sintetico 5w20 4.73 Lts", "Valvoline") == "valvoline-advanced-5w20"
     assert m("Motul 4100 10w40 X4lt Semi-sintetico", "Motul") == "motul-4100-10w40"
     assert m("Aceite Shell Helix Ultra 0w30 Vw 504.00 507.00", "Shell") == ""
+    # ML 2026-11-24: Extravida "extra vida" + mineral no cae en MI 1540; "Extravida 300" sin XV es XV 300 (XVT sigue distinto).
+    assert m("Aceite Extra Vida Xv 300 15w40 Ypf Para Motor De 4 L Mineral", "YPF") == "ypf-extravida-xv300-15w40"
+    assert m("Aceite Motor Ypf Extravida 300 15w-40 20l Alta Protección", "YPF") == "ypf-extravida-xv300-15w40"
+    assert m("Aceite Ypf Extravida Xvt 300 15w40 Mineral Para Camioneta", "YPF") == "ypf-extravida-xvt300-15w40"
+    # ATF / Hidro ATF de YPF (productos propios sin alias).
+    assert m("Aceite Ypf Hidro Atf 4lts", "YPF") == "ypf-hidro-atf"
+    assert m("Aceite Ypf Atfd Iii Lubricante Direccion Hidraulica X1 Litro", "YPF") == "ypf-atf-d-iii"
+    assert m("Aceite Liquido Direccion Hidraulica Atf Dexron 3 Ypf 1 Lts", "YPF") == "ypf-atf-d-iii"
+    assert m("Ypf Aceite Hidro Atf Balde 20 Litros Hidraulico", "YPF") == "ypf-hidro-atf"
+    assert m("Hidro Atf Ypf X 20 Litros Hidráulico", "YPF") == "ypf-hidro-atf"
+    assert m("Bidon X 4 Litros Dexron Vi Atf Ypf 88863898bdx4lt", "YPF") == "ypf-atf-d-vi"
+    # "Nafta/diesel" no es Edge Turbo Diesel; el Turbo Diesel sigue yendo a su producto.
+    assert m("Aceite Castrol Edge 5w30 100% Sintetico X 4 L Nafta/diesel") == "castrol-edge-5w30"
+    assert m("Aceite Castrol Edge Turbo Diesel 5w-40 1l") == "castrol-edge-turbo-diesel-5w40"
+    # Syntium 3000 AM con AM delante; sin variante sigue ambiguo.
+    assert m("Lubricante Am 5w-40 Syntium 3000 Sintético 4 Litros Petronas", "Petronas") == "petronas-syntium-3000-am-5w40"
+    # HX8 genérico (no Professional AV); Ultra+HX8 sigue ambiguo.
+    assert m("Aceite De Motor Shell Helix Hx8 Sintético 5w-40 X 4 Litros", "Shell") == "shell-helix-hx8-5w40"
+    # Mobil Super 2000 / Super 10W-40 semisintético.
+    assert m("Aceite 10w40 Mobil Super 2000 Semisintetico Api Sn Plus X 4l", "Mobil") == "mobil-super-2000-10w40"
+    assert m("Aceite Mobil Super 10w40 Plus X4l Parat", "Mobil") == "mobil-super-2000-10w40"
+    assert m("Aceite mobil super 10w40 semi sintetico x 4L", "Mobil") == "mobil-super-2000-10w40"
+    assert m("Aceite Mobil Super 20w50 4L", "Mobil") == "mobil-super-20w50"
+    # Premium Protection 15W-40 (la de 20W-50 sigue).
+    assert m("Valvoline Aceite Premium Protection 15w40 3,78l Bidón", "Valvoline") == "valvoline-premium-protection-15w40"
+    assert m("Valvoline Premium Protection 20w50 4L", "Valvoline") == "valvoline-premium-protection-20w50"
     # Brasil: provincia = ISO 3166-2 de ESE país; BR-PR no vale como provincia argentina ni AR-X como brasileña; el texto respeta el país.
     assert provincia_iso("BR-PR", "BR") == "BR-PR" and provincia_iso("br-sp", "BR") == "BR-SP" and provincia_iso("online", "BR") == "online"
     assert provincia_iso("BR-PR") == "" and provincia_iso("AR-X", "BR") == "" and provincia_iso("Parana", "BR") == "" and provincia_iso("BR-XX", "BR") == ""

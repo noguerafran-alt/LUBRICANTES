@@ -3608,6 +3608,42 @@ def demo():
     assert jf["moneda"] == "ARS" and [x["fecha"] for x in jf["cotizaciones"]] == ars and jf["cotizaciones"][0]["fuente_url"].startswith("https://") and get("/api/fx?moneda=CLP", k)[0] == 400
     shutil.rmtree(raiz / "data" / "grok")
     BAJAR, GH, normalizar.normalizar = bajar, gh_api, norm_real
+    # Carga ML 2026-11-24: estas filas caían en "no relacionado con YPF" por alias o equivalencia faltante.
+    rel_ml = relacionados(Path(__file__).resolve().parent)
+    for tit, marca, pid in (
+        ("Aceite Extra Vida Xv 300 15w40 Ypf Para Motor De 4 L Mineral", "YPF", "ypf-extravida-xv300-15w40"),
+        ("Aceite Motor Ypf Extravida 300 15w-40 20l Alta Protección", "YPF", "ypf-extravida-xv300-15w40"),
+        ("Aceite Ypf Hidro Atf 4lts", "YPF", "ypf-hidro-atf"),
+        ("Aceite Ypf Atfd Iii Lubricante Direccion Hidraulica X1 Litro", "YPF", "ypf-atf-d-iii"),
+        ("Aceite Liquido Direccion Hidraulica Atf Dexron 3 Ypf 1 Lts", "YPF", "ypf-atf-d-iii"),
+        ("Ypf Aceite Hidro Atf Balde 20 Litros Hidraulico", "YPF", "ypf-hidro-atf"),
+        ("Hidro Atf Ypf X 20 Litros Hidráulico", "YPF", "ypf-hidro-atf"),
+        ("Bidon X 4 Litros Dexron Vi Atf Ypf 88863898bdx4lt", "YPF", "ypf-atf-d-vi"),
+        ("Aceite Castrol Edge 5w30 100% Sintetico X 4 L Nafta/diesel", "Castrol", "castrol-edge-5w30"),
+        ("Shell Helix Ultra 5w-40 Full Sintético", "Shell", "shell-helix-ultra-5w40"),
+        ("Aceite Shell Helix Ultra 5w40 X 4 Litros", "Shell", "shell-helix-ultra-5w40"),
+        ("Aceite De Motor Shell Helix Hx8 Sintético 5w-40 X 4 Litros", "Shell", "shell-helix-hx8-5w40"),
+        ("Aceite 10w40 Mobil Super 2000 Semisintetico Api Sn Plus X 4l", "Mobil", "mobil-super-2000-10w40"),
+        ("Aceite Mobil Super 10w40 Plus X4l Parat", "Mobil", "mobil-super-2000-10w40"),
+        ("Aceite mobil super 10w40 semi sintetico x 4L", "Mobil", "mobil-super-2000-10w40"),
+        ("Lubricante Am 5w-40 Syntium 3000 Sintético 4 Litros Petronas", "Petronas", "petronas-syntium-3000-am-5w40"),
+        ("Aceite De Motor Petronas Syntium 3000 Am 5w-40 4l", "Petronas", "petronas-syntium-3000-am-5w40"),
+        ("Aceite Sintético Petronas Syntium 3000 Am 5w40 X 4 Litros", "Petronas", "petronas-syntium-3000-am-5w40"),
+        ("Valvoline Aceite Premium Protection 15w40 3,78l Bidón", "Valvoline", "valvoline-premium-protection-15w40"),
+    ):
+        n = normalizar.normalizar(tit, marca, "")
+        assert n["producto_id"] == pid and pid in rel_ml, (tit, n, pid in rel_ml)
+    # Rimula R4 sin X/L es ambiguo (ya documentado); ACDelco y Valvoline HD 15W-40 no tienen equivalente claro en el seed.
+    for tit, marca in (
+        ("Shell Rimula R4 15w40 X4lts", "Shell"),
+        ("Aceite Mineral Acdelco 15w40 Bidon X 4 Litros Nafta Diesel", "ACDelco"),
+        ("Aceite De Motor Acdelco Mineral 15w 40 - 4 L", "ACDelco"),
+        ("Aceite Mineral Premium Blue 15w-40 19l Valvoline", "Valvoline"),
+        ("Aceite Valvoline 15w40 All Fleet Max X 20lts", "Valvoline"),
+        ("Aceite Valvoline 15w40 Premium Blue 7800 X Gl-3.78lt", "Valvoline"),
+    ):
+        n = normalizar.normalizar(tit, marca, "")
+        assert n["producto_id"] not in rel_ml, (tit, n)
     srv.shutdown()
     print("OK")
 
