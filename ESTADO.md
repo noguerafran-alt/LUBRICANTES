@@ -1,5 +1,8 @@
 # ESTADO
 
+## Ticket a ML actualizado (2026-11-24, rama docs/ml-ticket-v2)
+- `docs/ml-soporte-403.md`: el cuerpo suma la prueba con «Publicación y sincronización» en lectura y escritura (scopes read-write en el token, sigue 403) y que la cuenta es vendedora. Sin enviar: lo manda el usuario.
+
 ## ML: el permiso de escritura no destraba el 403 (2026-11-24, rama docs/ml-permiso-refutado)
 - Usuario cambió «Publicación y sincronización» a lectura y escritura y reautorizó: el token trae los scopes publish-sync read-write y `write`, y `/products/{id}/items` sigue en 403 PolicyAgent. Hipótesis de permisos funcionales refutada (detalle en `docs/ml-via-oficial.md`). Las funciones de vendedor responden contra la API real (`users/me`, `items/search`, `items/{id}`, `price_to_win`). `ML_REFRESH_TOKEN` de GitHub actualizado con el refresh de la reautorización.
 
