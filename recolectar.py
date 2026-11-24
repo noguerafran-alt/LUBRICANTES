@@ -589,6 +589,7 @@ def envios_ml(obs, fecha, rel, tok, capitales, cotizar=ml.cotizar, reloj=time.mo
     return fila, filas
 
 
+ENVIOS_ML = False  # apagada el 2026-11-24 por decisión del usuario: ML vuelve a pedir solo precios, como antes del 403 del 23/11
 ENVIOS_VTEX = ("vtex_norauto",)  # Easy y Carrefour no (cláusulas de propiedad intelectual), Más Online no se pudo evaluar: ver docs/relevamiento/envio-por-provincia.md §4.3
 ENVIOS_VTEX_SEGUNDOS = 15 * 60  # propio: cada combinación son 25 requests a 1 req/s (~25 s)
 _ITEMS_VTEX = {}  # url del aviso → (itemId, sellerId) o None; un aviso se resuelve una vez por corrida
@@ -707,7 +708,7 @@ def main(args):
         reemplazar(os.path.join(DATA, "obs", mes + ".csv"), OBS, [f for f in propias if f["fecha"][:7] == mes], clave_fila)
     print("fotos nuevas o cambiadas:", guardar_imagenes(os.path.join(DATA, "imagenes.csv"), imgs, fecha), flush=True)
     ml_ = next((f for f in filas_f if f["fuente"] == "ml"), None)
-    if ml_:  # después de escribir todo: si la cotización se alarga o se rompe, los precios del día ya están guardados
+    if ml_ and ENVIOS_ML:  # después de escribir todo: si la cotización se alarga o se rompe, los precios del día ya están guardados
         vacia = dict(fecha=fecha, fuente="ml_envios", http="", n_items=0, n_con_precio=0, n_sin_stock=0, n_sin_match=0, n_descartados=0)
         try:
             if ml_["error"] and ml_["error"] != "sin token":

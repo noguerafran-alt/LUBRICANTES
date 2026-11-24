@@ -1,5 +1,11 @@
 # ESTADO
 
+## Funciones de vendedor de ML (2026-11-24, rama feat/ml-vendedor)
+- `ml.py`: `mis_items`, `competencia` (price_to_win + suggestions en un dict plano; cada parte falla sola), `actualizar` (PUT de precio o stock, exactamente uno, devuelve el warning de automatización sin reintentar) y CLI `python ml.py vendedor` / `python ml.py precio <item_id> <precio>` (confirma antes del PUT). `pedir` suma el parámetro `metodo`. No escriben en `data/`; Action y `recolectar.py` sin cambios.
+- Docs: «Vía vendedor» en `docs/ml-via-oficial.md` (hallazgo de permisos funcionales, marcado como inferencia) y nota del formulario en `docs/ml-soporte-403.md`.
+- Verificado: `ml.py test` y los demás módulos OK, con fixtures. **No verificado contra la API real**: no existe aún la cuenta de vendedor.
+- **`ml_envios` pausada** (pedido del usuario: volver a la primera versión, ML solo precios). `recolectar.ENVIOS_ML = False`; `server.CADENCIA`/`NOTAS_FUENTE` la muestran como pausada, no como falla. Norauto sigue cotizando. Línea de tiempo revisada: última corrida buena de `ml` 22/11 17:02 ART; prueba manual anónima de `shipping_options` 23/11 20:04; primer 403 23/11 21:28; el código de `ml_envios` entró 21:37 y nunca llegó a cotizar con token. No se espera que esto destrabe el 403 (falla `/products/{id}/items`, la primera llamada), pero descarta la duda.
+
 ## Baldes 3D: tapa plana con su color y costados sin costura (2026-11-24, rama fix/baldes-3d)
 - Reclamo del usuario (Extravida XV 300 con la tapa estirada y una costura al costado). LUB-MODELOS3D `a03ee40`: el generador, solo en el camino de baldes, pone tapa plana con el color de la tapa de la foto y costados/dorso de un solo color de cuerpo con fundido de 40° a 58°. Se regeneraron solo los 17 baldes (Extravida, Náutico 2T, Súper 20W50, Transferencia térmica, Rimula R3 L/R6 LM/R6 MS); bidones y botellas dan el mismo sha256 que antes.
 - Verificado: self-test del generador OK; render antes/después (frente 3/4 y costado) de los 17, juzgado por 3 revisores independientes: 17 «mejor», 0 igual o peor. Queda una cuña chica en el canto de la tapa del Rimula R6 LM (la muestra la propia foto).
