@@ -1,5 +1,8 @@
 # ESTADO
 
+## ML: el permiso de escritura no destraba el 403 (2026-11-24, rama docs/ml-permiso-refutado)
+- Usuario cambió «Publicación y sincronización» a lectura y escritura y reautorizó: el token trae los scopes publish-sync read-write y `write`, y `/products/{id}/items` sigue en 403 PolicyAgent. Hipótesis de permisos funcionales refutada (detalle en `docs/ml-via-oficial.md`). Las funciones de vendedor responden contra la API real (`users/me`, `items/search`, `items/{id}`, `price_to_win`). `ML_REFRESH_TOKEN` de GitHub actualizado con el refresh de la reautorización.
+
 ## Funciones de vendedor de ML (2026-11-24, rama feat/ml-vendedor)
 - `ml.py`: `mis_items`, `competencia` (price_to_win + suggestions en un dict plano; cada parte falla sola), `actualizar` (PUT de precio o stock, exactamente uno, devuelve el warning de automatización sin reintentar) y CLI `python ml.py vendedor` / `python ml.py precio <item_id> <precio>` (confirma antes del PUT). `pedir` suma el parámetro `metodo`. No escriben en `data/`; Action y `recolectar.py` sin cambios.
 - Docs: «Vía vendedor» en `docs/ml-via-oficial.md` (hallazgo de permisos funcionales, marcado como inferencia) y nota del formulario en `docs/ml-soporte-403.md`.
