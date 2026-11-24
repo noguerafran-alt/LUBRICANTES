@@ -318,3 +318,4 @@ fecha,fuente,http,n_items,n_con_precio,n_sin_stock,n_sin_match,error,n_descartad
 2026-11-23,fx_bcra,200,6,6,0,0,,0
 2026-11-23,casa,,4,4,0,0,,0
 2026-11-23,ml,200,0,0,0,0,token válido pero 0 publicaciones (283 productos encontrados),0
+2026-11-23,ml_envios,,0,0,0,0,ml sin avisos: token válido pero 0 publicaciones (283 productos encontrados),0
