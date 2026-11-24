@@ -2018,6 +2018,18 @@ def procesar_carga(d, raiz, texto, hoy=None, ahora=None):
     return (502 if fallo else 200), resp
 
 
+MEDIA = {".mp4": "video/mp4", ".jpg": "image/jpeg"}
+
+
+def rango_bytes(n, h):
+    """Header Range de un solo tramo -> (inicio, fin) inclusivos; None si no hay Range (o no se entiende: 200 completo); False si no cabe en el archivo (416)."""
+    m = re.fullmatch(r"bytes=(\d*)-(\d*)", h.strip())
+    if not m or not (m[1] or m[2]):
+        return None
+    a, b = (n - int(m[2]), n - 1) if not m[1] else (int(m[1]), min(int(m[2]), n - 1) if m[2] else n - 1)
+    return (max(a, 0), b) if 0 <= a <= b and a < n else False
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "lubricantes"
     sys_version = ""
@@ -2031,7 +2043,7 @@ class Handler(BaseHTTPRequestHandler):
     pais, usd, fx_fecha = "AR", False, ""  # por pedido (do_GET los fija; los handlers son por conexión)
 
     def enviar(self, codigo, cuerpo, tipo, extra=()):
-        if "gzip" in self.headers.get("Accept-Encoding", "") and len(cuerpo) > 1024:
+        if "gzip" in self.headers.get("Accept-Encoding", "") and len(cuerpo) > 1024 and not tipo.startswith(("video/", "image/jpeg")):  # mp4 y jpg ya vienen comprimidos (y gzip rompería el Range)
             cuerpo = gzip.compress(cuerpo)
             extra = [*extra, ("Content-Encoding", "gzip")]
         self.send_response(codigo)
@@ -2061,12 +2073,20 @@ class Handler(BaseHTTPRequestHandler):
             return self.enviar(200, INDEX.read_bytes(), "text/html; charset=utf-8")
         if u.path in ("/favicon.svg", "/favicon.ico"):  # el navegador pide .ico por defecto: se le da el mismo SVG
             return self.enviar(200, (SITE / "favicon.svg").read_bytes(), "image/svg+xml", [("Cache-Control", "public, max-age=86400")])
-        if u.path.endswith((".js", ".mjs", ".glb")):  # resolve + is_relative_to contra traversal
+        if u.path.endswith((".js", ".mjs", ".glb", ".mp4", ".jpg")):  # resolve + is_relative_to contra traversal
             f = (SITE / u.path.lstrip("/")).resolve()
             if f.is_file() and f.is_relative_to(SITE.resolve()):
                 if f.suffix == ".glb":  # con ?v=<hash> la URL cambia si el archivo cambia: immutable; sin ella, poco cache
                     cc = "public, max-age=31536000, immutable" if q.get("v") else "public, max-age=3600"
                     return self.enviar(200, f.read_bytes(), "model/gltf-binary", [("Cache-Control", cc)])
+                if f.suffix in MEDIA:  # video/foto del hero: sin ?v= no puede ser immutable; Safari exige Range para reproducir mp4
+                    datos, tipo, rg = f.read_bytes(), MEDIA[f.suffix], rango_bytes(f.stat().st_size, self.headers.get("Range", ""))
+                    cc = [("Cache-Control", "public, max-age=3600"), ("Accept-Ranges", "bytes")]
+                    if rg is False:
+                        return self.enviar(416, b"", tipo, [*cc, ("Content-Range", f"bytes */{len(datos)}")])
+                    if rg:
+                        return self.enviar(206, datos[rg[0]:rg[1] + 1], tipo, [*cc, ("Content-Range", f"bytes {rg[0]}-{rg[1]}/{len(datos)}")])
+                    return self.enviar(200, datos, tipo, cc)
                 # immutable solo en vendor/ (versión fijada); el resto revalida pronto, así no hace falta versionar la URL
                 cc = "public, max-age=31536000, immutable" if f.is_relative_to((SITE / "vendor").resolve()) else "public, max-age=60, must-revalidate"
                 return self.enviar(200, f.read_bytes(), "text/javascript; charset=utf-8", [("Cache-Control", cc)])
@@ -2933,6 +2953,16 @@ def demo():
     assert get("/api/ultimo")[0] == 200 and get("/robots.txt")[1] == b"User-agent: *\nDisallow: /\n"
     assert urllib.request.urlopen(base + "/api/ultimo").headers["X-Robots-Tag"] == "noindex, nofollow" and get("/api/ultimo", {"X-API-Key": "mala"})[0] == 200   # la clave vieja o errónea se ignora
     assert get("/")[0] == 200
+    assert rango_bytes(100, "") is None and rango_bytes(100, "bytes=0-9") == (0, 9) and rango_bytes(100, "bytes=90-") == (90, 99) and rango_bytes(100, "bytes=-10") == (90, 99)
+    assert rango_bytes(100, "bytes=0-999") == (0, 99) and rango_bytes(100, "bytes=100-") is False and rango_bytes(100, "bytes=9-3") is False and rango_bytes(100, "bytes=0-1,5-6") is None and rango_bytes(100, "bytes=-") is None
+    for ruta, tipo in (("/media/lubricantes.mp4", "video/mp4"), ("/media/lubricantes-poster.jpg", "image/jpeg")):
+        if (SITE / ruta.lstrip("/")).is_file():
+            mr = urllib.request.urlopen(base + ruta)
+            cuerpo = mr.read()
+            assert mr.status == 200 and mr.headers["Content-Type"] == tipo and "immutable" not in mr.headers["Cache-Control"] and mr.headers["Accept-Ranges"] == "bytes" and mr.headers.get("Content-Encoding") is None and len(cuerpo) > 1000
+            pr6 = urllib.request.urlopen(urllib.request.Request(base + ruta, headers={"Range": "bytes=0-99", "Accept-Encoding": "gzip"}))
+            assert pr6.status == 206 and pr6.headers["Content-Range"] == f"bytes 0-99/{len(cuerpo)}" and pr6.read() == cuerpo[:100]
+    assert get("/media/no-existe.mp4")[0] == 404 and get("/media/../../server.py.jpg")[0] == 404
     for ruta in ("/favicon.svg", "/favicon.ico"):
         fv = urllib.request.urlopen(base + ruta)
         assert fv.status == 200 and fv.headers["Content-Type"] == "image/svg+xml" and b"<svg" in fv.read()

@@ -595,6 +595,20 @@ body:has(#dl[open]), body:has(#ix-dl[open]) { overflow: hidden; }
 @media (max-width: 899px) { #sd-btn { order: 3; flex: 1 1 auto; justify-content: flex-start; align-self: flex-start; margin: 0 0 6px; } }
 @media (max-width: 899px) { .cab { position: relative; } #tema-btn { position: absolute; top: 8px; right: 16px; padding: 0; width: 44px; } #tema-btn span { display: none; } header h1 { white-space: normal; padding-right: 112px; } }
 
+/* ---------- Hero: video de presentación (primera visita) ---------- */
+#hero { background: #0b1a33; }
+#hero[hidden] { display: none; }
+.hero-in { position: relative; max-width: 1100px; margin: 0 auto; }
+#hero video { display: block; width: 100%; max-height: min(42vh, 380px); object-fit: contain; background: #0b1a33; }
+.hero-bt { position: absolute; right: 8px; bottom: 8px; display: flex; gap: 6px; }
+.hero-bt button, #hero-x { background: rgba(0, 0, 0, .62); color: #fff; border: 1px solid rgba(255, 255, 255, .6); border-radius: 6px; font: inherit; font-size: 13px; min-height: 36px; min-width: 36px; padding: 0 10px; cursor: pointer; }
+.hero-bt button:hover, #hero-x:hover { background: rgba(0, 0, 0, .85); }
+#hero :focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+#hero-x { position: absolute; top: 8px; right: 8px; font-size: 20px; line-height: 1; padding: 0; }
+#hero-btn { display: inline-flex; align-items: center; justify-content: center; background: none; border: 1px solid rgba(255, 255, 255, .5); border-radius: 50%; color: #fff; font: inherit; font-size: 13px; width: 36px; height: 36px; padding: 0; cursor: pointer; align-self: center; flex: none; }
+#hero-btn:hover { background: rgba(255, 255, 255, .15); }
+@media (max-width: 899px) { #hero-btn { position: absolute; top: 8px; right: 120px; } header h1 { padding-right: 164px; } }
+
 /* ---------- Mapa y Cobertura ---------- */
 .mp-cuerpo { display: grid; grid-template-columns: minmax(0, 330px) minmax(0, 1fr); gap: 16px; align-items: start; }
 @media (max-width: 760px) { .mp-cuerpo { grid-template-columns: minmax(0, 1fr); } }
@@ -631,11 +645,22 @@ body:has(#dl[open]), body:has(#ix-dl[open]) { overflow: hidden; }
     <button role="tab" data-tab="fuentes">Fuentes</button>
     <button role="tab" data-tab="cargar">Cargar</button>
   </nav>
+  <button type="button" id="hero-btn" aria-label="Ver el video de presentación" title="Ver el video de presentación">&#9654;</button>
   <button type="button" id="av-btn" aria-expanded="false" aria-controls="av-pop" aria-label="Sin avisos sobre las fuentes">i<span id="av-n" aria-hidden="true"></span></button>
   <button type="button" id="sd-btn" role="switch" aria-checked="true" title="Oculta las filas, columnas y series que no tienen ningún dato en lo que se ve; el aviso de cada pestaña dice cuántas"><span class="sd-sw" aria-hidden="true"></span>Ocultar sin datos</button>
   <button type="button" id="tema-btn"></button>
   <div id="av-pop" role="region" aria-label="Avisos sobre las fuentes" hidden></div>
 </div></header>
+<section id="hero" aria-label="Video de presentación de YPF Lubricantes" hidden>
+  <div class="hero-in">
+    <video id="hero-v" muted loop playsinline preload="none" poster="media/lubricantes-poster.jpg" data-src="media/lubricantes.mp4" aria-label="Video de presentación de la plataforma de precios de lubricantes"></video>
+    <button type="button" id="hero-x" aria-label="Cerrar el video (Esc)" title="Cerrar (Esc)">&times;</button>
+    <div class="hero-bt">
+      <button type="button" id="hero-play" aria-label="Pausar el video">&#10074;&#10074;</button>
+      <button type="button" id="hero-snd" aria-pressed="false">Activar sonido</button>
+    </div>
+  </div>
+</section>
 <main>
   <div id="banner"></div>
   <div class="filtros pais-barra" id="pais-barra">
@@ -705,6 +730,7 @@ body:has(#dl[open]), body:has(#ix-dl[open]) { overflow: hidden; }
     </div></div>
     <div class="filtros">
       <label>Capa <select id="mp-capa"><option value="sepa">Sucursal física (SEPA)</option><option value="puesto">Puesto en provincia (online + envío)</option></select></label>
+      <label id="mp-vista-l" hidden>Vista <select id="mp-vista"><option value="plano">Plano</option><option value="3d">3D</option></select></label>
       <label>Producto YPF <select id="mp-ypf"></select></label>
       <label>Producto a mostrar <select id="mp-prod"></select></label>
       <label>Fuente <select id="mp-fuente"></select></label>
@@ -2892,7 +2918,9 @@ function pintarCompuestos() {
 
 // ---------- Mapa de precios de reventa por provincia ----------
 // Una sola fuente por mapa: el color nunca mezcla fuentes. Sin dato = gris rayado, nunca un color de la escala.
-const MP = { datos: null, sel: null };
+const MP = { datos: null, sel: null, vista: "plano", v3: null, tok: 0 };
+try { if (localStorage.getItem("lub_mapa_vista") === "3d") MP.vista = "3d"; } catch (e) {}
+function mp3dCerrar() { MP.tok++; MP.v3?.cerrar(); MP.v3 = null; }
 const num2 = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 });
 const pl = v => v == null ? "" : "$ " + num2.format(v) + "/L";
 const NS = "http://www.w3.org/2000/svg";
@@ -2908,8 +2936,10 @@ function mpFuentes(celdas) {
 }
 
 function initMapa() {
-  if (MP.listo) return;
+  if (MP.listo) { if (MP.vista === "3d" && !MP.v3 && $("#mp-capa").value === "puesto" && MP.puesto) mpPintarPuesto(); return; }   // al volver a la pestaña la GPU se había liberado
   MP.listo = true;
+  $("#mp-vista").value = MP.vista;
+  $("#mp-vista").onchange = () => { MP.vista = $("#mp-vista").value; try { localStorage.setItem("lub_mapa_vista", MP.vista); } catch (e) {} mpPintarPuesto(); };
   opciones($("#mp-ypf"), ypfsAR().map(p => p.producto_id), "", id => { const p = prod(id); return `${p.nombre} ${p.sae || ""}`.trim(); });
   $("#mp-ypf").onchange = () => { opcionesEquiv(); mpCapa(); };
   $("#mp-prod").onchange = mpCapa;
@@ -2931,6 +2961,7 @@ const NOTA_PUESTO = "Envío cotizado a la capital de cada provincia (CP de la ca
 
 function mpCapa() {
   const p = $("#mp-capa").value === "puesto";
+  mp3dCerrar(); $("#mp-vista-l").hidden = !p;
   $("#mp-fuente").parentElement.hidden = $("#mp-nivel").parentElement.hidden = p;
   if (!p) $("#mp-panel").innerHTML = '<p class="nota">Tocá una provincia para ver todas las fuentes que tienen precio ahí, cada una por separado.</p>';
   return p ? mpPuesto() : mpCargar();
@@ -2941,11 +2972,13 @@ async function mpPuesto() {
   const id = $("#mp-prod").value;
   $("#mp-mapa").textContent = "Cargando…";
   try { MP.puesto = await api("puesto?producto_id=" + encodeURIComponent(id)); } catch (e) { $("#mp-mapa").textContent = "No se pudo leer: " + e.message; return; }
+  if ($("#mp-capa").value !== "puesto") return;   // cambió de capa mientras cargaba
   MP.sel = null;
   mpPintarPuesto();
 }
 
 function mpPintarPuesto() {
+  mp3dCerrar();
   const M = MP.puesto, por = {};
   for (const c of M.celdas) (por[c.provincia] ||= []).push(c);
   // por provincia: la celda con el mínimo más barato; si ninguna tiene precio, el motivo
@@ -2963,29 +2996,56 @@ function mpPintarPuesto() {
   const c0 = AR_GEO.provincias["AR-C"].c;
   $("#mp-fecha").textContent = M.hasta ? `Cotizaciones hasta el ${fechaAR(M.hasta)} (últimos ${M.dias} días). ${NOTA_PUESTO}` : "Todavía no hay cotizaciones de envío.";
   $("#mp-aviso").textContent = "Color: mínimo $/L puesto de la provincia (precio del aviso + envío del mismo día). El tooltip trae también la mediana. Gris rayado: sin precio, con su motivo.";
-  $("#mp-mapa").innerHTML = `<svg viewBox="${x} ${y} ${w} ${h}" role="group" aria-label="Mapa de Argentina por provincia, precio puesto">
-    <defs><pattern id="mp-raya" width="90" height="90" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="90" height="90" fill="#eef0f3"/><rect width="38" height="90" fill="#b8bec7"/></pattern></defs>
-    ${Object.entries(AR_GEO.provincias).map(([iso, g]) => `<path d="${g.d}" ${attrs(iso)}><title>${esc(texto(iso))}</title></path>`).join("")}
-    <circle cx="${c0[0]}" cy="${c0[1]}" r="70" ${attrs("AR-C")}><title>${esc(texto("AR-C"))} (círculo para poder tocarla)</title></circle>
-  </svg>`;
-  $("#mp-mapa").querySelectorAll("[data-iso]").forEach(e => {
-    e.onclick = () => { MP.sel = e.dataset.iso; mpPintarPuesto(); };
-    e.onkeydown = ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); e.onclick(); } };
-  });
+  const tres = MP.vista === "3d" && vals.length > 0;
+  if (!tres) {
+    $("#mp-mapa").innerHTML = `<svg viewBox="${x} ${y} ${w} ${h}" role="group" aria-label="Mapa de Argentina por provincia, precio puesto">
+      <defs><pattern id="mp-raya" width="90" height="90" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="90" height="90" fill="#eef0f3"/><rect width="38" height="90" fill="#b8bec7"/></pattern></defs>
+      ${Object.entries(AR_GEO.provincias).map(([iso, g]) => `<path d="${g.d}" ${attrs(iso)}><title>${esc(texto(iso))}</title></path>`).join("")}
+      <circle cx="${c0[0]}" cy="${c0[1]}" r="70" ${attrs("AR-C")}><title>${esc(texto("AR-C"))} (círculo para poder tocarla)</title></circle>
+    </svg>`;
+    $("#mp-mapa").querySelectorAll("[data-iso]").forEach(e => {
+      e.onclick = () => { MP.sel = e.dataset.iso; mpPintarPuesto(); };
+      e.onkeydown = ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); e.onclick(); } };
+    });
+  }
   const sin = 24 - vals.length;
-  $("#mp-ley").innerHTML = (vals.length ? (mn === mx ? `<span>todas: ${esc(pl(mn))}</span>` : `<span>${esc(pl(mn))}</span><span class="mp-grad" aria-hidden="true"></span><span>${esc(pl(mx))}</span>`) +
+  if (tres) $("#mp-aviso").textContent = "Altura = mínimo $/L puesto de la provincia (la base es $ 0). Color = cuánto más cara está contra la provincia más barata. Gris rayado y plano: sin precio, con su motivo al pasar el mouse o tocar. Arrastrá para girar; rueda o pellizco para acercar; botón derecho o dos dedos para mover (con el foco en el mapa, flechas y +/-). Clic o toque en una provincia: sus avisos.";
+  $("#mp-ley").innerHTML = tres ? `<span>${esc(pl(mn))} · la más barata</span><span class="mp-grad" aria-hidden="true"></span><span>${esc(pl(mx))}${mx > mn ? ` · +${dec1.format((mx / mn - 1) * 100)} % vs la más barata` : ""}</span><span>altura = $/L mínimo puesto</span><span><i class="mp-chip"></i>sin precio (${sin} de 24)</span>`
+    : (vals.length ? (mn === mx ? `<span>todas: ${esc(pl(mn))}</span>` : `<span>${esc(pl(mn))}</span><span class="mp-grad" aria-hidden="true"></span><span>${esc(pl(mx))}</span>`) +
     "<span>más claro = más barato puesto</span>" : "") + `<span><i class="mp-chip"></i>sin precio (${sin} de 24)</span>`;
-  const iso = MP.sel;
+  const panel = () => { const iso = MP.sel;
   $("#mp-panel").innerHTML = iso ? `<h3>${esc(AR_GEO.provincias[iso].n)} <span class="nota">· CP ${esc((por[iso] || [{}])[0].cp || "")}</span></h3>` +
     ((por[iso] || []).length ? (por[iso]).map(c => `<p class="nota">${esc(nf(c.fuente))}: ${c.n} ${c.n === 1 ? "aviso" : "avisos"} con precio${c.n_no_envia ? ` · ${c.n_no_envia} no envía` : ""}${c.n_sin_cotizacion ? ` · ${c.n_sin_cotizacion} sin cotización` : ""}</p>` +
       (c.avisos.length ? `<ul>${c.avisos.map(a => `<li><span class="v">${esc(pl(a.precio_litro_puesto))}</span> puesto · ${esc(pesos.format(a.precio))} + envío ${a.envio ? esc(pesos.format(a.envio)) : "gratis"} (${esc(a.metodo)}${a.plazo_h ? ", " + a.plazo_h + " h" : ""})
         <span class="m">${a.vendedor ? "vendedor " + esc(a.vendedor) + " · " : ""}${fechaAR(a.fecha)} · ${linkUrl(a.url, "ver aviso")}</span></li>`).join("")}</ul>` : `<p class="mp-sin">${esc(motivo(iso))}.</p>`)).join("")
-      : `<p class="mp-sin">${esc(motivo(iso))}.</p>`) : '<p class="nota">Tocá una provincia para ver los avisos con su precio puesto.</p>';
+      : `<p class="mp-sin">${esc(motivo(iso))}.</p>`) : '<p class="nota">Tocá una provincia para ver los avisos con su precio puesto.</p>'; };
+  panel();
   $("#mp-online").innerHTML = "";
   $("#mp-tabla").innerHTML = `<div class="tabla"><table><tr><th>Provincia</th><th>CP</th><th>Mínimo $/L puesto</th><th>Fuente</th><th>Vendedor</th><th>Envío</th><th>Mediana $/L</th><th>Avisos</th><th>Fecha</th></tr>` +
     Object.entries(AR_GEO.provincias).sort((a, b) => a[1].n.localeCompare(b[1].n, "es")).map(([k, g]) => { const c = mejor(k), m = c?.minimo;
       return `<tr><td>${esc(g.n)}</td><td>${esc((por[k] || [{}])[0].cp || "")}</td>` + (c ? `<td class="n">${esc(pl(c.minimo_litro_puesto))}</td><td>${esc(nf(c.fuente))}</td><td>${esc(m.vendedor || "")}</td><td class="n">${m.envio ? esc(pesos.format(m.envio)) : "gratis"}</td><td class="n">${esc(pl(c.mediana_litro_puesto))}</td><td class="n">${c.n}</td><td>${fechaAR(c.fecha)}</td>`
         : `<td colspan="7" class="mp-sin">${esc(motivo(k))}</td>`) + "</tr>"; }).join("") + "</table></div>";
+  if (tres) mp3d(por, mejor, motivo, mn, mx, panel);
+}
+
+// Vista 3D de la capa «puesto» (site/mapa3d.js, on-demand): mismos datos y colores que el plano; el clic solo cambia el panel, sin redibujar (la cámara se queda).
+async function mp3d(por, mejor, motivo, mn, mx, panel) {
+  const tok = ++MP.tok, host = $("#mp-mapa");
+  host.innerHTML = '<p class="mut">Cargando el mapa 3D…</p>';
+  const volver = t => { if (tok !== MP.tok) return; MP.vista = "plano"; $("#mp-vista").value = "plano"; mpPintarPuesto(); $("#mp-aviso").textContent = t + " Se muestra el plano. " + $("#mp-aviso").textContent; };   // la preferencia guardada no cambia: el fallo es de este navegador
+  let mod;
+  try { mod = await import("./mapa3d.js"); } catch (e) { return volver("No se pudo cargar el mapa 3D (" + e.message + ")."); }
+  if (tok !== MP.tok) return;
+  if (!mod.webgl()) return volver("Este navegador no tiene WebGL, así que no puede dibujar el mapa 3D.");
+  const items = Object.entries(AR_GEO.provincias).map(([iso, g]) => { const c = mejor(iso), m = c?.minimo, v = c?.minimo_litro_puesto;
+    if (!c) return { iso, d: g.d, altura: null, color: "", tip: [g.n], sd: motivo(iso) + "." };
+    return { iso, d: g.d, altura: v, color: mezcla(mx === mn ? .5 : (v - mn) / (mx - mn)), sd: "",
+      tip: [g.n, `Mínimo ${pl(v)} puesto`, `${nf(c.fuente)}${m.vendedor ? " · vendedor " + m.vendedor : ""}`, `Envío ${m.envio ? pesos.format(m.envio) : "gratis"}`,
+        v > mn ? `${dec1.format((v / mn - 1) * 100)} % más cara que la más barata` : "La provincia más barata",
+        `Mediana ${pl(c.mediana_litro_puesto)} · ${c.n} ${c.n === 1 ? "aviso" : "avisos"} · ${fechaAR(c.fecha)}`, "Clic o toque para ver los avisos"] }; });
+  try { MP.v3 = mod.abrir(host, { items, sel: MP.sel, onSel: iso => { MP.sel = iso; panel(); },
+    etiqueta: "Mapa 3D de Argentina por provincia: altura = mínimo $/L puesto. La tabla de abajo tiene los mismos datos." }); }
+  catch (e) { volver("No se pudo dibujar el mapa 3D (" + e.message + ")."); }
 }
 
 async function mpCargar() {
@@ -2995,6 +3055,7 @@ async function mpCargar() {
   try {
     MP.datos = await api("provincias?producto_id=" + encodeURIComponent(id));
   } catch (e) { $("#mp-mapa").textContent = "No se pudo leer: " + e.message; return; }
+  if ($("#mp-capa").value !== "sepa") return;   // cambió de capa mientras cargaba
   const fs = mpFuentes(MP.datos.celdas), ant = $("#mp-fuente").value;
   const soloOnline = [...new Set(MP.datos.celdas.map(c => c.fuente))].filter(f => !fs.some(x => x[0] === f));
   $("#mp-fuente").innerHTML = fs.map(([f, n]) => `<option value="${esc(f)}">${esc(nf(f))} · ${n} ${n === 1 ? "provincia" : "provincias"}</option>`).join("") +
@@ -3261,6 +3322,7 @@ function ir(hash) {
   document.querySelectorAll("nav button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === nav));
   document.querySelectorAll("main section").forEach(s => s.hidden = s.id !== tab);
   notaPais(tab); ubicarBarra(tab);
+  if (tab !== "mapa") mp3dCerrar();
   if (tab !== "indice") ix3dCerrar();   // libera la GPU al salir de la vista
   for (const id of ["#banner", "#pais-barra", "#pais-nota"]) $(id).style.display = tab === "mercado" ? "none" : "";  // Mercado es solo SE/INDEC: ni avisos de precios ni país/USD
   const h = tab === "producto" ? hash : tab;
@@ -3292,6 +3354,25 @@ async function cargarDatos() {
   initComparador(); initEvolucion(); indice(); fuentes(); servicios();
   return true;
 }
+
+// Hero: el video entra solo en la primera visita (lub_hero_visto); ▶ del header lo reabre. El mp4 no se baja hasta abrirlo.
+(() => {
+  const h = $("#hero"), v = $("#hero-v"), play = $("#hero-play"), snd = $("#hero-snd");
+  const quieto = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const estado = () => { play.innerHTML = v.paused ? "&#9654;" : "&#10074;&#10074;"; play.setAttribute("aria-label", v.paused ? "Reproducir el video" : "Pausar el video");
+    snd.textContent = v.muted ? "Activar sonido" : "Silenciar"; snd.setAttribute("aria-pressed", String(!v.muted)); };
+  const abrir = () => { h.hidden = false; if (!v.getAttribute("src")) v.src = v.dataset.src; v.muted = true;
+    if (quieto) v.pause(); else v.play().catch(() => {}); estado(); };   // reduced-motion: queda el poster y el botón de play
+  const cerrar = guardar => { v.pause(); h.hidden = true; if (guardar) { try { localStorage.setItem("lub_hero_visto", "1"); } catch (e) {} } $("#hero-btn").focus(); };
+  $("#hero-x").onclick = () => cerrar(true);
+  $("#hero-btn").onclick = () => { if (h.hidden) abrir(); else cerrar(false); };
+  play.onclick = () => { if (v.paused) v.play().catch(() => {}); else v.pause(); };
+  snd.onclick = () => { v.muted = !v.muted; if (!v.muted && v.paused && !quieto) v.play().catch(() => {}); estado(); };
+  v.addEventListener("play", estado); v.addEventListener("pause", estado);
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && !h.hidden && !document.querySelector("dialog[open]") && $("#av-pop").hidden && $("#fx-pop").hidden) cerrar(true); });
+  let visto = false; try { visto = !!localStorage.getItem("lub_hero_visto"); } catch (e) {}
+  if (!visto) abrir();
+})();
 
 (async () => {
   barraPais();
