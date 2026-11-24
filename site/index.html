@@ -596,15 +596,15 @@ body:has(#dl[open]), body:has(#ix-dl[open]) { overflow: hidden; }
 @media (max-width: 899px) { .cab { position: relative; } #tema-btn { position: absolute; top: 8px; right: 16px; padding: 0; width: 44px; } #tema-btn span { display: none; } header h1 { white-space: normal; padding-right: 112px; } }
 
 /* ---------- Hero: video de presentación (primera visita) ---------- */
-#hero { background: #0b1a33; }
+#hero { position: fixed; inset: 0; z-index: 1000; background: #000; display: flex; align-items: center; justify-content: center; }
 #hero[hidden] { display: none; }
-.hero-in { position: relative; max-width: 1100px; margin: 0 auto; }
-#hero video { display: block; width: 100%; max-height: min(42vh, 380px); object-fit: contain; background: #0b1a33; }
-.hero-bt { position: absolute; right: 8px; bottom: 8px; display: flex; gap: 6px; }
+.hero-in { position: static; width: 100%; height: 100%; }
+#hero video { display: block; width: 100%; height: 100%; object-fit: contain; background: #000; }
+.hero-bt { position: absolute; right: 12px; bottom: 12px; display: flex; gap: 6px; }
 .hero-bt button, #hero-x { background: rgba(0, 0, 0, .62); color: #fff; border: 1px solid rgba(255, 255, 255, .6); border-radius: 6px; font: inherit; font-size: 13px; min-height: 36px; min-width: 36px; padding: 0 10px; cursor: pointer; }
 .hero-bt button:hover, #hero-x:hover { background: rgba(0, 0, 0, .85); }
 #hero :focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-#hero-x { position: absolute; top: 8px; right: 8px; font-size: 20px; line-height: 1; padding: 0; }
+#hero-x { position: absolute; top: 12px; right: 12px; font-size: 20px; line-height: 1; padding: 0; }
 #hero-btn { display: inline-flex; align-items: center; justify-content: center; background: none; border: 1px solid rgba(255, 255, 255, .5); border-radius: 50%; color: #fff; font: inherit; font-size: 13px; width: 36px; height: 36px; padding: 0; cursor: pointer; align-self: center; flex: none; }
 #hero-btn:hover { background: rgba(255, 255, 255, .15); }
 @media (max-width: 899px) { #hero-btn { position: absolute; top: 8px; right: 120px; } header h1 { padding-right: 164px; } }
@@ -651,9 +651,9 @@ body:has(#dl[open]), body:has(#ix-dl[open]) { overflow: hidden; }
   <button type="button" id="tema-btn"></button>
   <div id="av-pop" role="region" aria-label="Avisos sobre las fuentes" hidden></div>
 </div></header>
-<section id="hero" aria-label="Video de presentación de YPF Lubricantes" hidden>
+<section id="hero" role="dialog" aria-modal="true" aria-label="Video de presentación de YPF Lubricantes" hidden>
   <div class="hero-in">
-    <video id="hero-v" muted loop playsinline preload="none" poster="media/lubricantes-poster.jpg" data-src="media/lubricantes.mp4" aria-label="Video de presentación de la plataforma de precios de lubricantes"></video>
+    <video id="hero-v" playsinline preload="none" poster="media/lubricantes-poster.jpg" data-src="media/lubricantes.mp4" aria-label="Video de presentación de la plataforma de precios de lubricantes"></video>
     <button type="button" id="hero-x" aria-label="Cerrar el video (Esc)" title="Cerrar (Esc)">&times;</button>
     <div class="hero-bt">
       <button type="button" id="hero-play" aria-label="Pausar el video">&#10074;&#10074;</button>
@@ -3355,23 +3355,21 @@ async function cargarDatos() {
   return true;
 }
 
-// Hero: el video entra solo en la primera visita (lub_hero_visto); ▶ del header lo reabre. El mp4 no se baja hasta abrirlo.
+// Video de presentación: nunca se abre solo; ▶ del header lo abre a pantalla completa, con sonido (el clic es el gesto que lo permite). El mp4 no se baja hasta abrirlo.
 (() => {
   const h = $("#hero"), v = $("#hero-v"), play = $("#hero-play"), snd = $("#hero-snd");
-  const quieto = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const estado = () => { play.innerHTML = v.paused ? "&#9654;" : "&#10074;&#10074;"; play.setAttribute("aria-label", v.paused ? "Reproducir el video" : "Pausar el video");
     snd.textContent = v.muted ? "Activar sonido" : "Silenciar"; snd.setAttribute("aria-pressed", String(!v.muted)); };
-  const abrir = () => { h.hidden = false; if (!v.getAttribute("src")) v.src = v.dataset.src; v.muted = true;
-    if (quieto) v.pause(); else v.play().catch(() => {}); estado(); };   // reduced-motion: queda el poster y el botón de play
-  const cerrar = guardar => { v.pause(); h.hidden = true; if (guardar) { try { localStorage.setItem("lub_hero_visto", "1"); } catch (e) {} } $("#hero-btn").focus(); };
-  $("#hero-x").onclick = () => cerrar(true);
-  $("#hero-btn").onclick = () => { if (h.hidden) abrir(); else cerrar(false); };
+  const abrir = () => { h.hidden = false; document.body.style.overflow = "hidden"; if (!v.getAttribute("src")) v.src = v.dataset.src;
+    v.muted = false; v.currentTime = 0; v.play().catch(() => { v.muted = true; v.play().catch(() => {}); }); estado(); $("#hero-x").focus(); };
+  const cerrar = () => { v.pause(); h.hidden = true; document.body.style.overflow = ""; $("#hero-btn").focus(); };
+  $("#hero-x").onclick = cerrar;
+  $("#hero-btn").onclick = abrir;
+  v.addEventListener("ended", cerrar);
   play.onclick = () => { if (v.paused) v.play().catch(() => {}); else v.pause(); };
-  snd.onclick = () => { v.muted = !v.muted; if (!v.muted && v.paused && !quieto) v.play().catch(() => {}); estado(); };
-  v.addEventListener("play", estado); v.addEventListener("pause", estado);
-  document.addEventListener("keydown", e => { if (e.key === "Escape" && !h.hidden && !document.querySelector("dialog[open]") && $("#av-pop").hidden && $("#fx-pop").hidden) cerrar(true); });
-  let visto = false; try { visto = !!localStorage.getItem("lub_hero_visto"); } catch (e) {}
-  if (!visto) abrir();
+  snd.onclick = () => { v.muted = !v.muted; estado(); };
+  v.addEventListener("play", estado); v.addEventListener("pause", estado); v.addEventListener("volumechange", estado);
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && !h.hidden) cerrar(); });
 })();
 
 (async () => {
