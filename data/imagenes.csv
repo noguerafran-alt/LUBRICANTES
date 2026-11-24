@@ -1,6 +1,7 @@
 producto_id,url,fuente,fecha
 castrol-actevo-4t-10w30,https://http2.mlstatic.com/D_NQ_NP_996513-MLA108590210169_032026-F.jpg,ml,2026-11-05
 castrol-actevo-4t-20w50,https://norautoar.vteximg.com.br/arquivos/ids/168492/Aceite Moto Castrol Actevo 4T 20W50 Semi Sintetico 1 Lts.png?v=639268241015300000,vtex_norauto,2026-11-04
+castrol-actevo-essential-20w50,https://motoracing.com.ar/975-home_default/aceite-actevo-essential-mineral-20w50-4t-blanco-castrol.jpg,presta_motoracing,2026-11-24
 castrol-edge-5w30,https://norautoar.vteximg.com.br/arquivos/ids/165650/Aceite Castrol Edge 5W30 Sintetico 4 Lts.png?v=639238816599230000,vtex_norauto,2026-11-04
 castrol-edge-5w40,https://norautoar.vteximg.com.br/arquivos/ids/170263/Aceite Castrol Edge 5W40 Sintetico 4 Lts.png?v=639287993706600000,vtex_norauto,2026-11-04
 castrol-edge-c5-0w20,https://cdn.shopify.com/s/files/1/0601/9068/7486/products/edgeprof.jpg?v=1754525872,shopify_datri,2026-11-04
@@ -20,6 +21,7 @@ ipiranga-f1-master-protection-20w50-br,https://pitstop.vteximg.com.br/arquivos/i
 ipiranga-f1-master-sn-5w30-br,https://pitstop.vteximg.com.br/arquivos/ids/1768156/17140676926719.jpg?v=639258800913230000,vtex_br_pitstop,2026-11-18
 lubrax-essencial-sl-20w50-br,https://pitstop.vteximg.com.br/arquivos/ids/812751/17140578151779.jpg?v=638496733143100000,vtex_br_pitstop,2026-11-18
 lubrax-valora-sn-plus-5w30-br,https://pitstop.vteximg.com.br/arquivos/ids/810823/17140639632983.jpg?v=638496732684700000,vtex_br_pitstop,2026-11-18
+mobil-1-esp-5w30,https://www.performance-lube.com.ar/web/image/product.template/53938/image_512/%5B3-1105%5D%20MOBIL%201%20ESP%20FORMULA%205W30%20-%201L?unique=52b66d0,odoo_performancelube,2026-11-24
 mobil-delvac-1400-15w40,https://http2.mlstatic.com/D_NQ_NP_711409-MLA99899814793_112025-F.jpg,ml,2026-11-05
 mobil-super-20w50,https://http2.mlstatic.com/D_NQ_NP_841431-MLA100080525013_122025-F.jpg,ml,2026-11-05
 mobil-super-3000-xe-5w30-br,https://altese.vteximg.com.br/arquivos/ids/188665/123500_1.jpg?v=638351508417900000,vtex_br_altese,2026-11-18
@@ -43,9 +45,11 @@ shell-helix-hx3-20w50,https://norautoar.vteximg.com.br/arquivos/ids/160580/Annot
 shell-helix-hx3-sl-20w50-br,https://altese.vteximg.com.br/arquivos/ids/168986/41064905_oleo_shell_mineral_hx3_api_sl_1.jpg?v=636410931053300000,vtex_br_altese,2026-11-18
 shell-helix-hx5-15w40,https://norautoar.vteximg.com.br/arquivos/ids/165747/Aceite-Shell-Helix-Hx5-15W40-Natural-4-Lts.png?v=639239025142270000,vtex_norauto,2026-11-04
 shell-helix-hx7-10w40,https://norautoar.vteximg.com.br/arquivos/ids/165717/Aceite Shell Helix HX7 10W40 Semi Sintetico 4 Lts.png?v=639238984872570000,vtex_norauto,2026-11-04
+shell-helix-hx8-professional-av-5w40,https://www.performance-lube.com.ar/web/image/product.template/91026/image_512/%5BL72761%5D%20SHELL%20HELIX%20HX8%20PROF%20AV%205W40%20TAMBOR%20209%20L%20%28VOLKSWAGEN%29%20%28L72761%29?unique=ea0188e,odoo_performancelube,2026-11-24
 shell-helix-ultra-0w20,https://norautoar.vteximg.com.br/arquivos/ids/160054/Annotation-2026-01-26-164942.png?v=639220515196570000,vtex_norauto,2026-11-04
 shell-helix-ultra-5w30,https://norautoar.vteximg.com.br/arquivos/ids/156400/D_NQ_NP_983744-MLA78152060354_082024-O.webp?v=638947818117870000,vtex_norauto,2026-11-04
 shell-helix-ultra-professional-af-5w30,https://http2.mlstatic.com/D_NQ_NP_956009-MLA108108386130_032026-F.jpg,ml,2026-11-12
+shell-helix-ultra-professional-am-l-5w30,https://www.performance-lube.com.ar/web/image/product.template/209820/image_512/%5BL63423%5D%20SHELL%20HELIX%20ULTRA%20PRO%20AM-L%205W30%20-%204L?unique=768d2c9,odoo_performancelube,2026-11-24
 shell-rimula-r3-l-15w40,https://http2.mlstatic.com/D_NQ_NP_705094-MLA112806928552_072026-F.jpg,ml,2026-11-05
 shell-rimula-r4-l-15w40,https://http2.mlstatic.com/D_NQ_NP_946750-MLA108510082061_032026-F.jpg,ml,2026-11-05
 shell-rimula-r4-x-15w40,https://http2.mlstatic.com/D_NQ_NP_927748-MLA111339538633_052026-F.jpg,ml,2026-11-05

@@ -319,3 +319,37 @@ fecha,fuente,http,n_items,n_con_precio,n_sin_stock,n_sin_match,error,n_descartad
 2026-11-23,casa,,4,4,0,0,,0
 2026-11-23,ml,200,0,0,0,0,"token válido pero 0 publicaciones (283 productos encontrados; items: HTTP 403 ×283 ({""blocked_by"":""PolicyAgent"",""message"":""At least one policy returned UNAUTHORIZED."",""status"":403,""code"":""PA_UNAUTHORIZED_RESULT_FROM_POLICIES""}))",0
 2026-11-23,ml_envios,,0,0,0,0,"ml sin avisos: token válido pero 0 publicaciones (283 productos encontrados; items: HTTP 403 ×283 ({""blocked_by"":""PolicyAgent"",""message"":""At least one policy returned UNAUTHORIZED."",""status"":403,""code"":""PA_UNAUTHORIZED_RESULT_FROM_POLICIES""}))",0
+2026-11-24,ypf_gql,200,69,0,0,0,,0
+2026-11-24,vtex_carrefour,200,185,12,115,0,,58
+2026-11-24,vtex_masonline,200,61,36,6,0,,19
+2026-11-24,vtex_easy,200,48,14,0,0,,34
+2026-11-24,vtex_norauto,200,98,47,0,0,,51
+2026-11-24,vtex_daytona,200,12,8,0,0,,4
+2026-11-24,vtex_br_pitstop,200,199,8,73,0,,118
+2026-11-24,vtex_br_altese,200,138,7,38,0,,93
+2026-11-24,shopify_datri,200,298,22,3,0,,273
+2026-11-24,tn_lspalermo,200,113,34,5,0,,74
+2026-11-24,tn_spch,200,63,26,5,0,,32
+2026-11-24,tn_rano,200,93,0,90,0,,3
+2026-11-24,tn_olafil,200,58,20,7,0,,31
+2026-11-24,tn_lubrimaster,200,64,34,10,0,,20
+2026-11-24,tn_lubricentrodg,200,10,9,0,0,,1
+2026-11-24,tn_exporepuestos,200,40,6,3,0,,31
+2026-11-24,tn_netrenault,200,23,2,0,0,,21
+2026-11-24,tn_gramaglia,200,12,0,0,0,,12
+2026-11-24,tn_torooils,200,25,11,0,0,,14
+2026-11-24,tn_comprarmarket,200,16,9,2,0,,5
+2026-11-24,woo_larutaok,200,60,28,0,0,,32
+2026-11-24,woo_ceridono,200,11,1,0,0,,10
+2026-11-24,woo_allende,200,24,5,18,0,,1
+2026-11-24,woo_fiatturin,200,94,2,24,0,,68
+2026-11-24,odoo_performancelube,200,472,32,328,0,,112
+2026-11-24,presta_motoracing,200,148,12,24,0,,112
+2026-11-24,helix_api,200,8,8,0,0,,0
+2026-11-24,ml_cat,200,4,0,0,0,,0
+2026-11-24,vtex_norauto_envios,200,24,24,0,0,,0
+2026-11-23,sepa,200,1186,877,0,0,,309
+2026-11-24,macro_series,200,15,15,0,0,,0
+2026-11-24,fx_bcb_ptax,200,5,5,0,0,,0
+2026-11-24,fx_bcra,200,5,5,0,0,,0
+2026-11-24,casa,,4,4,0,0,,0
