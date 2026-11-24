@@ -1,6 +1,6 @@
 # Consulta a Mercado Libre Developers: 403 PolicyAgent en products/{id}/items
 
-Para mandar por el formulario de soporte de developers (developers.mercadolibre.com.ar → Ayuda / Contacto) o al equipo de OpenPlatform. No lleva tokens ni el Client Secret.
+Para mandar desde el correo de YPF (o por el formulario de soporte de developers.mercadolibre.com.ar) al equipo de Developers / OpenPlatform. No lleva tokens ni el Client Secret. La dirección de destino sale del canal de contacto oficial de ML: no se inventa.
 
 ---
 
@@ -8,7 +8,7 @@ Para mandar por el formulario de soporte de developers (developers.mercadolibre.
 
 Hola, equipo de Developers:
 
-Tengo una aplicación de uso personal, «Lubricantes AR precios» (App ID **244077280147192**, sitio MLA, usuario autorizante 200791825). La uso para leer, una vez por día, los precios públicos de aceites lubricantes del catálogo, con fines de análisis de mercado. No publica, no vende y no modifica nada.
+Les escribo por la aplicación «Lubricantes AR precios» (App ID **244077280147192**, sitio MLA, usuario autorizante 200791825). La usamos para leer, una vez por día, los precios públicos de aceites lubricantes del catálogo, para análisis de mercado. No publica, no vende y no modifica nada.
 
 Desde el **23/11/2026** todas las llamadas a `GET /products/{product_id}/items` responden:
 
@@ -33,7 +33,9 @@ Consultas:
 4. ¿Qué ítems faltan para completar la configuración de seguridad (70/100)?
 
 Muchas gracias.
-Francisco
+Francisco Noguera
+[cargo / área] – YPF
+[teléfono]
 
 ---
 
