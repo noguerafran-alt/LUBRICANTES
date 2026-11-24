@@ -1,5 +1,8 @@
 # ESTADO
 
+## Índice (tabla): colores desde YPF (2026-11-24, rama fix/indice-tabla-colores)
+- Pedido del usuario: la tabla usa el mismo criterio que la vista 3D. Celda verde = la marca es más cara que YPF (YPF más barato), roja = YPF más caro. El número y el texto de la celda no cambian (siguen siendo la marca contra YPF); la leyenda lo explica y usa `.ix-escala-ypf`.
+
 ## Índice 3D: más separación y colores desde YPF (2026-11-24, rama fix/indice3d-colores)
 - Pedido del usuario: `PASO` 1,4 → 2,2 y `ANCHO` 0,9 → 0,8 en `site/indice3d.js` para que las barras no se tapen. Color invertido solo en la vista 3D: verde = la competencia es más cara (YPF más barato), rojo = YPF más caro; leyenda y escala (`.ix-escala-ypf`) dicen eso. La tabla del Índice no cambia (sigue verde = marca más barata que YPF).
 
