@@ -23,13 +23,14 @@ ARCHIVO_REFRESH = os.environ.get("ML_REFRESH_ARCHIVO", ".ml_refresh_nuevo")
 # Credenciales de la PC (las deja `python ml.py autorizar`); en .gitignore.
 ARCHIVO_LOCAL = os.environ.get("ML_LOCAL", ".ml_local")
 # Provisorio: dominio propio en Render hasta que LUBRICANTES tenga el suyo (cambiarlo también en DevCenter).
-REDIRECT = "https://biblioteca-b8mb.onrender.com/ml-callback"
+REDIRECT = "https://lubricantes.fln-data-analysis.com/ml-callback"  # tiene que ser idéntica a la Redirect URI de la app en el devcenter
 # Líneas YPF; las de la competencia salen de los equivalentes del seed (`busquedas()`).
 BUSQUEDAS_YPF = ["elaion", "extravida", "rod ypf", "ypf aceite"]
 TOPE_PRODUCTOS = 50  # por búsqueda; se loguea cuántas búsquedas se cortan
 TOPE_ITEMS = 100     # publicaciones por producto
 
 _ultimo = {}  # host → hora del último request
+ULTIMO_ERROR = {}  # código HTTP → cuerpo recortado de la última respuesta de error (para el diagnóstico en fuentes.csv)
 TOKEN_HOY = None  # access token que canjeó `avisos()` en esta corrida: lo reusa la cotización de envíos (el refresh rota en cada canje: no se canjea dos veces)
 METODOS_ENVIO = {"address": "domicilio", "agency": "agencia", "pickup": "retiro", "self_service": "retiro"}  # shipping_option_type → metodo; otro tipo no se adivina
 
@@ -79,6 +80,10 @@ def pedir(ruta, token=None, data=None, texto=False):
                     return r.status, None
         except urllib.error.HTTPError as e:
             if intento == 2 or (e.code < 500 and e.code != 429):
+                try:   # el cuerpo del error de ML dice el motivo (política, scope); nunca trae el token
+                    ULTIMO_ERROR[e.code] = " ".join(e.read(400).decode("utf-8", "replace").split())[:300]
+                except OSError:
+                    pass
                 return e.code, None
         except (urllib.error.URLError, TimeoutError, OSError):
             if intento == 2:
@@ -133,6 +138,16 @@ def token():
     return d["access_token"], ""
 
 
+def pkce(verifier=None):
+    """→ (code_verifier, code_challenge S256), RFC 7636. La app tiene «Requiere PKCE» (seguridad del devcenter):
+    sin esto el canje del code falla. Solo interviene en el alta; el refresh diario no lo usa."""
+    import base64
+    import hashlib
+    import secrets
+    v = verifier or secrets.token_urlsafe(64)
+    return v, base64.urlsafe_b64encode(hashlib.sha256(v.encode()).digest()).decode().rstrip("=")
+
+
 def autorizar():
     """Alta inicial en la PC del usuario: pide credenciales sin mostrarlas, canjea el code
     y prueba los endpoints. Imprime solo códigos HTTP, nunca tokens."""
@@ -141,17 +156,19 @@ def autorizar():
     cid = input("Client ID (App ID): ").strip()
     sec = getpass.getpass("Client Secret (no se muestra): ").strip()
     redirect = input(f"Redirect URI [{REDIRECT}]: ").strip() or REDIRECT
+    verifier, challenge = pkce()
     url = "https://auth.mercadolibre.com.ar/authorization?" + urllib.parse.urlencode(
-        dict(response_type="code", client_id=cid, redirect_uri=redirect))
+        dict(response_type="code", client_id=cid, redirect_uri=redirect, code_challenge=challenge, code_challenge_method="S256"))
     print("\nSe abre el navegador. Autorizá la app y copiá la dirección completa a la que te manda\n"
           "(la página puede dar error o 404: no importa, lo que sirve es el ?code=... de la barra).\n")
     webbrowser.open(url)
     pegado = input("Pegá la dirección completa (o solo el code): ").strip()
     code = urllib.parse.parse_qs(urllib.parse.urlsplit(pegado).query).get("code", [pegado])[0]
     http, d = pedir("/oauth/token", data=dict(grant_type="authorization_code", client_id=cid,
-                                              client_secret=sec, code=code, redirect_uri=redirect))
+                                              client_secret=sec, code=code, redirect_uri=redirect, code_verifier=verifier))
     if not d or "refresh_token" not in d:
-        sys.exit(f"No se pudo canjear el code (HTTP {http}). El code dura minutos y sirve una sola vez: repetí.")
+        sys.exit(f"No se pudo canjear el code (HTTP {http}): {ULTIMO_ERROR.get(http, 'sin detalle')}\n"
+                 f"El code dura minutos y sirve una sola vez, y la Redirect URI tiene que ser idéntica a la del devcenter: repetí.")
     _guardar_local(dict(client_id=cid, client_secret=sec, refresh_token=d["refresh_token"]))
     tok = d["access_token"]
     print(f"\nOK: credenciales guardadas en {ARCHIVO_LOCAL} (está en .gitignore).\nPruebas:")
@@ -236,14 +253,18 @@ def avisos(filtro=None):
                     prods[p["id"]] = p
                 else:
                     ajenos += 1
-    out = []
+    out, codigos = [], {}
     for pid, p in prods.items():
-        _, rs, _ = _paginar(f"/products/{pid}/items", TOPE_ITEMS, tok)  # 404 = sin publicaciones, no es caída
+        h, rs, _ = _paginar(f"/products/{pid}/items", TOPE_ITEMS, tok)  # 404 = sin publicaciones, no es caída
+        codigos[h] = codigos.get(h, 0) + 1
         out += [aviso(p, r) for r in rs if r.get("item_id") and r.get("condition", "new") == "new"]
+    # con 0 avisos, el HTTP de /items es lo único que dice si ML cambió la API o cerró el permiso (2026-11-23: 0 sin rastro)
+    vistos = ", ".join(f"HTTP {c} ×{n}" + (f" ({ULTIMO_ERROR[c]})" if c in ULTIMO_ERROR else "")
+                       for c, n in sorted(codigos.items(), key=lambda x: -x[1]))
     print(f"ml: {len(qs)} búsquedas, {len(prods)} productos relacionados con YPF ({ajenos} de aceite descartados), {cortadas} búsquedas cortadas "
-          f"en {TOPE_PRODUCTOS}, {len(out)} avisos", flush=True)
+          f"en {TOPE_PRODUCTOS}, {len(out)} avisos; products/{{id}}/items: {vistos}", flush=True)
     if not out:
-        return http, [], f"token válido pero 0 publicaciones ({len(prods)} productos encontrados)"
+        return http, [], f"token válido pero 0 publicaciones ({len(prods)} productos encontrados; items: {vistos})"
     return http, out, ""
 
 
@@ -297,6 +318,9 @@ def demo():
         assert aceite(dict(domain_id="MLA-ENGINE_OILS")) and not aceite(dict(domain_id="MLA-SNEAKERS"))
         assert aviso(dict(name="Aceite 5W-30 4 L"), dict(item_id="MLA1", price=1, seller_id=2))["titulo"] == "Aceite 5W-30 4 L"
         assert token() == (None, "sin token")
+        assert pkce("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk")[1] == "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"  # vector de RFC 7636
+        v, c = pkce()
+        assert 43 <= len(v) <= 128 and pkce(v)[1] == c and pkce()[0] != v
         assert item_id("https://articulo.mercadolibre.com.ar/MLA-1873751937") == "MLA1873751937" and item_id("https://x.com/a") is None
         op = lambda c, t="address", h=None: dict(cost=c, shipping_option_type=t, **({} if h is None else dict(estimated_delivery_time=h)))
         assert opciones(200, dict(options=[op(0)])) == ("ok", [("domicilio", 0, "")])  # gratis: 0 solo si la opción lo declara
@@ -324,9 +348,16 @@ def demo():
         token = lambda: ("t", "")
         try:
             r = avisos(filtro=lambda a: "Elaion" in a["titulo"])
+            items_http = 403   # /items cerrado: el error tiene que decir el código, no solo "0 publicaciones"
+            pedir_ok = pedir
+            pedir = lambda ruta, tok=None, **k: (items_http, None) if "/items" in ruta else pedir_ok(ruta, tok)
+            ULTIMO_ERROR[403] = '{"message":"forbidden"}'
+            r403 = avisos()
+            ULTIMO_ERROR.clear()
         finally:
             pedir, token = pedir0, token0
         assert len(r[1]) == 1 and r[1][0]["titulo"] == "Elaion F 50" and not any("/products/B" in x for x in pedidos), (r, pedidos)
+        assert r403[1] == [] and 'items: HTTP 403 ×2 ({"message":"forbidden"})' in r403[2], r403
         q = busquedas()
         assert q[:4] == BUSQUEDAS_YPF and "castrol edge" in q and "shell helix" in q and len(q) == len(set(q)) and "bardahl" not in q
         import tempfile
