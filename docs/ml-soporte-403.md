@@ -1,6 +1,23 @@
 # Consulta a Mercado Libre Developers: 403 PolicyAgent en products/{id}/items
 
-Para mandar desde el correo de YPF (o por el formulario de soporte de developers.mercadolibre.com.ar) al equipo de Developers / OpenPlatform. No lleva tokens ni el Client Secret. La dirección de destino sale del canal de contacto oficial de ML: no se inventa.
+Canal: **ticket de Soporte para Integradores** (https://developers.mercadolibre.com.ar/es_ar/soporte-para-integradores), no mail. Las respuestas llegan al mail de la cuenta de ML; ahí se puede sumar el correo de YPF a la cadena. No lleva tokens ni el Client Secret.
+
+Campos del ticket:
+
+| Campo | Valor |
+|---|---|
+| Categoría | Productos → Publicaciones |
+| Aplicación | 244077280147192 |
+| Tipo | Problema |
+| Asunto | el de abajo |
+| Descripción | el cuerpo de abajo (máx. 5000 caracteres) |
+| Usuarios afectados | 200791825 |
+| Método | GET |
+| Recurso | `https://api.mercadolibre.com/products/MLA74282835/items` |
+| Request | `Authorization: Bearer <token del usuario>`, sin body |
+| Respuesta | `HTTP 403 {"blocked_by":"PolicyAgent","message":"At least one policy returned UNAUTHORIZED.","status":403,"code":"PA_UNAUTHORIZED_RESULT_FROM_POLICIES"}` |
+
+Antes de mandarlo: revisar en la cuenta de ML (Mi perfil → Datos personales) si hay validación de identidad pendiente. La página «Error 403» de ML lista «el usuario debe tener concluido el proceso de validación de datos» y «usuarios inactivos» entre las causas, y el devcenter muestra la autorización «INACTIVA».
 
 ---
 
@@ -40,3 +57,22 @@ Francisco Noguera
 ---
 
 Si piden más datos: el request lleva `Authorization: Bearer <token>` y `User-Agent` propio, con una llamada por segundo como máximo y unas 300 llamadas a `/items` por día.
+
+---
+
+# Formulario de alta de una app nueva (ML, desde 2026-11-17)
+
+`https://forms.gle/2Q39SStHLJNQLjuK9` («Application Creation Request — Mercado Libre»). Crear apps desde el DevCenter está cerrado; ML evalúa cada pedido.
+
+**Requisito:** «This request is available only to users who have never created an application on Mercado Libre». La cuenta 200791825 (FRANLNOGUERA) ya tiene la app 244077280147192, así que **con esa cuenta no corresponde**. Habría que pedirlo con otra cuenta de ML que nunca haya creado una app, por ejemplo una corporativa de YPF, y esa cuenta la crea y la usa el usuario. Una app nueva también arranca «no certificada»: no hay garantía de que no le toque la misma política del 403.
+
+Borrador de respuestas (en inglés, como el formulario):
+
+| Pregunta | Respuesta |
+|---|---|
+| Username of that account | el de la cuenta nueva (Account data → Username) |
+| Intended use (1) | **Personal use**: the application will be used only with my own account |
+| Intended use (2) | **View metrics and reports** (ninguna opción es exactamente «leer precios públicos»; es la más cercana y no pide escritura) |
+| Describe what the application will do | Read-only daily market analysis of engine oil and lubricant prices in Argentina. Once a day it searches the product catalog (/products/search) for lubricant brands and reads the public listings of each catalog product (/products/{id}/items) to compute median prices per liter. About 300 read requests per day, max 1 request per second. It never creates, edits or pauses listings, never buys, and does not access other users' data. Results are used internally for market analysis. |
+| Redirect URL | `https://lubricantes.fln-data-analysis.com/ml-callback` |
+| Demo link | `https://lubricantes.fln-data-analysis.com` (visor de lectura) |
