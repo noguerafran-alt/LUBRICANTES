@@ -2144,6 +2144,15 @@ def procesar_carga(d, raiz, texto, hoy=None, ahora=None):
 MEDIA = {".mp4": "video/mp4", ".jpg": "image/jpeg"}
 
 
+def pagina(index, site):
+    """index.html con `__V__` = hash corto de los .js propios de site/ (no vendor/): Cloudflare cachea los .js 4 h
+    aunque el server diga 60 s, así que la URL tiene que cambiar con el contenido. Se calcula por pedido (son ~100 KB)."""
+    h = hashlib.sha1()
+    for f in sorted([*site.glob("*.js"), *site.glob("*.mjs")]):
+        h.update(f.name.encode() + f.read_bytes())
+    return index.read_bytes().replace(b"__V__", h.hexdigest()[:10].encode())
+
+
 def rango_bytes(n, h):
     """Header Range de un solo tramo -> (inicio, fin) inclusivos; None si no hay Range (o no se entiende: 200 completo); False si no cabe en el archivo (416)."""
     m = re.fullmatch(r"bytes=(\d*)-(\d*)", h.strip())
@@ -2193,7 +2202,7 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == "/robots.txt":  # lectura abierta (decisión 2026-11-19): que al menos no la indexen
             return self.enviar(200, b"User-agent: *\nDisallow: /\n", "text/plain; charset=utf-8")
         if u.path in ("/", "/index.html"):  # solo se sirve este archivo: no hay path traversal posible
-            return self.enviar(200, INDEX.read_bytes(), "text/html; charset=utf-8")
+            return self.enviar(200, pagina(INDEX, SITE), "text/html; charset=utf-8")
         if u.path == "/ml-callback":  # Redirect URI de la app de ML: solo muestra la dirección para pegarla en `ml.py autorizar`
             return self.enviar(200, (SITE / "ml-callback.html").read_bytes(), "text/html; charset=utf-8", [("Cache-Control", "no-store")])
         if u.path in ("/favicon.svg", "/favicon.ico"):  # el navegador pide .ico por defecto: se le da el mismo SVG
@@ -2212,8 +2221,8 @@ class Handler(BaseHTTPRequestHandler):
                     if rg:
                         return self.enviar(206, datos[rg[0]:rg[1] + 1], tipo, [*cc, ("Content-Range", f"bytes {rg[0]}-{rg[1]}/{len(datos)}")])
                     return self.enviar(200, datos, tipo, cc)
-                # immutable solo en vendor/ (versión fijada); el resto revalida pronto, así no hace falta versionar la URL
-                cc = "public, max-age=31536000, immutable" if f.is_relative_to((SITE / "vendor").resolve()) else "public, max-age=60, must-revalidate"
+                # immutable en vendor/ (versión fijada) y con ?v=<hash> (la URL cambia si el módulo cambia); sin ?v= revalida pronto
+                cc = "public, max-age=31536000, immutable" if q.get("v") or f.is_relative_to((SITE / "vendor").resolve()) else "public, max-age=60, must-revalidate"
                 return self.enviar(200, f.read_bytes(), "text/javascript; charset=utf-8", [("Cache-Control", cc)])
         if not u.path.startswith("/api/"):
             return self.json(404, {"error": "no existe"})
@@ -3116,6 +3125,17 @@ def demo():
     assert st.status == 200 and st.headers["Content-Type"].startswith("text/javascript") and "max-age=31536000" in st.headers["Cache-Control"]
     pr = urllib.request.urlopen(urllib.request.Request(base + "/presentacion.js", headers={"X-API-Key": "s3cr3t"}))
     assert "immutable" not in pr.headers["Cache-Control"] and "max-age=60" in pr.headers["Cache-Control"]
+    pv = urllib.request.urlopen(base + "/presentacion.js?v=abc")
+    assert "immutable" in pv.headers["Cache-Control"]
+    ix = get("/")[1].decode()
+    assert "__V__" not in ix and re.search(r"indice3d\.js\?v=[0-9a-f]{10}\b", ix)
+    with tempfile.TemporaryDirectory() as td:  # la versión cambia con cualquier módulo propio
+        tp = Path(td)
+        (tp / "i.html").write_bytes(b"__V__")
+        (tp / "a.js").write_bytes(b"1")
+        v1 = pagina(tp / "i.html", tp)
+        (tp / "a.js").write_bytes(b"2")
+        assert v1 != pagina(tp / "i.html", tp) and b"__V__" not in v1
     with tempfile.TemporaryDirectory() as td:  # GLB: tipo, cache de un día sin immutable, auth, y "modelo" en la vitrina
         global MODELOS
         previo, MODELOS = MODELOS, Path(td)
