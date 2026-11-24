@@ -68,7 +68,7 @@ data/envios/AAAA-MM.csv # cotizaciones de envío de ML a la capital de cada prov
 seed/cp_capitales.csv  # provincia ISO, capital, CP (24 filas, a mano): destino de las cotizaciones de envío
 seed/envases_correo.csv # litros,peso_g,alto_cm,ancho_cm,largo_cm,nota (1, 4, 5 y 20 L; peso y medidas APROXIMADOS, a mano): lo que se le cotiza a Correo por envase
 seed/origen_fuentes.csv # fuente,provincia,cp,evidencia,fuente_url: desde dónde despacha una tienda online (solo con evidencia ya documentada; sin evidencia no hay fila)
-data/correo/AAAA-MM.csv # tarifas de Correo Argentino capital → capital por envase (ver «Correo Argentino»); lo escribe `python correo.py tarifas` (casa)
+data/correo/AAAA-MM.csv # tarifas de Correo Argentino capital → capital por envase (ver «Correo Argentino»); lo escribe `python correo.py tarifas` (casa); `--resto` cotiza de una vez los 6 grupos que no tocan ese día (carga inicial)
 data/catalogo_ypf.json # foto del catálogo oficial YPF (el diff de git avisa altas/bajas); cada ítem trae `imagen` (URL https absoluta o "")
 data/imagenes.csv      # una foto por producto_id (ver esquema)
 seed/marcas_empresas.csv # marca,empresa_se,desde,hasta,estado,evidencia,fuente_url,nota: qué marca va dentro de qué empresa declarante de la SE (a mano, con fuente; `inferida` si no sale de una ficha)
