@@ -1,5 +1,10 @@
 # ESTADO
 
+## Precio puesto: filtro por método y doc de las vías oficiales de ML (2026-11-24, rama feat/ml-oficial-domicilio)
+- Problema: el mínimo de una provincia podía ser un «retiro en sucursal» a $0 (Norauto en el AMBA) y el Mapa lo leía como envío gratis. `GET /api/puesto?metodo=domicilio|retiro|agencia` (otro valor = 400): solo cuentan las cotizaciones `ok` de ese método; la respuesta trae `metodo` y el mínimo y cada aviso suman `deposito`. Sin `metodo`, igual que antes.
+- Mapa, capa «Puesto»: selector «Envío: Solo a domicilio | Todos» (default domicilio, `localStorage lub_mp_metodo`); un retiro dice «retiro en sucursal: <depósito>» en tooltip, panel, tabla y 3D. Con el filtro, una provincia sin domicilio cotizado dice «sin envío a domicilio cotizado en la ventana» (no «sin datos»). Probado en Chrome headless con un `data/envios` de prueba (borrado): plano, cambio de selector, panel, sin errores de JS. Asserts en `demo()` de `server.py`.
+- `docs/ml-via-oficial.md` (solo docs): las tres vías para recuperar datos de ML (formulario con cuenta de YPF, integración con escritura real si hay venta, pedir los datos a ML como marca), qué preparar en cada una y qué hacer cuando ML apruebe una app.
+
 ## Precio puesto, fase 2: envíos de Norauto (2026-11-24, rama feat/puesto-norauto)
 - `recolectar.envios_vtex` (genérica; `ENVIOS_VTEX = ("vtex_norauto",)`) cotiza cada aviso YPF de Norauto a las 24 capitales con la simulación de carrito de VTEX (`orderForms/simulation`), rotación k=7, presupuesto propio de 15 min; escribe `data/envios/` con `fuente=vtex_norauto` y la fila `vtex_norauto_envios` en `fuentes.csv`. Corre en casa y en la Action de respaldo. Pruebas reales: el envío depende del producto (Quartz no llega a Córdoba/Salta, Helix sí), así que se cotiza por aviso, no por envase.
 - `server.puesto` toma el vendedor de la obs de la misma fuente (antes solo ML) y la celda de Norauto sale separada de la de ML; nombre legible y textos del Mapa generalizados («la fuente no devolvió envío»). Asserts en `demo()` de `recolectar.py` (números reales) y `server.py`; los tres `test` dan OK.
