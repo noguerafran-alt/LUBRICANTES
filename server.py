@@ -76,7 +76,7 @@ SERVICIOS_F = [c for c in GROK_ALM_F if c not in ("tipo", "producto_id", "match"
 # ponytail: lista negra de palabras; un repuesto que no esté acá se dividiría. Sumarlo si aparece.
 RX_EXTRA = re.compile(r"filtro|kit|aditiv|refrigerante|lavado|buj[ií]a|pastilla|l[ií]quido|limpi|alineaci|balanceo|neum[aá]tic|"
                       r"escobill|l[aá]mpara|bater[ií]a|correa|flushing|repuesto|sin colocaci", re.I)  # "sin colocación" (helix_api): no es aceite + colocación
-MAX_FILAS, MAX_CARGAS_DIA, MAX_BYTES = 500, 10, 2_000_000
+MAX_FILAS, MAX_CARGAS_DIA, MAX_BYTES = 500, 30, 2_000_000
 RX_FUENTE = re.compile(r"grok_[a-z0-9_]{2,30}")
 RX_FECHA = re.compile(r"\d{4}-\d{2}-\d{2}")
 
@@ -3312,13 +3312,13 @@ def demo():
         import recolectar
         assert recolectar.GROK_ALM == GROK_ALM_F and "helix_api" not in {f["fuente"] for f in fuentes_grok({"grok": [dict(sv0, fuente="helix_api")], "grok_sitios": []}, date.today())}
         assert {(r["detalle"], r["solo_aceite"]) for r in calcular(d2)["servicios"] if r["titulo"] == "Combo HX7 X 4L"} ==             {("filtro aire", "0"), ("filtro aire;filtro aceite", "0")}
-        # tope de 10 cargas por día
-        for i in range(12):
+        # tope de 30 cargas por día
+        for i in range(32):
             cod, _ = procesar_carga(d2, raiz, csv_de(fila(titulo=f"Combo HX7 n{i}", fecha="2030-01-01")), hoy=date(2030, 1, 1),
                                     ahora=datetime(2030, 1, 1, 0, 0, i, tzinfo=timezone.utc))
             if cod == 429:
                 break
-        assert cod == 429 and i == 10, (cod, i)
+        assert cod == 429 and i == 30, (cod, i)
         # con token: GET sha + PUT, mensaje y base64
         os.environ["GH_CARGA_TOKEN"], os.environ["GH_REPO"] = "tok", "yo/repo"
         d3 = cargar(raiz)

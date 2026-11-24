@@ -43,6 +43,6 @@ Si Grok puede hacer el POST solo: `POST https://<server>/api/cargar` con el CSV 
 
 ## Qué valida el server
 
-Encabezado exacto (si no, no se guarda nada); fuente `grok_<sitio>` y que corresponda al host de la URL (`seed/grok_sitios.csv`, lista blanca; para sumar un sitio se agrega una fila ahí); URL https; fecha a no más de 3 días de hoy; precio numérico > 0; tipo `producto|servicio`; máximo 500 filas por carga y 10 cargas por día. Las filas con error se rechazan y las demás se guardan.
+Encabezado exacto (si no, no se guarda nada); fuente `grok_<sitio>` y que corresponda al host de la URL (`seed/grok_sitios.csv`, lista blanca; para sumar un sitio se agrega una fila ahí); URL https; fecha a no más de 3 días de hoy; precio numérico > 0; tipo `producto|servicio`; máximo 500 filas por carga y 30 cargas por día. Las filas con error se rechazan y las demás se guardan.
 
 **Verificado:** el server baja cada URL y marca `verificado=1` si el precio aparece en el texto de la página. En una SPA (helixturno) el precio no está en el HTML del server: sale `verificado=0` ("no verificado"). Esas filas se guardan y se muestran, pero no entran al índice. Los `servicio` nunca entran al $/L; se ven en "Servicios (combos)" y en `/api/servicios`.
