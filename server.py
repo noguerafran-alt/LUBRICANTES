@@ -104,6 +104,7 @@ CAMPOS["bi_equivalencias"] = EQUIV_F[1:]  # ypf_id, comp_id, tipo, criterio, evi
 CAMPOS["bi_fuentes"] = ["fuente", "canal", "pais", "tipo", "ultima_fecha"]
 CAMPOS["bi_provincias"] = ["codigo", "nombre", "region", "pais", "online"]
 CAMPOS["indice_con_mayoristas"] = CAMPOS["indice"]
+CAMPOS["indice_celdas"] = ["segmento", "sae", "marca", "mediana_litro", "indice", "n", "fecha_min", "fecha_max", "productos", "pais", "moneda", "desde", "hasta", "dias"]
 CAMPOS["macro"] = MACRO_F = ["fecha", "id", "valor", "signo"]
 CAMPOS["mercado_share"] = ["mes", "empresa", "volumen", "total", "share"]
 CAMPOS["mercado_filas"] = ["mes", "empresa", "producto", "canal", "provincia", "cantidad"]
@@ -383,6 +384,43 @@ def indice(d, mayoristas=False, pais="AR"):
                     "mediana_litro": round(m, 2), "n": len(grupos[(fecha, seg, sae, marca, mo)]),
                     "indice": round(m / ypf * 100, 1) if ypf else None, "pais": pais, "moneda": mo})
     return out
+
+
+def indice_celdas(d, dias=30, hasta=None, mayoristas=False, pais="AR"):
+    """/api/indice/celdas: una celda por (segmento, SAE, marca) con la mediana de $/L de los avisos de la ventana de `dias` que termina en `hasta`
+    (default: el último día con datos) y los $/L de cada aviso (para la distribución). Misma definición de aviso, sanidad y exclusiones que la vitrina
+    y /api/producto (`_avisos`, `_validos`, `cuerdos`). `indice` = mediana de la marca / mediana de YPF del mismo segmento y SAE × 100; null sin YPF."""
+    d = de_pais(d, pais)
+    prod = {p["producto_id"]: p for p in d["productos"]}
+    h, por = _avisos(d, dias, set(prod), None, None, hasta)
+    desde, _ = desde_hasta(d, dias, None, hasta)
+    celdas = defaultdict(list)
+    for pid, rs in por.items():
+        xs = _validos(rs, mayoristas)
+        for pl, r in cuerdos(xs) if xs else []:  # cuerdos no admite lista vacía (producto con avisos solo sin litros / mayoristas)
+            p = prod[pid]
+            celdas[(p["segmento"], p["sae"], p["marca"])].append((pl, r["fecha"], pid))
+    med = {k: median(x[0] for x in v) for k, v in celdas.items()}
+    out = []
+    for (seg, sae, marca), v in sorted(celdas.items()):
+        ypf = med.get((seg, sae, "YPF"))
+        m = med[(seg, sae, marca)]
+        out.append({"segmento": seg, "sae": sae, "marca": marca, "mediana_litro": round(m, 2), "indice": round(m / ypf * 100, 1) if ypf else None,
+                    "n": len(v), "fecha_min": min(x[1] for x in v), "fecha_max": max(x[1] for x in v),
+                    "precios_litro": sorted(round(x[0], 2) for x in v), "productos": sorted({x[2] for x in v})})
+    return {"pais": pais, "moneda": PAISES[pais][1], "desde": desde or None, "hasta": h or None, "dias": dias,
+            "nota": f"Mediana de $/L de los avisos de los últimos {dias} días que terminan el {h}: cada aviso cuenta una vez, con su observación más reciente de la ventana "
+                    "(no es el índice de un solo día de /api/indice). Sin mayoristas ni Grok sin verificar, salvo mayoristas=1. Una celda ausente es sin dato, no cero.",
+            "celdas": out}
+
+
+def celdas_usd(v, tabla, fx_fecha=""):
+    """?usd=1 de /api/indice/celdas: `mediana_litro_usd` y `precios_litro_usd` con la cotización de la fecha `hasta` (o `fx_fecha`); sin cotización, null."""
+    o = con_usd(v, v["moneda"], tabla, fecha=v["hasta"] or "", fx_fecha=fx_fecha)
+    for c in o["celdas"]:
+        fx = c["fx_fecha"] and tabla.get((v["moneda"], c["fx_fecha"]))
+        c["precios_litro_usd"] = [round(p / fx[0], 3) for p in c["precios_litro"]] if fx else None
+    return o
 
 
 def pais_de_fuente(f):
@@ -1992,6 +2030,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.analisis(nombre, q)
         if nombre == "producto":
             return self.producto(q)
+        if nombre == "indice/celdas":
+            return self.celdas(q)
         if nombre.startswith("bi/"):  # modelo estrella para Power BI: CSV con BOM (para que lea los acentos), sin filtro de país
             desde = q.get("desde", "")
             if desde and not RX_FECHA.fullmatch(desde):
@@ -2081,6 +2121,34 @@ class Handler(BaseHTTPRequestHandler):
                      for p in v["productos"] for c in p["fuentes"]]
         filas = [{**f, "pais": pais, "moneda": v["moneda"]} for f in filas]
         self.enviar(200, a_csv("provincias", filas), "text/csv; charset=utf-8") if csv_ else self.salida(v)
+
+    def celdas(self, q):
+        """/api/indice/celdas (la vista 3D de Índice): 400 si `dias`/`hasta` son inválidos. Cacheado por estado de datos (`d` se reemplaza al recargar)."""
+        d = self.datos
+        try:
+            dias = int(q.get("dias") or 30)
+        except ValueError:
+            dias = 0
+        if not 1 <= dias <= 366:
+            return self.json(400, {"error": "dias tiene que ser un entero entre 1 y 366"})
+        hasta = q.get("hasta") or None
+        try:
+            if hasta and not RX_FECHA.fullmatch(hasta):
+                raise ValueError
+            hasta and date.fromisoformat(hasta)
+        except ValueError:
+            return self.json(400, {"error": "hasta tiene que ser una fecha AAAA-MM-DD válida"})
+        k = (dias, hasta, q.get("mayoristas") == "1", self.pais)
+        cache = d.setdefault("_cache_celdas", {})
+        if k not in cache:
+            if len(cache) >= 32:  # `hasta` lo elige quien pide: sin tope la caché crecería sin límite
+                cache.clear()
+            cache[k] = indice_celdas(d, *k[:2], k[2], k[3])
+        v = cache[k]
+        if q.get("formato") == "csv":
+            filas = [{**c, "productos": ";".join(c["productos"]), "pais": v["pais"], "moneda": v["moneda"], "desde": v["desde"], "hasta": v["hasta"], "dias": v["dias"]} for c in v["celdas"]]
+            return self.enviar(200, a_csv("indice_celdas", filas), "text/csv; charset=utf-8")
+        self.json(200, celdas_usd(v, d.get("fx_tabla", {}), self.fx_fecha) if self.usd else v)
 
     def producto(self, q):
         """/api/producto: la página de producto del visor y la fuente del agente de sobreprecios (400 si el producto no existe o `dias`/`umbral` son inválidos)."""
@@ -2412,6 +2480,23 @@ def demo():
     assert vm["ypf-a"]["ypf"]["mas_barato"]["litros"] == 12.0 and vm["ypf-a"]["ypf"]["mas_barato"]["precio"] == 36000.0
     vv = vitrina({**dv, "obs": []})
     assert vv["fecha"] is None and len(vv["productos"]) == 3 and all(p["ypf"]["promedio_litro"] is None and p["dif_pct"] is None for p in vv["productos"])
+    # /api/indice/celdas: mismos avisos y sanidad que la vitrina (3 días); cada celda lleva los $/L de sus avisos
+    ic = indice_celdas(dv, 3)
+    cd_ = {c["marca"]: c for c in ic["celdas"]}
+    assert (ic["desde"], ic["hasta"], ic["moneda"]) == ("2026-11-03", "2026-11-05", "ARS") and list(cd_) == ["Gulf", "Motul", "Shell", "YPF"]
+    assert cd_["YPF"]["n"] == vi["productos"][0]["ypf"]["n"] + pv["ypf-c"]["ypf"]["n"] and cd_["YPF"]["precios_litro"] == [4000, 5000, 8000]   # = los avisos de la vitrina (ypf-a: 2, ypf-c: 1)
+    assert cd_["YPF"]["indice"] == 100 and cd_["Shell"]["indice"] == 130 and cd_["Shell"]["productos"] == ["shell-s"] and cd_["YPF"]["fecha_min"] == "2026-11-03"
+    assert all(len(c["precios_litro"]) == c["n"] for c in ic["celdas"]) and all(c["mediana_litro"] == median(c["precios_litro"]) for c in ic["celdas"])
+    assert indice_celdas(dv, 3, mayoristas=True)["celdas"][-1]["n"] == 4 and indice_celdas(dv, 1, "2026-11-03")["celdas"][0]["marca"] == "YPF"   # mayorista con flag; ventana de un día pedida
+    assert [c["indice"] for c in indice_celdas({**dv, "obs": [o for o in dv["obs"] if o["fuente"] != "sepa"]}, 3)["celdas"] if c["marca"] != "YPF"][0] is not None   # YPF sigue por easy
+    assert indice_celdas({**dv, "obs": [O("2026-11-05", "sepa", "ypf-a", "5000", litros="", url="z")]}, 3)["celdas"] == []   # solo avisos sin litros: sin celda, sin error
+    sin_ypf = indice_celdas({**dv, "obs": [o for o in dv["obs"] if o["producto_id"] in ("shell-s", "gulf-g")]}, 3)
+    assert sin_ypf["celdas"] and all(c["indice"] is None for c in sin_ypf["celdas"])   # sin YPF no se calcula índice
+    assert indice_celdas({**dv, "obs": []})["celdas"] == [] and indice_celdas(dv, 3, pais="BR")["celdas"] == []   # sin datos: ni barras ni ceros; país aparte
+    ux_ = celdas_usd(ic, {("ARS", "2026-11-05"): (1000.0, "x")})
+    assert ux_["celdas"][-1]["mediana_litro_usd"] == 5 and ux_["celdas"][-1]["precios_litro_usd"] == [4, 5, 8] and ux_["celdas"][-1]["fx_fecha"] == "2026-11-05"
+    assert celdas_usd(ic, {})["celdas"][0]["precios_litro_usd"] is None and celdas_usd(ic, {})["celdas"][0]["mediana_litro_usd"] is None   # sin cotización ese día: null, no se arrastra
+    assert a_csv("indice_celdas", [{**cd_["YPF"], "productos": "ypf-a;ypf-c"}]).decode().startswith("segmento,sae,marca,mediana_litro,indice,n,fecha_min,fecha_max,productos,pais,moneda,desde,hasta,dias\n,,YPF,5000.0,100.0,3,")
     fl = aplanar_vitrina(vi)
     assert len(fl) == 3 and fl[0]["ypf_promedio_litro"] == 4500 and fl[0]["n_equivalentes"] == 3 and fl[2]["ypf_mas_barato_fuente"] is None
     assert a_csv("vitrina", fl).decode().startswith("fecha,producto_id,nombre,linea,segmento,sae,base,imagen,imagen_fuente,ypf_n,")
@@ -2780,6 +2865,11 @@ def demo():
     assert get("/api/obs?mes=2026-11&formato=csv", {"X-API-Key": "s3cr3t"})[1].startswith(b"fecha,fuente,url")
     k = {"X-API-Key": "s3cr3t"}
     assert json.loads(get("/api/indice", k)[1]) == c["indice"] and json.loads(get("/api/indice?mayoristas=1", k)[1]) == c["indice_con_mayoristas"]
+    ce = json.loads(get("/api/indice/celdas?dias=30", k)[1])
+    assert ce["hasta"] == "2026-11-03" and {x["marca"] for x in ce["celdas"]} == {"YPF", "Shell", "Gulf"}
+    assert get("/api/indice/celdas?formato=csv")[1].startswith(b"segmento,sae,marca,") and get("/api/indice/celdas?pais=BR")[0] == 200 and get("/api/indice/celdas?pais=CL")[0] == 400
+    assert all(get("/api/indice/celdas" + mal)[0] == 400 for mal in ("?dias=0", "?dias=367", "?dias=x", "?hasta=2026-13-01", "?hasta=ayer", "?hasta=2026-1-1"))
+    assert "_cache_celdas" in Handler.datos and "precios_litro_usd" not in ce["celdas"][0]
     assert json.loads(get("/api/vitrina", k)[1]) == json.loads(json.dumps(c["vitrina"])) and c["vitrina"]["productos"][0]["producto_id"] == "ypf-a-10w40"
     assert json.loads(get("/api/vitrina?mayoristas=1", k)[1]) == json.loads(json.dumps(c["vitrina_con_mayoristas"]))
     assert get("/api/vitrina?formato=csv", k)[1].startswith(b"fecha,producto_id,nombre,") and get("/api/vitrina")[0] == 200
