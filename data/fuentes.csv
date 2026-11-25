@@ -390,3 +390,4 @@ fecha,fuente,http,n_items,n_con_precio,n_sin_stock,n_sin_match,error,n_descartad
 2026-11-25,fx_bcra,200,6,6,0,0,,0
 2026-11-25,correo_tarifas,,301,301,0,0,,0
 2026-11-25,casa,,5,5,0,0,,0
+2026-11-25,ml,429,0,0,0,0,products/search HTTP 429,0
