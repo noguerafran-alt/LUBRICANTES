@@ -174,7 +174,7 @@ def renormalizar():
                 f.update(litros=num(n["litros"]), unidades=n["unidades"])
                 e = tiendas.envase(f["titulo"]) if f["fuente"].startswith("tn_") else None  # igual que al recolectar
                 if e:
-                    f.update(litros=num(e[0]), unidades=e[1])
+                    f.update(litros=num(e[0]), unidades=1 if f["fuente"] in tiendas.PRECIO_UNITARIO else e[1])
         with open(ruta, "w", encoding="utf-8", newline="") as fh:
             w = csv.DictWriter(fh, OBS, lineterminator=chr(10), extrasaction="ignore")
             w.writeheader()
