@@ -1,0 +1,316 @@
+<title>Ruta de datos LUBRICANTES</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: una columna de lectura; el plano de la ruta va en 5 etapas de izquierda a derecha y se apila en el celular. */
+:root {
+  --bg: #f5f7f9; --panel: #ffffff; --ink: #14202b; --muted: #5a6875; --line: #d5dde4;
+  --accent: #0b5cad; --accent-soft: #e3eefa; --ok: #1f7a4a; --ok-soft: #e2f3e9;
+  --warn: #9a5b00; --warn-soft: #fbf0dc; --bad: #b02a2a; --bad-soft: #fbe5e5; --code: #eef2f5;
+  --display: "Archivo", "Segoe UI", system-ui, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f161d; --panel: #16212b; --ink: #e4ebf1; --muted: #9aa9b6; --line: #2a3946;
+  --accent: #6cb0f5; --accent-soft: #173049; --ok: #5fcf92; --ok-soft: #15311f;
+  --warn: #f0b45a; --warn-soft: #3a2a10; --bad: #f08080; --bad-soft: #3b1b1b; --code: #1b2833; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0f161d; --panel: #16212b; --ink: #e4ebf1; --muted: #9aa9b6; --line: #2a3946;
+  --accent: #6cb0f5; --accent-soft: #173049; --ok: #5fcf92; --ok-soft: #15311f;
+  --warn: #f0b45a; --warn-soft: #3a2a10; --bad: #f08080; --bad-soft: #3b1b1b; --code: #1b2833; color-scheme: dark }
+
+body { background: var(--bg); color: var(--ink); font: 15px/1.6 var(--body); }
+.wrap { max-width: 1080px; margin: 0 auto; padding-block: 32px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 40px; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; line-height: 1.2; }
+h1 { font-size: clamp(1.8rem, 4vw, 2.6rem); font-weight: 800; }
+h2 { font-size: 1.45rem; font-weight: 700; }
+h3 { font-size: 1.05rem; font-weight: 700; }
+p { margin: 0; max-width: 68ch; }
+code, .mono { font-family: var(--mono); font-size: .88em; }
+code { background: var(--code); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+a { color: var(--accent); }
+.eyebrow { font: 600 .78rem/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+section { display: grid; gap: 16px; min-width: 0; }
+.lead { font-size: 1.05rem; color: var(--muted); }
+
+header { display: grid; gap: 12px; }
+.estado { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { font: 500 .8rem/1 var(--mono); padding: 6px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); }
+.chip.ok { color: var(--ok); background: var(--ok-soft); border-color: transparent; }
+.chip.warn { color: var(--warn); background: var(--warn-soft); border-color: transparent; }
+.chip.bad { color: var(--bad); background: var(--bad-soft); border-color: transparent; }
+
+/* plano de la ruta */
+.ruta { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; }
+.etapa { display: grid; gap: 10px; align-content: start; position: relative; min-width: 0; }
+.etapa > .eyebrow { padding-left: 2px; }
+.etapa:not(:last-child)::after { content: "→"; position: absolute; right: -13px; top: 0; color: var(--muted); font: 700 .9rem var(--mono); }
+.nodo { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; gap: 4px; min-width: 0; }
+.nodo b { font-family: var(--display); font-weight: 700; font-size: .95rem; }
+.nodo small { color: var(--muted); font-size: .82rem; line-height: 1.45; }
+.nodo .hora { font: 500 .78rem/1 var(--mono); color: var(--accent); }
+.nodo.principal { border-color: var(--accent); background: var(--accent-soft); }
+.nodo.principal small { color: var(--ink); }
+.nodo.nuevo { border-style: dashed; border-color: var(--warn); }
+@media (max-width: 860px) {
+  .ruta { grid-template-columns: 1fr; }
+  .etapa:not(:last-child)::after { content: "↓"; right: auto; left: 2px; top: auto; bottom: -14px; }
+}
+
+/* día */
+.dia { display: grid; gap: 0; border-left: 2px solid var(--line); margin-left: 6px; }
+.dia > div { display: grid; grid-template-columns: 82px minmax(0, 1fr); gap: 14px; padding: 8px 0 8px 16px; position: relative; }
+.dia > div::before { content: ""; position: absolute; left: -6px; top: 15px; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
+.dia .t { font: 500 .85rem var(--mono); color: var(--accent); padding-top: 1px; font-variant-numeric: tabular-nums; }
+
+/* tablas */
+.tabla { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: .9rem; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 600 .78rem/1.3 var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); background: var(--code); }
+tr:last-child td { border-bottom: 0; }
+td .mono { white-space: nowrap; }
+.st { font: 500 .78rem/1 var(--mono); padding: 3px 7px; border-radius: 4px; white-space: nowrap; }
+.st.ok { color: var(--ok); background: var(--ok-soft); }
+.st.warn { color: var(--warn); background: var(--warn-soft); }
+.st.bad { color: var(--bad); background: var(--bad-soft); }
+
+/* reglas */
+.reglas { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+.regla { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; display: grid; gap: 4px; }
+.regla p { font-size: .88rem; color: var(--muted); }
+
+/* cloudera */
+.caminos { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+.camino { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.camino.recomendado { border-color: var(--accent); }
+.camino ol, .camino ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+.tag { justify-self: start; font: 600 .78rem/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; padding: 5px 8px; border-radius: 4px; }
+.tag.rec { color: var(--accent); background: var(--accent-soft); }
+.tag.desp { color: var(--muted); background: var(--code); }
+.codigo { position: relative; min-width: 0; }
+pre { margin: 0; background: var(--code); border: 1px solid var(--line); border-radius: 8px; padding: 14px; overflow-x: auto; font: .82rem/1.55 var(--mono); }
+.copiar { position: absolute; top: 8px; right: 8px; font: 500 .78rem var(--mono); padding: 5px 9px; border-radius: 5px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
+.copiar:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.aviso { border: 1px solid var(--warn); background: var(--warn-soft); padding: 10px 14px; border-radius: 6px; font-size: .92rem; }
+.aviso p { max-width: none; }
+.checklist { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--line); padding-top: 16px; }
+</style>
+
+<div class="wrap">
+
+<header>
+  <span class="eyebrow">LUBRICANTES · YPF vs competencia · estado al 27/11/2026</span>
+  <h1>De dónde sale cada dato y cómo llega a Cloudera</h1>
+  <p class="lead">Los precios salen de tiendas online, de Precios Claros (SEPA) y de Mercado Libre. Se guardan como CSV en el repo de GitHub, que es la única base de datos, y los sirve un celular en casa. Render queda de respaldo. Cloudera todavía no está conectado: abajo están los dos caminos para hacerlo.</p>
+  <div class="estado">
+    <span class="chip ok">Servidor principal: celu (Termux + túnel)</span>
+    <span class="chip ok">Respaldo: Render</span>
+    <span class="chip warn">Mercado Libre sin publicaciones desde el 23/11, cubre Grok</span>
+    <span class="chip warn">Cloudera: sin conectar</span>
+  </div>
+</header>
+
+<section>
+  <span class="eyebrow">El plano</span>
+  <h2>La ruta de punta a punta</h2>
+  <div class="ruta">
+    <div class="etapa">
+      <span class="eyebrow">1 · Fuentes</span>
+      <div class="nodo"><b>Tiendas online</b><small>Tiendanube, VTEX, Shopify, WooCommerce, Odoo, PrestaShop. 23 tiendas argentinas y 2 de Brasil. Shopify, Tiendanube, WooCommerce, Odoo, PrestaShop y las VTEX de Brasil consultan antes su robots.txt.</small></div>
+      <div class="nodo"><b>SEPA · Precios Claros</b><small>Supermercados por provincia. Bloquea las IP de datacenter (HTTP 403).</small></div>
+      <div class="nodo"><b>Mercado Libre</b><small>Solo por la API con OAuth. Sin scraping (términos 7.5/7.6).</small></div>
+      <div class="nodo"><b>Grok</b><small>Relevamiento diario cargado a mano por la pestaña Cargar.</small></div>
+      <div class="nodo"><b>Mercado y macro</b><small>Secretaría de Energía, datos.gob.ar, BCRA y BCB (dólar).</small></div>
+      <div class="nodo"><b>Correo Argentino</b><small>Tarifas de envío capital a capital, para el precio puesto.</small></div>
+    </div>
+    <div class="etapa">
+      <span class="eyebrow">2 · Recolectan</span>
+      <div class="nodo principal"><span class="hora">06:00 ART</span><b>Celu de casa</b><small><code>recolector_casa.py</code>: todas las tiendas, SEPA, series, dólar, Correo y energía. Todo menos ML. IP residencial.</small></div>
+      <div class="nodo"><span class="hora">10:00 ART</span><b>GitHub Action</b><small>Mercado Libre con token. Si el celu no corrió ese día, hace todo lo demás como respaldo, menos SEPA y la SE (bloquean las IP de datacenter) y Correo (sin credenciales en GitHub).</small></div>
+      <div class="nodo"><span class="hora">a demanda</span><b>POST /api/cargar</b><small>La carga de Grok, con clave. El server la comitea al repo.</small></div>
+    </div>
+    <div class="etapa">
+      <span class="eyebrow">3 · Guardan</span>
+      <div class="nodo principal"><b>Repo GitHub (privado)</b><small><code>data/obs/</code> precios · <code>data/grok/</code> · <code>data/fuentes.csv</code> estado por corrida · <code>data/envios/</code> · <code>data/correo/</code> · <code>data/macro/</code> · <code>data/fx.csv</code>. Más el catálogo a mano en <code>seed/</code>.</small></div>
+      <div class="nodo"><small>Sin base de datos: git es el almacenamiento y el historial. Cada corrida es un commit.</small></div>
+    </div>
+    <div class="etapa">
+      <span class="eyebrow">4 · Sirven</span>
+      <div class="nodo principal"><span class="hora">pull cada hora, min 20</span><b>Celu · servidor principal</b><small><code>server.py</code> en el celu, publicado por Cloudflare Tunnel en <code>lubricantes.fln-data-analysis.com</code>. Revisa el commit cada 5 min y recarga los datos.</small></div>
+      <div class="nodo"><span class="hora">cada push</span><b>Render · respaldo</b><small><code>lubricantes-ypf.onrender.com</code>. Plan free: tarda en despertar.</small></div>
+    </div>
+    <div class="etapa">
+      <span class="eyebrow">5 · Consumen</span>
+      <div class="nodo"><b>Visor web</b><small>Visualizador, Mapa, Comparador, Evolución, Índice, Fuentes, Mercado.</small></div>
+      <div class="nodo"><b>API abierta</b><small>Todo <code>GET /api/*</code> sin clave.</small></div>
+      <div class="nodo"><b>Power BI · Copilot</b><small><code>/api/bi/paquete.zip</code> se baja y se sube a mano a SharePoint.</small></div>
+      <div class="nodo nuevo"><b>Cloudera (CML)</b><small>Pendiente. Ver «Cómo meterlo en Cloudera».</small></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">Un día cualquiera</span>
+  <h2>Cuándo se mueve cada cosa</h2>
+  <div class="dia">
+    <div><span class="t">06:00</span><p>El celu corre la recolección de casa: fetch y reset del clon, tiendas, SEPA, series, dólar, Correo (si hay credenciales) y energía (solo si la SE publicó algo nuevo). Después hace un commit <code>datos AAAA-MM-DD: casa (…)</code> y push.</p></div>
+    <div><span class="t">10:00</span><p>La Action de GitHub ve la fila <code>casa</code> de hoy y corre solo Mercado Libre. Si no la ve, corre todo como respaldo.</p></div>
+    <div><span class="t">a demanda</span><p>Se carga el relevamiento de Grok por la pestaña Cargar y el server lo comitea a <code>data/grok/</code>.</p></div>
+    <div><span class="t">min 20</span><p>Cada hora el celu hace pull de <code>main</code>. Si cambió el commit, recarga los datos sin reiniciar. Si cambió <code>server.py</code>, el vigía de CELU-SERVIDOR reinicia el servicio.</p></div>
+    <div><span class="t">cada push</span><p>Render redeploya y recalcula todo al arrancar.</p></div>
+  </div>
+  <div class="aviso"><p><b>Desfase de hasta una hora.</b> Un merge a <code>main</code> llega a Render enseguida, pero al celu recién en el próximo pull (minuto 20). Pasó el 27/11: el celu siguió mostrando el índice viejo hasta el pull. Para saber qué versión sirve cada uno, compará el <code>commit</code> de <code>/salud</code> en los dos.</p></div>
+</section>
+
+<section>
+  <span class="eyebrow">Fuentes</span>
+  <h2>Quién trae qué</h2>
+  <div class="tabla"><table>
+    <thead><tr><th>Fuente</th><th>Qué trae</th><th>La corre</th><th>Archivo</th><th>Estado al 27/11</th></tr></thead>
+    <tbody>
+      <tr><td>Tiendas online (<span class="mono">tn_*</span>, <span class="mono">vtex_*</span>, <span class="mono">shopify_*</span>, <span class="mono">woo_*</span>, Odoo, PrestaShop)</td><td>Precio, stock y envase de cada aviso relacionado con YPF</td><td>Celu (Action de respaldo)</td><td><code>data/obs/</code></td><td><span class="st ok">diaria</span> Motoracing con HTTP 0; Jumbo dada de baja el 19/11 (ya no vende aceite online)</td></tr>
+      <tr><td>SEPA · Precios Claros</td><td>Precio de lista de supermercados por provincia (878 filas por día)</td><td>Solo el celu (403 en datacenter)</td><td><code>data/obs/</code></td><td><span class="st ok">diaria</span> última del 26/11</td></tr>
+      <tr><td>Mercado Libre (<span class="mono">ml</span>)</td><td>Publicaciones con precio, por API con token</td><td>Solo la Action</td><td><code>data/obs/</code></td><td><span class="st bad">sin datos</span> desde el 23/11: 403 PolicyAgent (429 el 25 y el 26/11), ticket a ML</td></tr>
+      <tr><td>Grok (<span class="mono">grok_*</span>)</td><td>Relevamiento cargado a mano. <span class="mono">grok_mercadolibre</span> reemplaza a ML los días sin ML</td><td>POST /api/cargar</td><td><code>data/grok/</code></td><td><span class="st warn">manual</span> 74 filas el 27/11</td></tr>
+      <tr><td><span class="mono">helix_api</span></td><td>Combos de cambio de aceite Shell (helixturno)</td><td>Celu / Action</td><td><code>data/grok/</code></td><td><span class="st ok">diaria</span></td></tr>
+      <tr><td><span class="mono">ypf_gql</span></td><td>Catálogo oficial de lubricantes YPF, sin precios (las marcas no publican precio)</td><td>Celu / Action</td><td><code>data/catalogo_ypf.json</code></td><td><span class="st ok">diaria</span></td></tr>
+      <tr><td>Correo Argentino</td><td>Tarifas capital a capital por envase</td><td>Solo el celu</td><td><code>data/correo/</code></td><td><span class="st ok">diaria</span> 301 tarifas el 27/11</td></tr>
+      <tr><td>Envíos de Norauto</td><td>Costo de envío de cada aviso YPF a las 24 capitales</td><td>Celu / Action</td><td><code>data/envios/</code></td><td><span class="st ok">diaria</span> (los envíos de ML están pausados)</td></tr>
+      <tr><td>Secretaría de Energía</td><td>Ventas de lubricantes por empresa y mes (share)</td><td>Solo el celu, cuando publica</td><td><code>data/macro/energia.csv</code></td><td><span class="st warn">mensual</span> falló el 27/11</td></tr>
+      <tr><td>datos.gob.ar, BCRA, BCB</td><td>Actividad, patentamientos y dólar ARS y BRL</td><td>Celu / Action</td><td><code>data/macro/</code>, <code>data/fx.csv</code></td><td><span class="st ok">diaria</span></td></tr>
+    </tbody>
+  </table></div>
+  <div class="reglas">
+    <div class="regla"><h3>No se inventan datos</h3><p>Si una fuente se cae ese día, no se escribe fila y no se arrastra el precio anterior. El visor muestra la fecha del hueco y el error.</p></div>
+    <div class="regla"><h3>No se adivina el producto</h3><p>Un aviso solo toma <code>producto_id</code> cuando hay exactamente un candidato (EAN o regex de <code>seed/alias.csv</code>).</p></div>
+    <div class="regla"><h3>Solo lo relacionado con YPF</h3><p>Se guarda un producto YPF o un equivalente de <code>seed/equivalencias.csv</code>. Lo demás solo se cuenta.</p></div>
+    <div class="regla"><h3>Las fuentes no se mezclan</h3><p>Ninguna mediana junta fuentes, países ni monedas. El índice YPF = 100 usa la mediana por aviso de 3 días.</p></div>
+  </div>
+</section>
+
+<section id="cloudera">
+  <span class="eyebrow">Cloudera</span>
+  <h2>Cómo meterlo en Cloudera</h2>
+  <p>Hoy el paquete de Power BI se baja y se sube a mano a SharePoint, por ciberseguridad, y Cloudera quedó para después. El servidor ya tiene lo que Cloudera necesita: lectura abierta sin clave, ningún secreto en los GET y un zip con nombres fijos. Falta el lado de Cloudera.</p>
+
+  <div class="caminos">
+    <div class="camino recomendado">
+      <span class="tag rec">Recomendado · camino A</span>
+      <h3>Un Job de CML que baja el paquete todos los días</h3>
+      <p>Cloudera solo lee. La recolección queda afuera, igual que hoy.</p>
+      <ol>
+        <li>En el proyecto de CML, crear <code>bajar_lubricantes.py</code> con el script de abajo. Usa solo la stdlib y no lleva claves.</li>
+        <li>Crear un <b>Job</b> que lo corra a las <b>11:30 ART</b>, cuando ya pasaron el celu (06:00) y la Action (10:00).</li>
+        <li>El script revisa <code>/salud</code>, baja <code>/api/bi/paquete.zip</code> del celu (o de Render si el celu no responde) y deja los CSV en <code>lubricantes/actual/</code> y en una carpeta por fecha.</li>
+        <li>Opcional: con Spark, pasar los CSV a tablas de Impala o Hive (<code>lub_precios</code>, <code>lub_indice</code>…) para que Power BI lea de Cloudera en lugar de SharePoint.</li>
+      </ol>
+    </div>
+    <div class="camino">
+      <span class="tag desp">Después · camino B</span>
+      <h3>Correr el visor entero dentro de CML</h3>
+      <p>Es lo que se hizo con MAPA-NEGOCIO («modo espejo»). <code>server.py</code> es solo stdlib, así que arranca como Application de CML sin instalar nada.</p>
+      <ul>
+        <li>Necesita <code>data/</code> y <code>seed/</code> crudos, no el paquete. El repo es privado: habría que darle a CML un token de solo lectura, o sumar un endpoint <code>/api/bajada.zip</code> como el de MAPA-NEGOCIO.</li>
+        <li>La carga de Grok tiene que quedar apagada en Cloudera (sin clave ya se rechaza).</li>
+        <li>Conviene recién cuando el camino A esté andando y ciberseguridad apruebe el acceso.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="codigo">
+    <button class="copiar" id="copiar-script" type="button">Copiar</button>
+<pre id="script"><code># bajar_lubricantes.py - Job diario de CML. Solo stdlib, sin claves (lectura abierta).
+import io, json, os, sys, urllib.request, zipfile
+from datetime import datetime, timezone
+
+SERVIDORES = ["https://lubricantes.fln-data-analysis.com",   # celu, principal
+              "https://lubricantes-ypf.onrender.com"]         # respaldo (tarda en despertar)
+DESTINO = os.environ.get("LUB_DESTINO", "/home/cdsw/lubricantes")
+
+def bajar(base, ruta, timeout):
+    req = urllib.request.Request(base + ruta, headers={"User-Agent": "cml-lubricantes/1"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return r.read()
+
+def un_servidor():
+    """Salud y paquete del MISMO servidor, para no mezclar versiones."""
+    errores = []
+    for base in SERVIDORES:
+        try:
+            salud = json.loads(bajar(base, "/salud", 90))
+            if salud.get("ok"):
+                return base, salud, bajar(base, "/api/bi/paquete.zip", 300)
+            errores.append(f"{base}: /salud sin ok")
+        except Exception as e:
+            errores.append(f"{base}: {e!r}")
+    sys.exit("ningun servidor respondio:\n" + "\n".join(errores))
+
+base, salud, crudo = un_servidor()
+hoy = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+for carpeta in (os.path.join(DESTINO, hoy), os.path.join(DESTINO, "actual")):
+    os.makedirs(carpeta, exist_ok=True)
+    with zipfile.ZipFile(io.BytesIO(crudo)) as z:
+        for nombre in z.namelist():
+            datos = z.read(nombre)
+            if nombre.endswith(".csv"):  # sin BOM: Spark lo pegaria al nombre de la primera columna
+                datos = datos.decode("utf-8-sig").encode("utf-8")
+            with open(os.path.join(carpeta, nombre), "wb") as fh:
+                fh.write(datos)
+print(f"ok: {base} commit {salud['commit']} ultimo_dato {salud['ultimo_dato']} -> {DESTINO}")
+
+# Opcional, con Spark en el proyecto: una tabla por CSV. SIN PROBAR en CML: si los
+# ejecutores de Spark no ven /home/cdsw, subir antes los CSV a HDFS/S3 y leer de ahi.
+# from pyspark.sql import SparkSession
+# spark = SparkSession.builder.appName("lubricantes").getOrCreate()
+# for t in ["precios", "indice", "indice_competencia", "productos", "equivalencias", "fuentes", "provincias", "fx"]:
+#     (spark.read.option("header", True).option("inferSchema", True)
+#           .csv(f"file://{DESTINO}/actual/{t}.csv")
+#           .write.mode("overwrite").saveAsTable(f"lub_{t}"))</code></pre>
+  </div>
+
+  <h3>Antes de armarlo, verificar desde la red de YPF</h3>
+  <ul class="checklist">
+    <li>Que CML tenga salida a internet y llegue a <code>lubricantes.fln-data-analysis.com</code>: con <code>curl -s https://lubricantes.fln-data-analysis.com/salud</code> en una sesión de CML tiene que devolver <code>{"ok": true, …}</code>. Que el dominio fln abra desde YPF ya se vio con A4D en Oracle. Este host pasa por Cloudflare y no se probó.</li>
+    <li>Si el proxy de YPF exige configuración, definir <code>HTTPS_PROXY</code> en el proyecto. <code>urllib</code> lo toma solo.</li>
+    <li>Que ciberseguridad apruebe bajar datos de un dominio externo. Es lectura pública y sin credenciales; los datos no salen de YPF.</li>
+    <li>El paquete pesa ~1 MB comprimido (<code>precios.csv</code> ~8 MB, ~51 mil filas) y tarda ~1 s en armarse.</li>
+  </ul>
+
+  <h3>Qué trae el paquete</h3>
+  <div class="tabla"><table>
+    <thead><tr><th>Archivo</th><th>Contenido</th></tr></thead>
+    <tbody>
+      <tr><td><code>precios.csv</code></td><td>Tabla de hechos: una fila por observación de precio, con <code>producto_id</code>, fuente, provincia, litros, unidades y $/L.</td></tr>
+      <tr><td><code>indice.csv</code></td><td>Índice YPF = 100 por fecha, segmento, SAE y marca (mediana por aviso, ventana de 3 días).</td></tr>
+      <tr><td><code>indice_competencia.csv</code></td><td>Índice por producto YPF frente a sus equivalentes (competencia = 100, ventana de 30 días).</td></tr>
+      <tr><td><code>productos.csv</code> · <code>equivalencias.csv</code></td><td>Catálogo normalizado y pares YPF ↔ competidor.</td></tr>
+      <tr><td><code>fuentes.csv</code> · <code>provincias.csv</code> · <code>fx.csv</code></td><td>Dimensiones: estado de cada fuente, provincias ISO con región INDEC y dólar.</td></tr>
+      <tr><td><code>diccionario.csv</code> · <code>LEEME.txt</code></td><td>Descripción de cada columna (la lee Copilot), y fecha, commit y origen del paquete.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<footer>
+  Fuente: <code>CLAUDE.md</code>, <code>ESTADO.md</code> y <code>data/fuentes.csv</code> del repo LUBRICANTES, al 27/11/2026. Guía de Power BI y SharePoint: <code>docs/powerbi.md</code>. Reemplaza al mapa de datos del 19/11, que todavía mostraba la PC y Render como principales.
+</footer>
+</div>
+
+<script>
+document.getElementById("copiar-script").addEventListener("click", function () {
+  var b = this, txt = document.getElementById("script").innerText;
+  function listo(m) { b.textContent = m; setTimeout(function () { b.textContent = "Copiar"; }, 1800); }
+  try {
+    navigator.clipboard.writeText(txt).then(function () { listo("Copiado"); }, function () { seleccionar(); });
+  } catch (e) { seleccionar(); }
+  function seleccionar() {
+    var r = document.createRange(); r.selectNodeContents(document.getElementById("script"));
+    var s = window.getSelection(); s.removeAllRanges(); s.addRange(r); listo("Seleccionado: Ctrl+C");
+  }
+});
+</script>
