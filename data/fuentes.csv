@@ -459,4 +459,4 @@ fecha,fuente,http,n_items,n_con_precio,n_sin_stock,n_sin_match,error,n_descartad
 2026-11-27,fx_bcra,200,7,7,0,0,,0
 2026-11-27,correo_tarifas,,301,301,0,0,,0
 2026-11-27,casa,,6,5,0,0,fallaron: energia,0
-2026-11-27,ml,200,0,0,0,0,"token válido pero 0 publicaciones (295 productos encontrados; items: HTTP 403 ×295 ({""message"":""At least one policy returned UNAUTHORIZED."",""code"":""PA_UNAUTHORIZED_RESULT_FROM_POLICIES"",""status"":403,""blocked_by"":""PolicyAgent""}))",0
+2026-11-27,ml,200,0,0,0,0,"token válido pero 0 publicaciones (295 productos encontrados; items: HTTP 403 ×295 ({""message"":""At least one policy returned UNAUTHORIZED."",""blocked_by"":""PolicyAgent"",""status"":403,""code"":""PA_UNAUTHORIZED_RESULT_FROM_POLICIES""}))",0
