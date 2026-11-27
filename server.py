@@ -386,8 +386,8 @@ def serie(obs, pid, pais="AR"):
 
 def indice(d, mayoristas=False, pais="AR"):
     """Índice YPF = 100 DENTRO de un país y una moneda. Para cada fecha F con datos: los avisos de la ventana de VENTANA_DIAS días que termina en F
-    (cada aviso una vez, con su observación más reciente de la ventana; la misma regla que la vitrina, /api/producto e /api/indice/celdas: `_clave_aviso(r, None)`,
-    `_validos`, `cuerdos`), mediana de $/L por (segmento, SAE, marca) y contra la de YPF del mismo grupo. `n` = avisos. Nunca más de VENTANA_DIAS días de arrastre.
+    (cada aviso una vez, con su observación más reciente de la ventana; la misma definición de aviso que la vitrina y /api/producto: `_clave_aviso(r, None)`, `_validos`, `cuerdos`,
+    pero sin envases de menos de LITROS_MIN_INDICE L por unidad, que la vitrina sí cuenta: `_validos_indice`), mediana de $/L por (segmento, SAE, marca) y contra la de YPF del mismo grupo. `n` = avisos. Nunca más de VENTANA_DIAS días de arrastre.
     Barrido incremental (como bi_indice_competencia): se mantiene el último aviso vivo de cada clave y salen los que pasan de la ventana."""
     prod = {p["producto_id"]: p for p in d["productos"]}
     obs = [r for r in d["obs"] if pais_r(r) == pais and r["producto_id"] in prod]
@@ -421,8 +421,8 @@ def indice(d, mayoristas=False, pais="AR"):
 
 def indice_celdas(d, dias=30, hasta=None, mayoristas=False, pais="AR"):
     """/api/indice/celdas: una celda por (segmento, SAE, marca) con la mediana de $/L de los avisos de la ventana de `dias` que termina en `hasta`
-    (default: el último día con datos) y los $/L de cada aviso (para la distribución). Misma definición de aviso, sanidad y exclusiones que la vitrina
-    y /api/producto (`_avisos`, `_validos`, `cuerdos`). `indice` = mediana de la marca / mediana de YPF del mismo segmento y SAE × 100; null sin YPF."""
+    (default: el último día con datos) y los $/L de cada aviso (para la distribución). Misma definición de aviso y sanidad que la vitrina y /api/producto
+    (`_avisos`, `_validos`, `cuerdos`), pero sin envases de menos de LITROS_MIN_INDICE L por unidad (`_validos_indice`); los que dejan una celda vacía van en `sin_dato`. `indice` = mediana de la marca / mediana de YPF del mismo segmento y SAE × 100; null sin YPF."""
     d = de_pais(d, pais)
     prod = {p["producto_id"]: p for p in d["productos"]}
     h, por = _avisos(d, dias, set(prod), None, None, hasta)
@@ -934,10 +934,10 @@ moneda|texto||Moneda de la celda, ISO 4217.|ARS
 segmento|texto||Segmento del producto: pcmo (autos), hddo (pesados), moto4t, moto2t, transmision, grasa, industrial, marino, gas, otro.|pcmo
 sae|texto||Viscosidad SAE (5W-30, 15W-40, SAE 40); vacío si el segmento no tiene.|5W-30
 marca|texto||Marca del aviso. YPF es la referencia (100).|Shell
-mediana_litro|decimal|moneda por litro|Mediana del precio por litro de los avisos de esa marca, segmento y SAE en la ventana de 3 días (cada aviso cuenta una vez, con precios cuerdos).|41250
-mediana_ypf_litro|decimal|moneda por litro|Mediana del precio por litro de YPF en el mismo segmento, SAE y fecha; vacía si YPF no tiene avisos en la ventana.|38500
-indice|decimal|puntos (YPF = 100)|Mediana de la marca / mediana de YPF × 100. 110 = la marca es 10 % más cara que YPF; 90 = 10 % más barata. Vacío si no hay YPF en el grupo (nunca 0).|107.1
-n|entero|avisos|Cantidad de avisos (uno por publicación o comercio) que entran en la mediana de la marca. Con n chico (1 o 2) la mediana es poco confiable.|18
+mediana_litro|decimal|moneda por litro|Mediana del precio por litro de los avisos de esa marca, segmento y SAE en la ventana de 3 días (cada aviso cuenta una vez, con precios cuerdos). No incluye envases de menos de 0,5 L por unidad.|41250
+mediana_ypf_litro|decimal|moneda por litro|Mediana del precio por litro de YPF en el mismo segmento, SAE y fecha (sin envases de menos de 0,5 L); vacía si YPF no tiene avisos en la ventana.|38500
+indice|decimal|puntos (YPF = 100)|Mediana de la marca / mediana de YPF × 100. 110 = la marca es 10 % más cara que YPF; 90 = 10 % más barata. Vacío si no hay YPF en el grupo (nunca 0). Sin envases de menos de 0,5 L por unidad.|107.1
+n|entero|avisos|Cantidad de avisos (uno por publicación o comercio) que entran en la mediana de la marca (sin envases de menos de 0,5 L por unidad). Con n chico (1 o 2) la mediana es poco confiable.|18
 """,
     "indice_competencia": """
 fecha|fecha||Día del índice; cada fecha usa una ventana móvil de 30 días que termina en ella.|2026-11-26

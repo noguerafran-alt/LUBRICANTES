@@ -1626,7 +1626,7 @@ function bloqueIndice(p) {
   const x = p.indice_30d, tit = `title="Mediana $/L de YPF sobre la mediana $/L de la competencia equivalente, últimos 30 días, competencia = 100. Es el mismo número de la pestaña Índice, vista «Por producto»."`;
   const cab = `<h4 ${tit}>Índice vs competencia (30 días) <span class="mut">· competencia = 100</span></h4>`;
   if (!x || typeof x.indice !== "number")
-    return `<div class="vt-indice">${cab}<p class="vt-vacio">${!x?.n_ypf ? "Sin precio YPF en los últimos 30 días." : "Sin competencia equivalente con precio en los últimos 30 días."}</p></div>`;
+    return `<div class="vt-indice">${cab}<p class="vt-vacio">${!x?.n_ypf ? "Sin avisos de YPF para el índice en los últimos 30 días (no cuentan los envases de menos de 0,5 L, que sí se ven abajo)." : "Sin competencia equivalente con avisos para el índice en los últimos 30 días (no cuentan los envases de menos de 0,5 L)."}</p></div>`;
   const d = Math.round((100 - x.indice) * 10) / 10;
   const txt = d === 0 ? "YPF al mismo precio por litro" : d > 0 ? `YPF ${dec1.format(d)} % más barato` : `YPF ${dec1.format(-d)} % más caro`;
   return `<div class="vt-indice">${cab}<p><span class="vt-precio">${dec1.format(x.indice)}</span> <span class="vt-dif ${d > 0 ? "barato" : d < 0 ? "caro" : ""}">${txt}</span></p>
