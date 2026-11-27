@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "low-contrast",
+        "value": "*",
+        "files": [
+          "docs/flujo-datos-cloudera.html"
+        ],
+        "createdAt": "2026-11-27T18:06:11.685Z",
+        "reason": "Claude: contraste medido en navegador con estilos computados, 242 textos >= 4.5:1 en tema claro y oscuro; el detector estatico mezcla tokens de los dos temas"
+      }
+    ]
+  }
+}

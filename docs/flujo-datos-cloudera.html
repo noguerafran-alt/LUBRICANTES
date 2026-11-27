@@ -147,7 +147,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
     </div>
     <div class="etapa">
       <span class="eyebrow">5 · Consumen</span>
-      <div class="nodo"><b>Visor web</b><small>Visualizador, Mapa, Comparador, Evolución, Índice, Fuentes, Mercado.</small></div>
+      <div class="nodo"><b>Visor web</b><small>Visualizador, Mapa, Comparador, Evolución, Índice (abre por producto, competencia = 100), Fuentes, Mercado.</small></div>
       <div class="nodo"><b>API abierta</b><small>Todo <code>GET /api/*</code> sin clave.</small></div>
       <div class="nodo"><b>Power BI · Copilot</b><small><code>/api/bi/paquete.zip</code> se baja y se sube a mano a SharePoint.</small></div>
       <div class="nodo nuevo"><b>Cloudera (CML)</b><small>Se baja <code>paquete.zip</code> a mano, se sube al proyecto y un Job lo importa. Ver «Cómo meterlo en Cloudera».</small></div>
@@ -190,7 +190,8 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
     <div class="regla"><h3>No se inventan datos</h3><p>Si una fuente se cae ese día, no se escribe fila y no se arrastra el precio anterior. El visor muestra la fecha del hueco y el error.</p></div>
     <div class="regla"><h3>No se adivina el producto</h3><p>Un aviso solo toma <code>producto_id</code> cuando hay exactamente un candidato (EAN o regex de <code>seed/alias.csv</code>).</p></div>
     <div class="regla"><h3>Solo lo relacionado con YPF</h3><p>Se guarda un producto YPF o un equivalente de <code>seed/equivalencias.csv</code>. Lo demás solo se cuenta.</p></div>
-    <div class="regla"><h3>Las fuentes no se mezclan</h3><p>Ninguna mediana junta fuentes, países ni monedas. El índice YPF = 100 usa la mediana por aviso de 3 días.</p></div>
+    <div class="regla"><h3>Las fuentes no se mezclan</h3><p>Ninguna mediana junta fuentes, países ni monedas.</p></div>
+    <div class="regla"><h3>El índice principal es por pares</h3><p>Desde el 27/11: cada producto YPF contra sus equivalentes, competencia = 100, 30 días (<code>/api/indice/pares</code>). La tabla por segmento y marca (YPF = 100, mediana por aviso de 3 días) queda como vista secundaria. Los envases de menos de 0,5 L (sachets) no entran a ningún índice.</p></div>
   </div>
 </section>
 
@@ -208,7 +209,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
         <li>Pasarlo a la PC del trabajo.</li>
         <li>Subirlo a <code>lubricantes/entrada/</code> del proyecto de CML (el nombre da igual).</li>
         <li>Un <b>Job</b> de CML corre <code>python tools/cml_paquete.py importar</code>. El usuario copia ese único archivo al proyecto: solo stdlib, sin red ni claves. Toma el <code>.zip</code> más nuevo de <code>entrada/</code>, valida que estén todas las tablas y que cada encabezado coincida con <code>diccionario.csv</code>, y deja los CSV sin BOM en <code>lubricantes/actual/</code> (más <code>estado.json</code>), una copia en <code>historico/&lt;último dato&gt;_&lt;commit&gt;/</code> y el zip en <code>procesados/</code>. Un zip roto, incompleto o más viejo que el de <code>actual/</code> se rechaza y <code>actual/</code> no se toca (<code>--forzar</code> para aceptar uno viejo).</li>
-        <li>Consumir: <code>python tools/cml_paquete.py resumen</code> (último dato, filas por tabla, índice por marca con YPF = 100 y productos YPF contra su competencia) o Spark / pandas sobre <code>actual/*.csv</code>.</li>
+        <li>Consumir: <code>python tools/cml_paquete.py resumen</code> (último dato, filas por tabla, productos YPF contra su competencia y el índice por marca con YPF = 100) o Spark / pandas sobre <code>actual/*.csv</code>.</li>
       </ol>
       <p>Por qué zip de CSV y no JSON: Spark, pandas e Impala leen CSV directo y <code>diccionario.csv</code> ya describe cada columna.</p>
     </div>
@@ -252,8 +253,8 @@ for t in ["precios", "indice", "indice_competencia", "productos", "equivalencias
     <thead><tr><th>Archivo</th><th>Contenido</th></tr></thead>
     <tbody>
       <tr><td><code>precios.csv</code></td><td>Tabla de hechos: una fila por observación de precio, con <code>producto_id</code>, fuente, provincia, litros, unidades y $/L.</td></tr>
-      <tr><td><code>indice.csv</code></td><td>Índice YPF = 100 por fecha, segmento, SAE y marca (mediana por aviso, ventana de 3 días).</td></tr>
-      <tr><td><code>indice_competencia.csv</code></td><td>Índice por producto YPF frente a sus equivalentes (competencia = 100, ventana de 30 días).</td></tr>
+      <tr><td><code>indice.csv</code></td><td>Vista secundaria: índice YPF = 100 por fecha, segmento, SAE y marca (mediana por aviso, ventana de 3 días, sin envases de menos de 0,5 L).</td></tr>
+      <tr><td><code>indice_competencia.csv</code></td><td><b>Índice principal:</b> por producto YPF frente a sus equivalentes (competencia = 100, ventana de 30 días, sin envases de menos de 0,5 L). El último día de cada producto es lo mismo que <code>/api/indice/pares</code>.</td></tr>
       <tr><td><code>productos.csv</code> · <code>equivalencias.csv</code></td><td>Catálogo normalizado y pares YPF ↔ competidor.</td></tr>
       <tr><td><code>fuentes.csv</code> · <code>provincias.csv</code> · <code>fx.csv</code></td><td>Dimensiones: estado de cada fuente, provincias ISO con región INDEC y dólar.</td></tr>
       <tr><td><code>diccionario.csv</code> · <code>LEEME.txt</code></td><td>Descripción de cada columna (la lee Copilot), y fecha, commit y origen del paquete.</td></tr>
