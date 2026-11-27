@@ -237,7 +237,7 @@ for t in ["precios", "indice", "indice_competencia", "productos", "equivalencias
           .write.mode("overwrite").saveAsTable(f"lub_{t}"))
 # pandas: pd.read_csv("/home/cdsw/lubricantes/actual/precios.csv")</code></pre>
   </div>
-  <p>Alternativa si algún día CML tiene salida a internet: un Job que baje el mismo <code>paquete.zip</code> a <code>entrada/</code> antes de importar (hay que verificar proxy y que el dominio fln abra desde la red de YPF; hoy no se probó).</p>
+  <p>Si CML tiene salida a internet, el mismo Job puede bajar el archivo solo: <code>python tools/cml_paquete.py importar --url</code> baja <code>paquete.zip</code> del celu (o de Render si el celu no responde) a <code>entrada/</code> e importa igual que a mano. Para saber si hay salida, en la terminal de una sesión de CML: <code>curl -s -m 20 https://lubricantes.fln-data-analysis.com/salud</code> tiene que devolver <code>{"ok": true, …}</code>; si da timeout, probar con <code>HTTPS_PROXY</code> (el proxy de YPF), que Python toma solo. Sin salida, queda el archivo manual. Desde CML no se probó.</p>
 
   <h3>Antes de armarlo, verificar</h3>
   <ul class="checklist">

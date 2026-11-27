@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Importa el paquete de LUBRICANTES (/api/bi/paquete.zip) al proyecto de Cloudera CML. Solo stdlib, sin red, sin claves.
+"""Importa el paquete de LUBRICANTES (/api/bi/paquete.zip) al proyecto de Cloudera CML. Solo stdlib, sin claves; sin red salvo --url.
 
     python tools/cml_paquete.py importar [paquete.zip] [--destino DIR] [--forzar]
+    python tools/cml_paquete.py importar --url [--destino DIR] [--forzar]   # si CML tiene internet: baja del celu (o de Render) a entrada/ e importa
     python tools/cml_paquete.py resumen [--destino DIR] [--json]
     python tools/cml_paquete.py test
 
@@ -66,6 +67,30 @@ def validar(ruta_zip):
     archivos["LEEME.txt"] = leeme.encode("utf-8")
     meta = {"ultimo_dato": m.group(1), "commit": c.group(1)[:12] if c else "", "generado": g.group(1) if g else ""}
     return meta, archivos, filas
+
+
+SERVIDORES = ["https://lubricantes.fln-data-analysis.com", "https://lubricantes-ypf.onrender.com"]  # celu (principal), Render (respaldo, tarda en despertar)
+
+
+def bajar(destino, servidores=SERVIDORES):
+    """--url: deja /api/bi/paquete.zip del primer servidor que responda en DIR/entrada/; después `importar` sigue igual que con un zip subido a mano.
+    Solo sirve si CML tiene salida a internet (HTTPS_PROXY si YPF lo exige; urllib lo toma solo). Lectura abierta: sin claves."""
+    import urllib.request
+    entrada, errores = os.path.join(destino, "entrada"), []
+    os.makedirs(entrada, exist_ok=True)
+    for base in servidores:
+        try:
+            req = urllib.request.Request(base + "/api/bi/paquete.zip", headers={"User-Agent": "cml-lubricantes/1"})
+            with urllib.request.urlopen(req, timeout=300) as r:
+                crudo = r.read()
+        except Exception as e:  # cualquier falla de red: se prueba el siguiente
+            errores.append(f"{base}: {e!r}")
+            continue
+        ruta = os.path.join(entrada, "paquete-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + ".zip")
+        with open(ruta, "wb") as f:
+            f.write(crudo)
+        return ruta
+    raise Rechazo("ningún servidor respondió (¿CML sin salida a internet o falta HTTPS_PROXY?):\n" + "\n".join(errores))
 
 
 def leer_estado(destino):
@@ -167,20 +192,24 @@ def main(argv):
     if argv and argv[0] == "test":
         demo()
         return 0
-    destino, forzar, js, pos, i = DESTINO, False, False, [], 1
+    destino, forzar, js, url, pos, i = DESTINO, False, False, False, [], 1
     while i < len(argv):
         a = argv[i]
         if a == "--destino" and i + 1 < len(argv):
             destino, i = argv[i + 1], i + 1
         elif a == "--forzar":
             forzar = True
+        elif a == "--url":
+            url = True
         elif a == "--json":
             js = True
         else:
             pos.append(a)
         i += 1
     try:
-        if argv and argv[0] == "importar" and len(pos) <= 1:
+        if argv and argv[0] == "importar" and len(pos) <= (0 if url else 1):
+            if url:
+                bajar(destino)
             e = importar(destino, pos[0] if pos else None, forzar)
             print(f"OK: último dato {e['ultimo_dato']}, commit {e['commit']}, {sum(e['filas'].values())} filas en {len(e['filas'])} tablas -> {destino}/actual")
             return 0
@@ -253,6 +282,28 @@ def demo():
         assert r["indice"]["fecha"] == "2026-11-28" and [x["marca"] for x in r["indice"]["filas"]] == ["Castrol"] and r["indice_ypf"] is None
         assert "Castrol" in texto_resumen(r) and "2026-11-28" in texto_resumen(r)
         assert main(["importar", "--destino", d]) == 1  # entrada/ vacía
+        # --url: el primer servidor no responde, baja del segundo a entrada/ e importa igual que a mano
+        import http.server, threading
+        crudo = open(_zip(os.path.join(base, "u.zip"), ultimo="2026-11-29", commit="eeeeeeeeeeee"), "rb").read()
+
+        class H(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(200 if self.path == "/api/bi/paquete.zip" else 404)
+                self.end_headers()
+                self.wfile.write(crudo if self.path == "/api/bi/paquete.zip" else b"")
+            log_message = lambda *a: None
+        srv = http.server.HTTPServer(("127.0.0.1", 0), H)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        try:
+            ruta = bajar(d, ["http://127.0.0.1:1", f"http://127.0.0.1:{srv.server_port}"])
+            assert os.path.dirname(ruta) == os.path.join(d, "entrada") and importar(d)["ultimo_dato"] == "2026-11-29"
+            try:
+                bajar(d, ["http://127.0.0.1:1"])
+                raise AssertionError("debió rechazar")
+            except Rechazo as e:
+                assert "127.0.0.1:1" in str(e) and leer_estado(d)["ultimo_dato"] == "2026-11-29"
+        finally:
+            srv.shutdown()
         print("OK")
     finally:
         shutil.rmtree(base, ignore_errors=True)
