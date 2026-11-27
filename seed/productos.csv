@@ -7,7 +7,7 @@ ypf-elaion-auro-dpf-530-5w30,YPF,Elaion Auro Hybrid,DPF 530,pcmo,5W-30,sintetico
 ypf-elaion-auro-plus-540-5w40,YPF,Elaion Auro,Plus 540,pcmo,5W-40,sintetico,SN,A3/B4,,,VW 508.88;VW 509.99,https://elaion.com.ar/fichas/elaion-auro-plus-540.pdf,confirmado
 ypf-elaion-auro-fr-530-5w30,YPF,Elaion Auro,FR 530,pcmo,5W-30,sintetico,,C2,,,PSA B71 2290,https://elaion.com.ar/fichas/elaion-auro-fr.pdf,confirmado
 ypf-elaion-auro-fr-540-5w40,YPF,Elaion Auro,FR 540,pcmo,5W-40,sintetico,SP,A3/B4,,,PSA B71 2296;Porsche A40;VW 502.00;VW 505.00,https://elaion.com.ar/fichas/elaion-auro-fr.pdf,confirmado
-ypf-elaion-competicion-5w50,YPF,Elaion,Competición,pcmo,5W-50,sintetico,SN,A3/B4,,,,https://elaion.com.ar/sitemap.xml,inferido
+ypf-elaion-competicion-5w50,YPF,Elaion,Competición,pcmo,5W-50,,SN,A3/B4,,,,https://elaion.com.ar/sitemap.xml,inferido
 ypf-elaion-fs530-5w30,YPF,Elaion,FS 530,pcmo,5W-30,sintetico,SN,C3,,,,https://elaion.com.ar/fichas/elaion.pdf,inferido
 ypf-elaion-fs540-5w40,YPF,Elaion,FS 540,pcmo,5W-40,sintetico,SN,C3,,,,https://elaion.com.ar/fichas/elaion.pdf,inferido
 ypf-elaion-ts1040-10w40,YPF,Elaion,TS 1040,pcmo,10W-40,semisintetico,SN/CF,A3/B4,,,,https://elaion.com.ar/fichas/elaion.pdf,confirmado
@@ -128,62 +128,62 @@ mobil-super-3000-x1-5w40,Mobil,Mobil Super,Super 3000 X1 5W-40,pcmo,5W-40,,,A3/B
 mobil-1-esp-5w30,Mobil,Mobil 1,Mobil 1 ESP 5W-30,pcmo,5W-30,sintetico,SP,C3,,,,https://www.mobil.com/es-ar/passenger-vehicle-lube/pds/as-xx-mobil-1-esp-5w-30,inferido
 motul-8100-x-cess-gen2-5w40,Motul,8100,8100 X-cess gen2 5W-40,pcmo,5W-40,,,,,,,https://www.motul.com/es-AR/products,inferido
 motul-8100-eco-nergy-5w30,Motul,8100,8100 Eco-nergy 5W-30,pcmo,5W-30,,,,,,,https://www.motul.com/es-AR/products,inferido
-shell-helix-hx8-professional-av-5w40,Shell,Helix,HX8 Professional AV 5W-40,pcmo,5W-40,,,,,,,,inferido
-shell-helix-ultra-professional-am-l-5w30,Shell,Helix,Helix Ultra Professional AM-L 5W-30,pcmo,5W-30,,,,,,,,inferido
-shell-helix-ultra-professional-ag-5w30,Shell,Helix,Helix Ultra Professional AG 5W-30,pcmo,5W-30,,,,,,,,inferido
-shell-helix-ultra-professional-af-5w30,Shell,Helix,Helix Ultra Professional AF 5W-30,pcmo,5W-30,,,A5/B5,,,Ford WSS-M2C913-D,https://www.shell.com.au/motorists/oils-lubricants/helix-for-cars/helix-fully-synthetic/shell-helix-ultra-professional-af-5w-30.html,confirmado
+shell-helix-hx8-professional-av-5w40,Shell,Helix,HX8 Professional AV 5W-40,pcmo,5W-40,sintetico,,,,,,https://www.shell.com.ar/conductores/aceites-para-motor/motores-de-autos/sinteticos/shell-helix-hx8-professional-av-5w-40.html,inferido
+shell-helix-ultra-professional-am-l-5w30,Shell,Helix,Helix Ultra Professional AM-L 5W-30,pcmo,5W-30,sintetico,,,,,,https://www.shell.com.ar/conductores/aceites-para-motor/motores-de-autos/sinteticos/shell-helix-ultra-professional-am-l-5w-30.html,inferido
+shell-helix-ultra-professional-ag-5w30,Shell,Helix,Helix Ultra Professional AG 5W-30,pcmo,5W-30,sintetico,,,,,,https://www.shell.com.ar/conductores/aceites-para-motor/motores-de-autos/sinteticos/shell-helix-ultra-professional-ag-5w-30.html,inferido
+shell-helix-ultra-professional-af-5w30,Shell,Helix,Helix Ultra Professional AF 5W-30,pcmo,5W-30,sintetico,,A5/B5,,,Ford WSS-M2C913-D,https://www.shell.com.au/motorists/oils-lubricants/helix-for-cars/helix-fully-synthetic/shell-helix-ultra-professional-af-5w-30.html,confirmado
 shell-helix-hx7-10w40,Shell,Helix,Helix HX7 10W-40,pcmo,10W-40,,SN/CF,A3/B4,,,,https://www.jumbo.com.ar/lubricante-helix-hx7-x1l-sn-cf-a3-b4-mf-s-e-un-1/p,inferido
 shell-helix-hx5-15w40,Shell,Helix,Helix HX5 15W-40,pcmo,15W-40,,SL/CF,A2/B2,,,,https://www.jumbo.com.ar/lubricante-helix-hx5-15w-40-sl-cf-a2-b2-mf-s-e-un-1-2/p,inferido
-shell-helix-hx3-20w50,Shell,Helix,Helix HX3 20W-50,pcmo,20W-50,,SG/CD,,,,,https://www.jumbo.com.ar/lubricante-helix-hx3-20w-50-sg-cd-mf-s-e-un-1/p,inferido
+shell-helix-hx3-20w50,Shell,Helix,Helix HX3 20W-50,pcmo,20W-50,mineral,SL/CF,,,,,https://www.shell.com.ar/conductores/aceites-para-motor/motores-de-autos/minerales/shell-helix-hx3-20w-50.html,inferido
 shell-rimula-r4-l-15w40,Shell,Rimula,Rimula R4 L 15W-40,hddo,15W-40,,CK-4,E7/E9/E11,,,,https://elsalvador.pochteca.net/wp-content/uploads/2023/05/ft-rimula-r4l-15w-40-ck-4.pdf,confirmado
-shell-rimula-r4-x-15w40,Shell,Rimula,Rimula R4 X 15W-40,hddo,15W-40,mineral,CI-4,E7,,,CAT ECF-2,https://elsalvador.pochteca.net/wp-content/uploads/2023/05/ft-rimula-r4x-15w-40.pdf,confirmado
-totalenergies-quartz-9000-5w40,TotalEnergies,Quartz,Quartz 9000 5W-40,pcmo,5W-40,sintetico,SN/CF,A3/B4,,,,https://www.easy.com.ar/lubricante-total-quartz-9000-5w40-x1lts-1359050/p,inferido
-totalenergies-quartz-7000-10w40,TotalEnergies,Quartz,Quartz 7000 10W-40,pcmo,10W-40,semisintetico,SN/CF,A3/B4,,,,https://www.jumbo.com.ar/lubricante-quartz-7000-10w40-6b-4-l/p,inferido
+shell-rimula-r4-x-15w40,Shell,Rimula,Rimula R4 X 15W-40,hddo,15W-40,,CI-4,E7,,,CAT ECF-2,https://elsalvador.pochteca.net/wp-content/uploads/2023/05/ft-rimula-r4x-15w-40.pdf,confirmado
+totalenergies-quartz-9000-5w40,TotalEnergies,Quartz,Quartz 9000 5W-40,pcmo,5W-40,,SN/CF,A3/B4,,,,https://www.easy.com.ar/lubricante-total-quartz-9000-5w40-x1lts-1359050/p,inferido
+totalenergies-quartz-7000-10w40,TotalEnergies,Quartz,Quartz 7000 10W-40,pcmo,10W-40,,SN/CF,A3/B4,,,,https://www.jumbo.com.ar/lubricante-quartz-7000-10w40-6b-4-l/p,inferido
 totalenergies-quartz-ineo-ecs-5w30,TotalEnergies,Quartz,Quartz Ineo ECS 5W-30,pcmo,5W-30,,,C2,,,PSA B71 2290,https://lubricants.catalog.totalenergies.com/CATALOGUETotalEnergies/en_UK/lkx_quartz-ineo-ecs-5w-30,confirmado
 gulf-max-15w40,Gulf,Max,Max 15W-40,pcmo,15W-40,,,,,,,,inferido
 gulf-max-20w50,Gulf,Max,Max 20W-50,pcmo,20W-50,,,,,,,,inferido
 totalenergies-quartz-9000-future-gf6-0w20,TotalEnergies,Quartz,Quartz 9000 Future GF-6 0W-20,pcmo,0W-20,,,,,,,,inferido
 totalenergies-quartz-9000-nfc-5w30,TotalEnergies,Quartz,Quartz 9000 NFC 5W-30,pcmo,5W-30,,,,,,,,inferido
 totalenergies-quartz-diesel-7000-10w40,TotalEnergies,Quartz,Quartz Diesel 7000 10W-40,pcmo,10W-40,,,,,,,,inferido
-totalenergies-quartz-5000-15w40,TotalEnergies,Quartz,Quartz 5000 15W-40,pcmo,15W-40,mineral,SL/CF,A3/B3,,,,https://www.easy.com.ar/lubricante-quartz-total-5000-15w40-4l/p,inferido
+totalenergies-quartz-5000-15w40,TotalEnergies,Quartz,Quartz 5000 15W-40,pcmo,15W-40,,SL/CF,A3/B3,,,,https://www.easy.com.ar/lubricante-quartz-total-5000-15w40-4l/p,inferido
 totalenergies-quartz-5000-20w50,TotalEnergies,Quartz,Quartz 5000 20W-50,pcmo,20W-50,,,,,,,,inferido
-totalenergies-quartz-ineo-mc3-5w30,TotalEnergies,Quartz,Quartz Ineo MC3 5W-30,pcmo,5W-30,sintetico,,,,,,https://www.masonline.com.ar/aceite-total-quartz-ineo-mc3-5w30-1l-dorado-2/p,inferido
-totalenergies-quartz-ineo-first-0w30,TotalEnergies,Quartz,Quartz Ineo First 0W-30,pcmo,0W-30,sintetico,,,,,,,inferido
-totalenergies-quartz-ineo-long-life-5w30,TotalEnergies,Quartz,Quartz Ineo Long Life 5W-30,pcmo,5W-30,sintetico,,,,,,,inferido
-totalenergies-genecelf-20w50,TotalEnergies,Genecelf,Motor Oil Genecelf 20W-50,pcmo,20W-50,mineral,SJ,,,,,https://www.easy.com.ar/lubrican-genecelf-multigr-total-20w50-4/p,inferido
+totalenergies-quartz-ineo-mc3-5w30,TotalEnergies,Quartz,Quartz Ineo MC3 5W-30,pcmo,5W-30,,,,,,,https://www.masonline.com.ar/aceite-total-quartz-ineo-mc3-5w30-1l-dorado-2/p,inferido
+totalenergies-quartz-ineo-first-0w30,TotalEnergies,Quartz,Quartz Ineo First 0W-30,pcmo,0W-30,,,,,,,,inferido
+totalenergies-quartz-ineo-long-life-5w30,TotalEnergies,Quartz,Quartz Ineo Long Life 5W-30,pcmo,5W-30,,,,,,,,inferido
+totalenergies-genecelf-20w50,TotalEnergies,Genecelf,Motor Oil Genecelf 20W-50,pcmo,20W-50,,SJ,,,,,https://www.easy.com.ar/lubrican-genecelf-multigr-total-20w50-4/p,inferido
 elf-evolution-500-ts-15w40,Elf,Evolution,Evolution 500 TS 15W-40,pcmo,15W-40,,,,,,,,inferido
-elf-evolution-700-sti-10w40,Elf,Evolution,Evolution 700 STI 10W-40,pcmo,10W-40,semisintetico,,,,,,,inferido
-elf-evolution-700-15w50,Elf,Evolution,Evolution 700 15W-50,pcmo,15W-50,semisintetico,,,,,,,inferido
-elf-evolution-900-ft-5w40,Elf,Evolution,Evolution 900 FT 5W-40,pcmo,5W-40,sintetico,,,,,,,inferido
-elf-moto-4-cruise-20w50,Elf,Moto 4,Moto 4 Cruise 20W-50,moto4t,20W-50,mineral,SL,,,MA2,,https://www.easy.com.ar/lubricante-moto-4-cruise-elf-20w50-1l/p,inferido
-elf-moto-4-road-15w50,Elf,Moto 4,Moto 4 Road 15W-50,moto4t,15W-50,semisintetico,SL,,,MA2,,https://www.masonline.com.ar/aceite-elf-moto-4-road-15w50-1l-azul-2/p,inferido
+elf-evolution-700-sti-10w40,Elf,Evolution,Evolution 700 STI 10W-40,pcmo,10W-40,,,,,,,,inferido
+elf-evolution-700-15w50,Elf,Evolution,Evolution 700 15W-50,pcmo,15W-50,,,,,,,,inferido
+elf-evolution-900-ft-5w40,Elf,Evolution,Evolution 900 FT 5W-40,pcmo,5W-40,,,,,,,,inferido
+elf-moto-4-cruise-20w50,Elf,Moto 4,Moto 4 Cruise 20W-50,moto4t,20W-50,,SL,,,MA2,,https://www.easy.com.ar/lubricante-moto-4-cruise-elf-20w50-1l/p,inferido
+elf-moto-4-road-15w50,Elf,Moto 4,Moto 4 Road 15W-50,moto4t,15W-50,,SL,,,MA2,,https://www.masonline.com.ar/aceite-elf-moto-4-road-15w50-1l-azul-2/p,inferido
 elf-moto-4-tech-10w50,Elf,Moto 4,Moto 4 Tech 10W-50,moto4t,10W-50,,,,,,,,inferido
 gulf-max-ultra-plus-10w40,Gulf,Max,Max Ultra Plus 10W-40,pcmo,10W-40,,,,,,,,inferido
 gulf-tec-plus-10w40,Gulf,Tec,Tec Plus 10W-40,pcmo,10W-40,,,,,,,,inferido
 gulf-formula-g-5w40,Gulf,Formula,Formula G 5W-40,pcmo,5W-40,,,,,,,,inferido
 gulf-pride-4t-special,Gulf,Pride,Pride 4T Special,moto4t,,,,,,,,,inferido
-puma-advanced-5w30,Puma,Advanced,Advanced 5W-30,pcmo,5W-30,sintetico,SN,C3,,,,https://www.carrefour.com.ar/puma-advanced-5w30-sn-sintetico-x-1-l-1659832/p,inferido
-puma-advanced-5w40,Puma,Advanced,Advanced 5W-40,pcmo,5W-40,sintetico,SN,C3,,,VW 502.00,https://www.carrefour.com.ar/puma-advanced-5w40-sn-sintetico-1659809/p,inferido
-puma-hd-super-s-15w40,Puma,HD,HD Super S 15W-40,hddo,15W-40,mineral,SL,,,,,https://www.carrefour.com.ar/puma-hd-super-s-15w40-mineral-sl-x-4l-1659828/p,inferido
-puma-hd-super-sae40,Puma,HD,HD Super SAE 40,hddo,SAE 40,mineral,SJ,,,,,https://www.carrefour.com.ar/puma-hd-super-sae-40-mineral-sj-x-4-l-1659825/p,inferido
-puma-super-20w50,Puma,Super,Super 20W-50,pcmo,20W-50,mineral,SN/CF,A3/B4,,,,https://www.masonline.com.ar/aceite-lubricante-puma-super-20w-50-1-lt-2/p,inferido
-puma-super-gd-15w40,Puma,Super,Super GD 15W-40,pcmo,15W-40,mineral,SN/CF,A3/B4,,,,https://www.masonline.com.ar/aceite-lubricante-puma-super-gd-15w-40-1-lt-2/p,inferido
+puma-advanced-5w30,Puma,Advanced,Advanced 5W-30,pcmo,5W-30,,SN,C3,,,,https://www.carrefour.com.ar/puma-advanced-5w30-sn-sintetico-x-1-l-1659832/p,inferido
+puma-advanced-5w40,Puma,Advanced,Advanced 5W-40,pcmo,5W-40,,SN,C3,,,VW 502.00,https://www.carrefour.com.ar/puma-advanced-5w40-sn-sintetico-1659809/p,inferido
+puma-hd-super-s-15w40,Puma,HD,HD Super S 15W-40,hddo,15W-40,,SL,,,,,https://www.carrefour.com.ar/puma-hd-super-s-15w40-mineral-sl-x-4l-1659828/p,inferido
+puma-hd-super-sae40,Puma,HD,HD Super SAE 40,hddo,SAE 40,,SJ,,,,,https://www.carrefour.com.ar/puma-hd-super-sae-40-mineral-sj-x-4-l-1659825/p,inferido
+puma-super-20w50,Puma,Super,Super 20W-50,pcmo,20W-50,,SN/CF,A3/B4,,,,https://www.masonline.com.ar/aceite-lubricante-puma-super-20w-50-1-lt-2/p,inferido
+puma-super-gd-15w40,Puma,Super,Super GD 15W-40,pcmo,15W-40,,SN/CF,A3/B4,,,,https://www.masonline.com.ar/aceite-lubricante-puma-super-gd-15w-40-1-lt-2/p,inferido
 puma-extra-gd-10w40,Puma,Extra,Extra GD 10W-40,pcmo,10W-40,,SN/CF,A3/B4,,,,https://www.masonline.com.ar/aceite-lubricante-puma-extra-gd-10w-40-1-lt-2/p,inferido
-puma-scooter-10w40,Puma,Scooter,Scooter 10W-40,moto4t,10W-40,semisintetico,,,,MB,,https://www.carrefour.com.ar/puma-scooter-10w40-semisintetico-jaso-mb-s-x-1l-1659814/p,inferido
-puma-2t-semisintetico,Puma,2T,2T semisintético,moto2t,,semisintetico,TC,,,FC,,https://www.carrefour.com.ar/puma-2t-jaso-fc-api-tc-semisintetico-x-1-l-1659805/p,inferido
-puma-2t-outboard,Puma,2T,2T Outboard semisintético,marino,,semisintetico,,,,,,,inferido
+puma-scooter-10w40,Puma,Scooter,Scooter 10W-40,moto4t,10W-40,,,,,MB,,https://www.carrefour.com.ar/puma-scooter-10w40-semisintetico-jaso-mb-s-x-1l-1659814/p,inferido
+puma-2t-semisintetico,Puma,2T,2T semisintético,moto2t,,,TC,,,FC,,https://www.carrefour.com.ar/puma-2t-jaso-fc-api-tc-semisintetico-x-1-l-1659805/p,inferido
+puma-2t-outboard,Puma,2T,2T Outboard semisintético,marino,,,,,,,,,inferido
 bardahl-moto-4t-20w50,Bardahl,Motos,4T Motos 20W-50,moto4t,20W-50,,SM,,,,,https://www.jumbo.com.ar/aceite-4t-motos-x-1-litro-bardahl/p,inferido
 bardahl-2t-parques-jardines,Bardahl,2T,2T Parques y Jardines,moto2t,,,,,,,,,inferido
 bardahl-2t-premium-low-smoke,Bardahl,2T,2T Premium Low Smoke Motos,moto2t,,,,,,,,,inferido
-bardahl-mpv-10w40,Bardahl,MPV,MPV 10W-40 semisintético,pcmo,10W-40,semisintetico,,,,,,,inferido
-bardahl-top-lub-mpv-10w40,Bardahl,Top Lub,Top Lub MPV 10W-40 semisintético,pcmo,10W-40,semisintetico,,,,,,,inferido
-goodyear-sintetico-5w40,Goodyear,Goodyear,Full sintético 5W-40,pcmo,5W-40,sintetico,,,,,,,inferido
-goodyear-semisintetico-10w40,Goodyear,Goodyear,Semi sintético 10W-40,pcmo,10W-40,semisintetico,,,,,,,inferido
-goodyear-mineral-15w40,Goodyear,Goodyear,Mineral 15W-40,pcmo,15W-40,mineral,,,,,,,inferido
-goodyear-mineral-20w50,Goodyear,Goodyear,Mineral 20W-50,pcmo,20W-50,mineral,,,,,,,inferido
+bardahl-mpv-10w40,Bardahl,MPV,MPV 10W-40 semisintético,pcmo,10W-40,,,,,,,,inferido
+bardahl-top-lub-mpv-10w40,Bardahl,Top Lub,Top Lub MPV 10W-40 semisintético,pcmo,10W-40,,,,,,,,inferido
+goodyear-sintetico-5w40,Goodyear,Goodyear,Full sintético 5W-40,pcmo,5W-40,,,,,,,,inferido
+goodyear-semisintetico-10w40,Goodyear,Goodyear,Semi sintético 10W-40,pcmo,10W-40,,,,,,,,inferido
+goodyear-mineral-15w40,Goodyear,Goodyear,Mineral 15W-40,pcmo,15W-40,,,,,,,,inferido
+goodyear-mineral-20w50,Goodyear,Goodyear,Mineral 20W-50,pcmo,20W-50,,,,,,,,inferido
 shell-helix-hx3-sae40,Shell,Helix,Helix HX3 40,pcmo,SAE 40,,SF/CD,,,,,https://www.jumbo.com.ar/lubricante-helix-hx3-40-sf-cd-mf-s-e-un-1-2/p,inferido
 shell-helix-hx3-k-25w60,Shell,Helix,Helix HX3 K 25W-60,pcmo,25W-60,,SG/CD,,,,,https://www.jumbo.com.ar/lubricante-helix-hx3-k-25w-60-sg-cd-mf-s-e-un-1/p,inferido
-shell-helix-ultra-5w40,Shell,Helix,Helix Ultra 5W-40,pcmo,5W-40,,SN/CF,A3/B4,,,,https://www.jumbo.com.ar/lubricante-helix-ultra-5w-40-sn-cf-a3-b4-s-e-un-1/p,inferido
+shell-helix-ultra-5w40,Shell,Helix,Helix Ultra 5W-40,pcmo,5W-40,sintetico,SP,A3/B3;A3/B4,,,BMW LL-01;MB 229.5;MB 226.5;VW 502.00;VW 505.00;Porsche A40;Renault RN0700;Renault RN0710;PSA B71 2296;Fiat 9.55535-Z2;Fiat 9.55535-N2;Chrysler MS 10725;Chrysler MS 12991,https://www.shell.com.ar/conductores/aceites-para-motor/motores-de-autos/sinteticos/shell-helix-ultra-5w-40.html,inferido
 shell-helix-ultra-e-5w30,Shell,Helix,Helix Ultra E 5W-30,pcmo,5W-30,,SL/CF,A3/B4,,,,https://www.jumbo.com.ar/lubricante-helix-ultra-e-5w-30-sl-cf-a3-b4-oems-s-e-un-1-2/p,inferido
 shell-helix-plus-10w40,Shell,Helix,Helix Plus 10W-40,pcmo,10W-40,,,,,,,,inferido
 shell-helix-super-15w40,Shell,Helix,Helix Super 15W-40,pcmo,15W-40,,,,,,,,inferido
@@ -198,38 +198,38 @@ pennzoil-alto-kilometraje-25w50,Pennzoil,Alto Kilometraje,Alto Kilometraje 25W-5
 pennzoil-gt-performance-20w50,Pennzoil,GT Performance,GT Performance 20W-50,pcmo,20W-50,,,,,,,,inferido
 pennzoil-premium-outboard-tcw3,Pennzoil,Outboard,Premium Outboard TC-W3,marino,,,,,,,,,inferido
 pennzoil-2-cycle,Pennzoil,2-Cycle,2-Cycle moto,moto2t,,,,,,,,,inferido
-castrol-magnatec-stop-start-5w40,Castrol,MAGNATEC,MAGNATEC STOP-START 5W-40 A3/B4,pcmo,5W-40,sintetico,,A3/B4,,,,https://tiendadatri.com.ar/products/magnatec-stop-start-a3-b4-5w40-bidon,inferido
-castrol-magnatec-stop-start-c3-5w30,Castrol,MAGNATEC,MAGNATEC STOP-START 5W-30 C3,pcmo,5W-30,sintetico,,C3,,,,https://tiendadatri.com.ar/products/magnatec-stop-start-5w30-c3-bidon,inferido
-castrol-magnatec-stop-start-a5-5w30,Castrol,MAGNATEC,MAGNATEC STOP-START 5W-30 A5,pcmo,5W-30,sintetico,,A5,,,,https://tiendadatri.com.ar/products/copy-of-magnatec-508-88-5w-40-bidon,inferido
-shell-helix-ultra-5w30,Shell,Helix,Helix Ultra 5W-30,pcmo,5W-30,sintetico,,,,,,https://www.norauto.com.ar/aceite-shell-helix-ultra-5w-30-sintetico-1-lts/p,inferido
-shell-helix-ultra-0w20,Shell,Helix,Helix Ultra 0W-20,pcmo,0W-20,sintetico,,,,,,https://www.norauto.com.ar/aceite-shell-helix-ultra-0w20-sintetico-1-lts/p,inferido
-petronas-syntium-1000-10w40,Petronas,Syntium 1000,Syntium 1000 10W-40,pcmo,10W-40,semisintetico,,,,,,,inferido
-petronas-syntium-3000-xs-5w30,Petronas,Syntium 3000,Syntium 3000 XS 5W-30,pcmo,5W-30,sintetico,,,,,,,inferido
-petronas-syntium-3000-fr-5w30,Petronas,Syntium 3000,Syntium 3000 FR 5W-30,pcmo,5W-30,sintetico,,,,,,,inferido
-petronas-syntium-3000-am-5w40,Petronas,Syntium 3000,Syntium 3000 AM 5W-40,pcmo,5W-40,sintetico,,,,,,,inferido
+castrol-magnatec-stop-start-5w40,Castrol,MAGNATEC,MAGNATEC STOP-START 5W-40 A3/B4,pcmo,5W-40,,,A3/B4,,,,https://tiendadatri.com.ar/products/magnatec-stop-start-a3-b4-5w40-bidon,inferido
+castrol-magnatec-stop-start-c3-5w30,Castrol,MAGNATEC,MAGNATEC STOP-START 5W-30 C3,pcmo,5W-30,,,C3,,,,https://tiendadatri.com.ar/products/magnatec-stop-start-5w30-c3-bidon,inferido
+castrol-magnatec-stop-start-a5-5w30,Castrol,MAGNATEC,MAGNATEC STOP-START 5W-30 A5,pcmo,5W-30,,,A5,,,,https://tiendadatri.com.ar/products/copy-of-magnatec-508-88-5w-40-bidon,inferido
+shell-helix-ultra-5w30,Shell,Helix,Helix Ultra 5W-30,pcmo,5W-30,,,,,,,https://www.norauto.com.ar/aceite-shell-helix-ultra-5w-30-sintetico-1-lts/p,inferido
+shell-helix-ultra-0w20,Shell,Helix,Helix Ultra 0W-20,pcmo,0W-20,,,,,,,https://www.norauto.com.ar/aceite-shell-helix-ultra-0w20-sintetico-1-lts/p,inferido
+petronas-syntium-1000-10w40,Petronas,Syntium 1000,Syntium 1000 10W-40,pcmo,10W-40,,,,,,,,inferido
+petronas-syntium-3000-xs-5w30,Petronas,Syntium 3000,Syntium 3000 XS 5W-30,pcmo,5W-30,,,,,,,,inferido
+petronas-syntium-3000-fr-5w30,Petronas,Syntium 3000,Syntium 3000 FR 5W-30,pcmo,5W-30,,,,,,,,inferido
+petronas-syntium-3000-am-5w40,Petronas,Syntium 3000,Syntium 3000 AM 5W-40,pcmo,5W-40,,,,,,,,inferido
 petronas-syntium-3000-am-5w30,Petronas,Syntium 3000,Syntium 3000 AM 5W-30,pcmo,5W-30,,,,,,,,inferido
-petronas-syntium-3000-bv-5w40,Petronas,Syntium 3000,Syntium 3000 BV 5W-40,pcmo,5W-40,sintetico,,,,,,,inferido
-petronas-syntium-3000-av-5w40,Petronas,Syntium 3000,Syntium 3000 AV 5W-40,pcmo,5W-40,sintetico,,,,,,,inferido
-petronas-syntium-5000-am-5w30,Petronas,Syntium 5000,Syntium 5000 AM 5W-30,pcmo,5W-30,sintetico,,,,,,,inferido
-petronas-syntium-5000-av-5w30,Petronas,Syntium 5000,Syntium 5000 AV 5W-30,pcmo,5W-30,sintetico,,,,,,,inferido
-petronas-syntium-7000-hybrid-0w20,Petronas,Syntium 7000,Syntium 7000 Hybrid 0W-20,pcmo,0W-20,sintetico,,,,,,,inferido
-petronas-syntium-7000-am-0w20,Petronas,Syntium 7000,Syntium 7000 AM 0W-20,pcmo,0W-20,sintetico,,,,,,,inferido
-petronas-syntium-500-15w40,Petronas,Syntium 500,Syntium 500 15W-40,pcmo,15W-40,mineral,,,,,,,inferido
+petronas-syntium-3000-bv-5w40,Petronas,Syntium 3000,Syntium 3000 BV 5W-40,pcmo,5W-40,,,,,,,,inferido
+petronas-syntium-3000-av-5w40,Petronas,Syntium 3000,Syntium 3000 AV 5W-40,pcmo,5W-40,,,,,,,,inferido
+petronas-syntium-5000-am-5w30,Petronas,Syntium 5000,Syntium 5000 AM 5W-30,pcmo,5W-30,,,,,,,,inferido
+petronas-syntium-5000-av-5w30,Petronas,Syntium 5000,Syntium 5000 AV 5W-30,pcmo,5W-30,,,,,,,,inferido
+petronas-syntium-7000-hybrid-0w20,Petronas,Syntium 7000,Syntium 7000 Hybrid 0W-20,pcmo,0W-20,,,,,,,,inferido
+petronas-syntium-7000-am-0w20,Petronas,Syntium 7000,Syntium 7000 AM 0W-20,pcmo,0W-20,,,,,,,,inferido
+petronas-syntium-500-15w40,Petronas,Syntium 500,Syntium 500 15W-40,pcmo,15W-40,,,,,,,,inferido
 petronas-syntium-500-20w50,Petronas,Syntium 500,Syntium 500 20W-50,pcmo,20W-50,,,,,,,,inferido
 petronas-selenia-k-15w40,Petronas,Selenia,Selenia K 15W-40,pcmo,15W-40,,,,,,,,inferido
-castrol-edge-10w60,Castrol,Edge,EDGE 10W-60,pcmo,10W-60,sintetico,,,,,,,inferido
-castrol-magnatec-5w30,Castrol,Magnatec,MAGNATEC 5W-30,pcmo,5W-30,sintetico,,,,,,,inferido
+castrol-edge-10w60,Castrol,Edge,EDGE 10W-60,pcmo,10W-60,,,,,,,,inferido
+castrol-magnatec-5w30,Castrol,Magnatec,MAGNATEC 5W-30,pcmo,5W-30,,,,,,,,inferido
 castrol-magnatec-10w30,Castrol,Magnatec,MAGNATEC 10W-30,pcmo,10W-30,,,,,,,,inferido
-castrol-gtx-5w30,Castrol,GTX,GTX 5W-30,pcmo,5W-30,sintetico,,,,,,,inferido
-castrol-vecton-long-drain-e7-10w40,Castrol,Vecton,Vecton Long Drain E7 10W-40,hddo,10W-40,sintetico,,,,,,,inferido
+castrol-gtx-5w30,Castrol,GTX,GTX 5W-30,pcmo,5W-30,,,,,,,,inferido
+castrol-vecton-long-drain-e7-10w40,Castrol,Vecton,Vecton Long Drain E7 10W-40,hddo,10W-40,,,,,,,,inferido
 shell-rimula-r3-l-15w40,Shell,Rimula,Rimula R3 L 15W-40,hddo,15W-40,,,,,,,,inferido
 shell-rimula-r3-plus-sae40,Shell,Rimula,Rimula R3+ 40 Monogrado,hddo,SAE 40,,,,,,,,inferido
 shell-rimula-r2-extra-20w50,Shell,Rimula,Rimula R2 Extra 20W-50,hddo,20W-50,,,,,,,,inferido
 shell-rimula-r2-sae50,Shell,Rimula,Rimula R2 SAE 50,hddo,SAE 50,,,,,,,,inferido
-shell-rimula-r5-10w40,Shell,Rimula,Rimula R5 10W-40,hddo,10W-40,semisintetico,,,,,,,inferido
-shell-rimula-r6-lm-10w40,Shell,Rimula,Rimula R6 LM 10W-40,hddo,10W-40,sintetico,,,,,,,inferido
+shell-rimula-r5-10w40,Shell,Rimula,Rimula R5 10W-40,hddo,10W-40,,,,,,,,inferido
+shell-rimula-r6-lm-10w40,Shell,Rimula,Rimula R6 LM 10W-40,hddo,10W-40,,,,,,,,inferido
 shell-rimula-r6-ms-10w40,Shell,Rimula,Rimula R6 MS 10W-40,hddo,10W-40,,,,,,,,inferido
-shell-helix-ultra-0w30,Shell,Helix,Helix Ultra 0W-30,pcmo,0W-30,sintetico,,,,,,,inferido
+shell-helix-ultra-0w30,Shell,Helix,Helix Ultra 0W-30,pcmo,0W-30,,,,,,,,inferido
 totalenergies-quartz-0w30-thp,TotalEnergies,Quartz,Quartz 0W-30 THP,pcmo,0W-30,,,,,,,,inferido
 totalenergies-rubia-6400-15w40,TotalEnergies,Rubia,Rubia 6400 15W-40,hddo,15W-40,,,,,,,,inferido
 totalenergies-rubia-7400-15w40,TotalEnergies,Rubia,Rubia 7400 15W-40,hddo,15W-40,,,,,,,,inferido
@@ -238,57 +238,57 @@ mobil-super-moto-20w50,Mobil,Super,Super Moto 20W-50,moto4t,20W-50,,,,,,,,inferi
 mobil-super-20w50,Mobil,Super,Super 20W-50,pcmo,20W-50,,,,,,,,inferido
 mobil-delvac-1400-15w40,Mobil,Delvac,Delvac 1400 15W-40,hddo,15W-40,,,,,,,,inferido
 mobil-1-racing-0w50,Mobil,Mobil 1,Mobil 1 Racing 0W-50,pcmo,0W-50,,,,,,,,inferido
-motul-4100-10w40,Motul,4100,4100 10W-40,otro,10W-40,semisintetico,,,,,,,inferido
+motul-4100-10w40,Motul,4100,4100 10W-40,otro,10W-40,,,,,,,,inferido
 motul-7100-10w30,Motul,7100,7100 10W-30,otro,10W-30,,,,,,,,inferido
-motul-300v-15w60,Motul,300V,300V 15W-60,moto4t,15W-60,sintetico,,,,,,,inferido
+motul-300v-15w60,Motul,300V,300V 15W-60,moto4t,15W-60,,,,,,,,inferido
 motul-8100-eco-lite-5w30,Motul,8100,8100 Eco-lite 5W-30,pcmo,5W-30,,,,,,,,inferido
 motul-kart-2t,Motul,Kart,Kart 2T,otro,,,,,,,,,inferido
-valvoline-advanced-5w30,Valvoline,Advanced,Advanced 5W-30,pcmo,5W-30,sintetico,,,,,,,inferido
-valvoline-advanced-5w20,Valvoline,Advanced,Advanced 5W-20,pcmo,5W-20,sintetico,,,,,,,inferido
-valvoline-advanced-0w20,Valvoline,Advanced,Advanced 0W-20,pcmo,0W-20,sintetico,,,,,,,inferido
-valvoline-durablend-10w40,Valvoline,DuraBlend,DuraBlend 10W-40,pcmo,10W-40,semisintetico,,,,,,,inferido
-valvoline-premium-protection-20w50,Valvoline,Premium Protection,Premium Protection 20W-50,pcmo,20W-50,mineral,,,,,,,inferido
+valvoline-advanced-5w30,Valvoline,Advanced,Advanced 5W-30,pcmo,5W-30,,,,,,,,inferido
+valvoline-advanced-5w20,Valvoline,Advanced,Advanced 5W-20,pcmo,5W-20,,,,,,,,inferido
+valvoline-advanced-0w20,Valvoline,Advanced,Advanced 0W-20,pcmo,0W-20,,,,,,,,inferido
+valvoline-durablend-10w40,Valvoline,DuraBlend,DuraBlend 10W-40,pcmo,10W-40,,,,,,,,inferido
+valvoline-premium-protection-20w50,Valvoline,Premium Protection,Premium Protection 20W-50,pcmo,20W-50,,,,,,,,inferido
 valvoline-atf-max-life,Valvoline,ATF,ATF Max Life,transmision,,,,,,,,,inferido
 valvoline-atf-dexron-vi,Valvoline,ATF,ATF Dexron VI,transmision,,,,,,,,,inferido
 valvoline-nautico-80w90,Valvoline,Nautico,Nautico pata de motor 80W-90,marino,80W-90,,,,,,,,inferido
-valvoline-synpower-2t,Valvoline,Synpower,Synpower 2T,moto2t,,sintetico,,,,,,,inferido
+valvoline-synpower-2t,Valvoline,Synpower,Synpower 2T,moto2t,,,,,,,,,inferido
 liqui-moly-ceratec,Liqui Moly,Ceratec,Ceratec antifriccion,otro,,,,,,,,,inferido
-liqui-moly-sintetico-10w40,Liqui Moly,,Sintetico 10W-40,pcmo,10W-40,sintetico,,,,,,,inferido
+liqui-moly-sintetico-10w40,Liqui Moly,,Sintetico 10W-40,pcmo,10W-40,,,,,,,,inferido
 liqui-moly-performance-5w40,Liqui Moly,,Performance 5W-40,pcmo,5W-40,,,,,,,,inferido
-liqui-moly-moto-4t-15w50,Liqui Moly,,Moto 4T 15W-50,moto4t,15W-50,sintetico,,,,,,,inferido
+liqui-moly-moto-4t-15w50,Liqui Moly,,Moto 4T 15W-50,moto4t,15W-50,,,,,,,,inferido
 liqui-moly-moto-4t-20w50,Liqui Moly,,Moto 4T 20W-50,moto4t,20W-50,,,,,,,,inferido
-bardahl-sintetico-5w40,Bardahl,,Sintetico 5W-40,pcmo,5W-40,sintetico,,,,,,,inferido
+bardahl-sintetico-5w40,Bardahl,,Sintetico 5W-40,pcmo,5W-40,,,,,,,,inferido
 bardahl-xtc-20w50,Bardahl,XTC,XTC 20W-50,pcmo,20W-50,,,,,,,,inferido
-elf-evolution-900-fulltech-msx-5w30,Elf,Evolution 900,Evolution Fulltech MSX 5W-30,pcmo,5W-30,sintetico,,,,,,,inferido
-castrol-actevo-4t-20w50,Castrol,Actevo,Actevo 4T 20W-50,moto4t,20W-50,semisintetico,,,,,,,inferido
-castrol-actevo-essential-20w50,Castrol,Actevo,Actevo Essential 4T 20W-50,moto4t,20W-50,mineral,,,,,,,inferido
-castrol-actevo-4t-10w30,Castrol,Actevo,Actevo 4T 10W-30,moto4t,10W-30,semisintetico,,,,,,,inferido
-shell-advance-ax5-20w50,Shell,Advance,Advance AX5 20W-50,moto4t,20W-50,mineral,,,,,,,inferido
+elf-evolution-900-fulltech-msx-5w30,Elf,Evolution 900,Evolution Fulltech MSX 5W-30,pcmo,5W-30,,,,,,,,inferido
+castrol-actevo-4t-20w50,Castrol,Actevo,Actevo 4T 20W-50,moto4t,20W-50,,,,,,,,inferido
+castrol-actevo-essential-20w50,Castrol,Actevo,Actevo Essential 4T 20W-50,moto4t,20W-50,,,,,,,,inferido
+castrol-actevo-4t-10w30,Castrol,Actevo,Actevo 4T 10W-30,moto4t,10W-30,,,,,,,,inferido
+shell-advance-ax5-20w50,Shell,Advance,Advance AX5 20W-50,moto4t,20W-50,,,,,,,,inferido
 shell-advance-ax3-20w50,Shell,Advance,Advance 4T AX3 20W-50,moto4t,20W-50,,,,,,,,inferido
-valvoline-synpower-4t-10w50,Valvoline,Synpower,Synpower 4T 10W-50,moto4t,10W-50,sintetico,,,,,,,inferido
-valvoline-moto-4t-10w40,Valvoline,Moto 4T,Moto 4T 10W-40,moto4t,10W-40,sintetico,,,,,,,inferido
+valvoline-synpower-4t-10w50,Valvoline,Synpower,Synpower 4T 10W-50,moto4t,10W-50,,,,,,,,inferido
+valvoline-moto-4t-10w40,Valvoline,Moto 4T,Moto 4T 10W-40,moto4t,10W-40,,,,,,,,inferido
 valvoline-moto-4t-20w50,Valvoline,Moto 4T,Moto 4T 20W-50,moto4t,20W-50,,,,,,,,inferido
-motul-moto-mineral-20w50,Motul,Moto,Moto Mineral 20W-50,moto4t,20W-50,mineral,,,,,,,inferido
-elf-evolution-500-ts-20w50,Elf,Evolution,Evolution 500 TS 20W-50,pcmo,20W-50,mineral,,,,,,,inferido
-elf-evolution-10w40-sn,Elf,Evolution,Evolution 10W-40 SN,pcmo,10W-40,semisintetico,SN,,,,,,inferido
+motul-moto-mineral-20w50,Motul,Moto,Moto Mineral 20W-50,moto4t,20W-50,,,,,,,,inferido
+elf-evolution-500-ts-20w50,Elf,Evolution,Evolution 500 TS 20W-50,pcmo,20W-50,,,,,,,,inferido
+elf-evolution-10w40-sn,Elf,Evolution,Evolution 10W-40 SN,pcmo,10W-40,,SN,,,,,,inferido
 motul-510-2t,Motul,2T,510 2T,moto2t,,,,,,,,,inferido
 motul-710-2t,Motul,2T,710 2T,moto2t,,,,,,,,,inferido
-castrol-go-2t,Castrol,2T,Go 2T,moto2t,,mineral,,,,,,,inferido
+castrol-go-2t,Castrol,2T,Go 2T,moto2t,,,,,,,,,inferido
 mobil-delvac-power-mx-15w40,Mobil,Delvac,Delvac Power MX 15W-40,hddo,15W-40,,,,,,,,inferido
 mobil-delvac-modern-mx-15w40,Mobil,Delvac,Delvac Modern MX 15W-40,hddo,15W-40,,CI-4,,,,,,inferido
-ypf-elaion-f50j-5w30-br,YPF,Elaion,F50J,pcmo,5W-30,sintetico,,,,,,https://www.pitstop.com.br/921296---oleo-motor-elaion-5w30-f50j-1l---sintetico-api---sn-tas---elaion-1158986/p,inferido
-ypf-elaion-mineral-20w50-br,YPF,Elaion,Mineral,pcmo,20W-50,mineral,,,,,,https://www.pitstop.com.br/oleo-elaion-20w50-mineral-1l-1199758/p,inferido
-petronas-syntium-5000-dx-5w30-br,Petronas,Syntium 5000,DX,pcmo,5W-30,sintetico,SN,,,,,https://www.altese.com.br/70264e19br-altese-oleo-motor-syntium/p,inferido
-lubrax-valora-sn-plus-5w30-br,Lubrax,Valora,SN Plus,pcmo,5W-30,sintetico,SN,,,,,https://www.pitstop.com.br/oleo-de-motor-5w30-lubrax-valora-api-sn-plus-100--sintetico-560768/p,inferido
-ipiranga-f1-master-sn-5w30-br,Ipiranga,F1 Master,SN,pcmo,5W-30,sintetico,SN,,,,,https://www.pitstop.com.br/oleo-de-motor-ipiranga-f1-master-5w30-api-sn-100--sintetico-1237285/p,inferido
-texaco-havoline-pro-ds-sn-5w30-br,Texaco,Havoline,Pro DS SN,pcmo,5W-30,sintetico,SN,,,,,https://www.altese.com.br/tx31081353-oleo-lubrificante-do-motor-havoline-5w30-flex-e-diesel/p,inferido
-mobil-super-3000-xe-5w30-br,Mobil,Super 3000,XE,pcmo,5W-30,sintetico,SN,,,,,https://www.altese.com.br/123500-oleo-lubrificante-do-motor-mobil-5w30-sintetico-diesel-gasolina-flex/p,inferido
-ipiranga-f1-master-protection-20w50-br,Ipiranga,F1 Master,Protection SL,pcmo,20W-50,mineral,SL,,,,,https://www.altese.com.br/31252653-altese-ipiranga-f1-master-protection-sae-20w50-sl-1l/p,inferido
-lubrax-essencial-sl-20w50-br,Lubrax,Essencial,SL,pcmo,20W-50,mineral,SL,,,,,https://www.pitstop.com.br/oleo-de-motor-20w50-mineral-petrobras-lubrax-essencial-sl-1l-561360/p,inferido
-texaco-havoline-superior-sl-20w50-br,Texaco,Havoline,Superior SL,pcmo,20W-50,mineral,SL,,,,,https://www.altese.com.br/tx742678nqp-altese-oleo-motor/p,inferido
-petronas-syntium-300-sl-20w50-br,Petronas,Syntium 300,SL,pcmo,20W-50,mineral,SL,,,,,https://www.pitstop.com.br/70306e19br---oleo-petronas-syntium-300-20w50-1l---universal-api-sl-mineral-sae-20w50---petronas-1194496/p,inferido
-mobil-super-sl-20w50-br,Mobil,Super,SL,pcmo,20W-50,mineral,SL,,,,,https://www.altese.com.br/123037-altese-oleo-motor-mobil-7896636550599/p,inferido
-shell-helix-hx3-sl-20w50-br,Shell,Helix HX3,SL,pcmo,20W-50,mineral,SL,,,,,https://www.altese.com.br/41064829-altese-oleo-shell/p,inferido
-shell-helix-hx8-5w40,Shell,Helix,HX8 5W-40,pcmo,5W-40,sintetico,,,,,,,inferido
-mobil-super-2000-10w40,Mobil,Super 2000,Super 2000 10W-40,pcmo,10W-40,semisintetico,,,,,,,inferido
-valvoline-premium-protection-15w40,Valvoline,Premium Protection,Premium Protection 15W-40,pcmo,15W-40,mineral,,,,,,,inferido
+ypf-elaion-f50j-5w30-br,YPF,Elaion,F50J,pcmo,5W-30,,,,,,,https://www.pitstop.com.br/921296---oleo-motor-elaion-5w30-f50j-1l---sintetico-api---sn-tas---elaion-1158986/p,inferido
+ypf-elaion-mineral-20w50-br,YPF,Elaion,Mineral,pcmo,20W-50,,,,,,,https://www.pitstop.com.br/oleo-elaion-20w50-mineral-1l-1199758/p,inferido
+petronas-syntium-5000-dx-5w30-br,Petronas,Syntium 5000,DX,pcmo,5W-30,,SN,,,,,https://www.altese.com.br/70264e19br-altese-oleo-motor-syntium/p,inferido
+lubrax-valora-sn-plus-5w30-br,Lubrax,Valora,SN Plus,pcmo,5W-30,,SN,,,,,https://www.pitstop.com.br/oleo-de-motor-5w30-lubrax-valora-api-sn-plus-100--sintetico-560768/p,inferido
+ipiranga-f1-master-sn-5w30-br,Ipiranga,F1 Master,SN,pcmo,5W-30,,SN,,,,,https://www.pitstop.com.br/oleo-de-motor-ipiranga-f1-master-5w30-api-sn-100--sintetico-1237285/p,inferido
+texaco-havoline-pro-ds-sn-5w30-br,Texaco,Havoline,Pro DS SN,pcmo,5W-30,,SN,,,,,https://www.altese.com.br/tx31081353-oleo-lubrificante-do-motor-havoline-5w30-flex-e-diesel/p,inferido
+mobil-super-3000-xe-5w30-br,Mobil,Super 3000,XE,pcmo,5W-30,,SN,,,,,https://www.altese.com.br/123500-oleo-lubrificante-do-motor-mobil-5w30-sintetico-diesel-gasolina-flex/p,inferido
+ipiranga-f1-master-protection-20w50-br,Ipiranga,F1 Master,Protection SL,pcmo,20W-50,,SL,,,,,https://www.altese.com.br/31252653-altese-ipiranga-f1-master-protection-sae-20w50-sl-1l/p,inferido
+lubrax-essencial-sl-20w50-br,Lubrax,Essencial,SL,pcmo,20W-50,,SL,,,,,https://www.pitstop.com.br/oleo-de-motor-20w50-mineral-petrobras-lubrax-essencial-sl-1l-561360/p,inferido
+texaco-havoline-superior-sl-20w50-br,Texaco,Havoline,Superior SL,pcmo,20W-50,,SL,,,,,https://www.altese.com.br/tx742678nqp-altese-oleo-motor/p,inferido
+petronas-syntium-300-sl-20w50-br,Petronas,Syntium 300,SL,pcmo,20W-50,,SL,,,,,https://www.pitstop.com.br/70306e19br---oleo-petronas-syntium-300-20w50-1l---universal-api-sl-mineral-sae-20w50---petronas-1194496/p,inferido
+mobil-super-sl-20w50-br,Mobil,Super,SL,pcmo,20W-50,,SL,,,,,https://www.altese.com.br/123037-altese-oleo-motor-mobil-7896636550599/p,inferido
+shell-helix-hx3-sl-20w50-br,Shell,Helix HX3,SL,pcmo,20W-50,,SL,,,,,https://www.altese.com.br/41064829-altese-oleo-shell/p,inferido
+shell-helix-hx8-5w40,Shell,Helix,HX8 5W-40,pcmo,5W-40,,,,,,,,inferido
+mobil-super-2000-10w40,Mobil,Super 2000,Super 2000 10W-40,pcmo,10W-40,,,,,,,,inferido
+valvoline-premium-protection-15w40,Valvoline,Premium Protection,Premium Protection 15W-40,pcmo,15W-40,,,,,,,,inferido

@@ -75,6 +75,8 @@ VITRINA_F = ("fecha,producto_id,nombre,linea,segmento,sae,base,imagen,imagen_fue
 # como bidón, "R3" como 3 L), y un equivalente cuya mediana está a más de RANGO_EQ veces la del YPF no promedia.
 # ponytail: umbrales fijos a ojo sobre noviembre 2026; si aparecen premium reales a más de 3x, revisar RANGO_EQ.
 SANIDAD, RANGO_EQ = 2.5, 3
+MOTIVO_CHICOS = "solo envases de menos de 0,5 L en la ventana"
+LITROS_MIN_INDICE = 0.5  # los envases de menos de 0,5 L por unidad (sachets, 100 mL de 2T) no entran a ningún índice; siguen en obs, comparador, /api/producto y vitrina
 VENTANA_DIAS = 3  # vitrina: solo avisos vistos en los últimos 3 días (el último día con datos y los 2 anteriores)
 SERVICIOS_F = [c for c in GROK_ALM_F if c not in ("tipo", "producto_id", "match")] + ["solo_aceite", "precio_litro"]
 # Un combo con cualquiera de estos ítems en `detalle` no es "aceite + colocación": su precio no se divide por litro.
@@ -111,6 +113,7 @@ CAMPOS["bi_provincias"] = ["codigo", "nombre", "region", "pais", "online"]
 CAMPOS["puesto"] = ["producto_id", "provincia", "cp", "fuente", "precio_puesto", "precio", "envio", "metodo", "vendedor", "url", "fecha",
                     "minimo_litro_puesto", "mediana_litro_puesto", "n", "n_no_envia", "n_sin_cotizacion", "pais", "moneda", "deposito", "origen_provincia", "origen_fuente", "plazo"]
 CAMPOS["indice_con_mayoristas"] = CAMPOS["indice"]
+CAMPOS["indice/pares"] = ["producto_id", "nombre", "linea", "segmento", "sae", "base", "indice", "mediana_ypf_litro", "mediana_comp_litro", "n_ypf", "n_comp", "motivo", "pais", "moneda", "desde", "hasta"]
 CAMPOS["indice_celdas"] = ["segmento", "sae", "marca", "mediana_litro", "indice", "n", "fecha_min", "fecha_max", "productos", "pais", "moneda", "desde", "hasta", "dias"]
 CAMPOS["macro"] = MACRO_F = ["fecha", "id", "valor", "signo"]
 CAMPOS["mercado_share"] = ["mes", "empresa", "volumen", "total", "share"]
@@ -383,8 +386,8 @@ def serie(obs, pid, pais="AR"):
 
 def indice(d, mayoristas=False, pais="AR"):
     """Índice YPF = 100 DENTRO de un país y una moneda. Para cada fecha F con datos: los avisos de la ventana de VENTANA_DIAS días que termina en F
-    (cada aviso una vez, con su observación más reciente de la ventana; la misma regla que la vitrina, /api/producto e /api/indice/celdas: `_clave_aviso(r, None)`,
-    `_validos`, `cuerdos`), mediana de $/L por (segmento, SAE, marca) y contra la de YPF del mismo grupo. `n` = avisos. Nunca más de VENTANA_DIAS días de arrastre.
+    (cada aviso una vez, con su observación más reciente de la ventana; la misma definición de aviso que la vitrina y /api/producto: `_clave_aviso(r, None)`, `_validos`, `cuerdos`,
+    pero sin envases de menos de LITROS_MIN_INDICE L por unidad, que la vitrina sí cuenta: `_validos_indice`), mediana de $/L por (segmento, SAE, marca) y contra la de YPF del mismo grupo. `n` = avisos. Nunca más de VENTANA_DIAS días de arrastre.
     Barrido incremental (como bi_indice_competencia): se mantiene el último aviso vivo de cada clave y salen los que pasan de la ventana."""
     prod = {p["producto_id"]: p for p in d["productos"]}
     obs = [r for r in d["obs"] if pais_r(r) == pais and r["producto_id"] in prod]
@@ -404,7 +407,7 @@ def indice(d, mayoristas=False, pais="AR"):
             por[r["producto_id"]].append(r)
         grupos = defaultdict(list)
         for pid, rs in por.items():
-            xs = _validos(rs, mayoristas)
+            xs = _validos_indice(rs, mayoristas)
             for pl, r in cuerdos(xs) if xs else []:
                 p = prod[pid]
                 grupos[(p["segmento"], p["sae"], p["marca"], moneda_r(r))].append(pl)
@@ -418,17 +421,18 @@ def indice(d, mayoristas=False, pais="AR"):
 
 def indice_celdas(d, dias=30, hasta=None, mayoristas=False, pais="AR"):
     """/api/indice/celdas: una celda por (segmento, SAE, marca) con la mediana de $/L de los avisos de la ventana de `dias` que termina en `hasta`
-    (default: el último día con datos) y los $/L de cada aviso (para la distribución). Misma definición de aviso, sanidad y exclusiones que la vitrina
-    y /api/producto (`_avisos`, `_validos`, `cuerdos`). `indice` = mediana de la marca / mediana de YPF del mismo segmento y SAE × 100; null sin YPF."""
+    (default: el último día con datos) y los $/L de cada aviso (para la distribución). Misma definición de aviso y sanidad que la vitrina y /api/producto
+    (`_avisos`, `_validos`, `cuerdos`), pero sin envases de menos de LITROS_MIN_INDICE L por unidad (`_validos_indice`); los que dejan una celda vacía van en `sin_dato`. `indice` = mediana de la marca / mediana de YPF del mismo segmento y SAE × 100; null sin YPF."""
     d = de_pais(d, pais)
     prod = {p["producto_id"]: p for p in d["productos"]}
     h, por = _avisos(d, dias, set(prod), None, None, hasta)
     desde, _ = desde_hasta(d, dias, None, hasta)
-    celdas = defaultdict(list)
+    celdas, chicos = defaultdict(list), Counter()
     for pid, rs in por.items():
-        xs = _validos(rs, mayoristas)
-        for pl, r in cuerdos(xs) if xs else []:  # cuerdos no admite lista vacía (producto con avisos solo sin litros / mayoristas)
-            p = prod[pid]
+        p = prod[pid]
+        chicos[(p["segmento"], p["sae"], p["marca"])] += sum(_chico(r) for _, r in _validos(rs, mayoristas))
+        xs = _validos_indice(rs, mayoristas)
+        for pl, r in cuerdos(xs) if xs else []:  # cuerdos no admite lista vacía (producto con avisos solo sin litros / mayoristas / envases chicos)
             celdas[(p["segmento"], p["sae"], p["marca"])].append((pl, r["fecha"], pid))
     med = {k: median(x[0] for x in v) for k, v in celdas.items()}
     out = []
@@ -438,9 +442,13 @@ def indice_celdas(d, dias=30, hasta=None, mayoristas=False, pais="AR"):
         out.append({"segmento": seg, "sae": sae, "marca": marca, "mediana_litro": round(m, 2), "indice": round(m / ypf * 100, 1) if ypf else None,
                     "n": len(v), "fecha_min": min(x[1] for x in v), "fecha_max": max(x[1] for x in v),
                     "precios_litro": sorted(round(x[0], 2) for x in v), "productos": sorted({x[2] for x in v})})
+    sin_dato = [{"segmento": seg, "sae": sae, "marca": marca, "n_chicos": n, "motivo": MOTIVO_CHICOS}
+                for (seg, sae, marca), n in sorted(chicos.items()) if n and (seg, sae, marca) not in celdas]
     return {"pais": pais, "moneda": PAISES[pais][1], "desde": desde or None, "hasta": h or None, "dias": dias,
+            "sin_dato": sin_dato,
             "nota": f"Mediana de $/L de los avisos de los últimos {dias} días que terminan el {h}: cada aviso cuenta una vez, con su observación más reciente de la ventana "
-                    "(no es el índice de un solo día de /api/indice). Sin mayoristas ni Grok sin verificar, salvo mayoristas=1. Una celda ausente es sin dato, no cero.",
+                    "(no es el índice de un solo día de /api/indice). Sin mayoristas ni Grok sin verificar, salvo mayoristas=1, y sin envases de menos de {LITROS_MIN_INDICE:g} L por unidad (sachets): "
+                    "una celda que solo tiene esos avisos va en `sin_dato` con su motivo. Una celda ausente es sin dato, no cero.",
             "celdas": out}
 
 
@@ -752,7 +760,7 @@ def _indice_par(por, eqs, pid, mayoristas=False):
     """Índice según la competencia de UN producto YPF sobre sus avisos `por` (de `_avisos`): mediana $/L YPF / mediana $/L de la competencia × 100 (competencia = 100;
     menos de 100 = YPF más barato). Misma regla que `producto()`: sanidad `cuerdos`, sin no_equivalente, equivalente fuera de RANGO_EQ no cuenta. Un lado sin datos = None."""
     def cuerdas(p):
-        c = _validos(por.get(p, []), mayoristas)
+        c = _validos_indice(por.get(p, []), mayoristas)
         return [pl for pl, _ in cuerdos(c)] if c else []
     y = cuerdas(pid)
     my = round(median(y), 2) if y else None
@@ -771,6 +779,38 @@ def indices_30d(d):
     hasta, por = _avisos(d, VENTANA_INDICE, set(ypf) | {c for y in ypf for c in eq.get(y, {})}, None)
     desde, _ = desde_hasta(d, VENTANA_INDICE)
     return {pid: {**_indice_par(por, eq.get(pid, {}), pid), "desde": desde or None, "hasta": hasta or None} for pid in ypf}
+
+
+def indice_pares(d, pais="AR"):
+    """/api/indice/pares: el índice principal (competencia = 100, ventana de 30 días que termina en el último día con datos), una fila por producto YPF del país,
+    con su motivo cuando no hay índice. Los números son los de `_indice_par` (los de /api/vitrina `indice_30d` y /api/bi/indice_competencia): acá solo se suman los datos
+    del producto y el porqué de un vacío (nunca 0 ni un guion mudo). `d` ya es de un solo país."""
+    eq = _equivs(d)
+    ypf = productos_de(d, pais)
+    hasta, por = _avisos(d, VENTANA_INDICE, {p["producto_id"] for p in ypf} | {c for p in ypf for c in eq.get(p["producto_id"], {})}, None)
+    desde, _ = desde_hasta(d, VENTANA_INDICE)
+    todos = lambda q: _validos(por.get(q, []), False)
+    solo_chicos = lambda ids: any(todos(q) for q in ids) and all(_chico(r) for q in ids for _, r in todos(q))
+    out = []
+    for p in ypf:
+        pid = p["producto_id"]
+        x = _indice_par(por, eq.get(pid, {}), pid)
+        motivo = None
+        if x["indice"] is None:
+            if not x["n_ypf"]:
+                motivo = ("YPF: " + MOTIVO_CHICOS) if solo_chicos([pid]) else "sin avisos de YPF en la ventana"
+            elif not eq.get(pid):
+                motivo = "sin equivalencias cargadas"
+            elif solo_chicos(list(eq[pid])):
+                motivo = "competencia: " + MOTIVO_CHICOS
+            elif any(todos(q) for q in eq[pid]):
+                motivo = "los avisos de la competencia no son comparables (no equivalente o fuera de rango)"
+            else:
+                motivo = "sin avisos de la competencia en la ventana"
+        out.append({"producto_id": pid, "nombre": p["nombre"], "linea": p["linea"], "segmento": p["segmento"], "sae": p["sae"], "base": p["base"] or None, **x, "motivo": motivo})
+    return {"pais": pais, "moneda": PAISES[pais][1], "desde": desde or None, "hasta": hasta or None, "dias": VENTANA_INDICE, "productos": out,
+            "nota": "Índice por pares de equivalencias, competencia = 100: mediana $/L de YPF / mediana $/L de la competencia equivalente × 100 sobre los avisos de los últimos 30 días "
+                    f"(más de 100 = YPF más caro). Sin mayoristas, sin Grok sin verificar y sin envases de menos de {LITROS_MIN_INDICE:g} L por unidad (sachets). Vacío = sin dato, con su motivo."}
 
 
 def bi_indice_competencia(d, desde=""):
@@ -894,17 +934,17 @@ moneda|texto||Moneda de la celda, ISO 4217.|ARS
 segmento|texto||Segmento del producto: pcmo (autos), hddo (pesados), moto4t, moto2t, transmision, grasa, industrial, marino, gas, otro.|pcmo
 sae|texto||Viscosidad SAE (5W-30, 15W-40, SAE 40); vacío si el segmento no tiene.|5W-30
 marca|texto||Marca del aviso. YPF es la referencia (100).|Shell
-mediana_litro|decimal|moneda por litro|Mediana del precio por litro de los avisos de esa marca, segmento y SAE en la ventana de 3 días (cada aviso cuenta una vez, con precios cuerdos).|41250
-mediana_ypf_litro|decimal|moneda por litro|Mediana del precio por litro de YPF en el mismo segmento, SAE y fecha; vacía si YPF no tiene avisos en la ventana.|38500
-indice|decimal|puntos (YPF = 100)|Mediana de la marca / mediana de YPF × 100. 110 = la marca es 10 % más cara que YPF; 90 = 10 % más barata. Vacío si no hay YPF en el grupo (nunca 0).|107.1
-n|entero|avisos|Cantidad de avisos (uno por publicación o comercio) que entran en la mediana de la marca. Con n chico (1 o 2) la mediana es poco confiable.|18
+mediana_litro|decimal|moneda por litro|Mediana del precio por litro de los avisos de esa marca, segmento y SAE en la ventana de 3 días (cada aviso cuenta una vez, con precios cuerdos). No incluye envases de menos de 0,5 L por unidad.|41250
+mediana_ypf_litro|decimal|moneda por litro|Mediana del precio por litro de YPF en el mismo segmento, SAE y fecha (sin envases de menos de 0,5 L); vacía si YPF no tiene avisos en la ventana.|38500
+indice|decimal|puntos (YPF = 100)|Mediana de la marca / mediana de YPF × 100. 110 = la marca es 10 % más cara que YPF; 90 = 10 % más barata. Vacío si no hay YPF en el grupo (nunca 0). Sin envases de menos de 0,5 L por unidad.|107.1
+n|entero|avisos|Cantidad de avisos (uno por publicación o comercio) que entran en la mediana de la marca (sin envases de menos de 0,5 L por unidad). Con n chico (1 o 2) la mediana es poco confiable.|18
 """,
     "indice_competencia": """
 fecha|fecha||Día del índice; cada fecha usa una ventana móvil de 30 días que termina en ella.|2026-11-26
 producto_id|texto||Producto YPF evaluado. Se relaciona con productos[producto_id].|ypf-elaion-ts1040-10w40
 pais|texto||País (AR, BR).|AR
 moneda|texto||Moneda de las medianas, ISO 4217.|ARS
-indice|decimal|puntos (competencia = 100)|Mediana YPF / mediana de la competencia equivalente × 100. Menos de 100 = YPF más barato que la competencia; más de 100 = más caro. Vacío si falta YPF o competencia. Atención: la base es la competencia, al revés que en la tabla indice.|92.4
+indice|decimal|puntos (competencia = 100)|Mediana YPF / mediana de la competencia equivalente × 100. Menos de 100 = YPF más barato que la competencia; más de 100 = más caro. Vacío si falta YPF o competencia. Atención: la base es la competencia, al revés que en la tabla indice. Es el índice principal («Por producto» en la pestaña Índice); no incluye envases de menos de 0,5 L por unidad.|92.4
 mediana_ypf_litro|decimal|moneda por litro|Mediana del precio por litro del producto YPF en la ventana.|36368
 mediana_comp_litro|decimal|moneda por litro|Mediana del precio por litro de todos los avisos de los equivalentes (sin los no equivalentes) en la ventana.|39350
 n_ypf|entero|avisos|Cantidad de avisos del producto YPF en la ventana.|14
@@ -991,7 +1031,7 @@ def bi_paquete(d, calc):
              f"Origen: {PUBLICA_URL}/api/bi/paquete.zip (lectura abierta, sin clave)\n\n"
              "Contenido: un CSV por tabla (UTF-8 con BOM, coma, punto decimal): " + ", ".join(t + ".csv" for t in TABLAS_BI) + ", diccionario.csv.\n"
              "Los nombres son fijos: reemplace los archivos de la carpeta de SharePoint sin cambiarles el nombre.\n"
-             "Los datos son diarios; no es tiempo real. indice.csv tiene YPF = 100; indice_competencia.csv tiene la competencia = 100.\n"
+             "Los datos son diarios; no es tiempo real. indice_competencia.csv (competencia = 100, por producto YPF, 30 dias) es el indice principal e indice.csv (YPF = 100, por segmento, SAE y marca) la vista secundaria. Ninguno incluye envases de menos de 0,5 L por unidad (sachets): siguen en precios.csv.\n"
              "Guia de conexion y medidas: docs/powerbi.md del repositorio.\n")
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
@@ -1045,6 +1085,16 @@ def _filtrar(rs, fuente, mayoristas):
 def _validos(rs, mayoristas):
     """Avisos de UN producto que cuentan para el $/L (con litros, sin mayoristas salvo flag, sin Grok sin verificar) → [(precio_litro, aviso)]; la sanidad la aplica `cuerdos`."""
     return [(r["pl"], r) for r in _filtrar(rs, "", mayoristas) if r.get("verificado") != "0"]
+
+
+def _chico(r):
+    """Envase de menos de LITROS_MIN_INDICE litros por unidad (el $/L de un sachet no es comparable con el de un bidón)."""
+    return num(r["litros"]) < LITROS_MIN_INDICE
+
+
+def _validos_indice(rs, mayoristas):
+    """`_validos` sin los envases chicos: lo que cuenta para los índices (por segmento/SAE/marca, celdas y pares)."""
+    return [x for x in _validos(rs, mayoristas) if not _chico(x[1])]
 
 
 def _celda(rs, **clave):
@@ -2020,7 +2070,7 @@ def mercado(d, producto="automotrices", canal=None, por="empresa"):
 def calc_pais(d, pais):
     """Lo que se calcula por país (nunca mezclado): último precio, índice y vitrina, con y sin mayoristas."""
     return {"ultimo": ultimo(d["obs"], pais), "indice": indice(d, False, pais), "indice_con_mayoristas": indice(d, True, pais),
-            "vitrina": vitrina(d, False, pais), "vitrina_con_mayoristas": vitrina(d, True, pais)}
+            "vitrina": vitrina(d, False, pais), "vitrina_con_mayoristas": vitrina(d, True, pais), "indice/pares": indice_pares(de_pais(d, pais), pais)}
 
 
 def calcular(d, hoy=None):
@@ -2426,6 +2476,11 @@ class Handler(BaseHTTPRequestHandler):
             v = cp["vitrina_con_mayoristas" if q.get("mayoristas") == "1" else "vitrina"]
             if q.get("formato") == "csv":
                 return self.enviar(200, a_csv("vitrina", aplanar_vitrina(v)), "text/csv; charset=utf-8")
+            return self.salida(v)
+        if nombre == "indice/pares":
+            v = cp["indice/pares"]
+            if q.get("formato") == "csv":
+                return self.enviar(200, a_csv("indice/pares", [{**x, "pais": v["pais"], "moneda": v["moneda"], "desde": v["desde"], "hasta": v["hasta"]} for x in v["productos"]]), "text/csv; charset=utf-8")
             return self.salida(v)
         if nombre == "indice" and q.get("mayoristas") == "1":
             filas = cp["indice_con_mayoristas"]
@@ -2930,6 +2985,21 @@ def demo():
     sin_ypf = indice_celdas({**dv, "obs": [o for o in dv["obs"] if o["producto_id"] in ("shell-s", "gulf-g")]}, 3)
     assert sin_ypf["celdas"] and all(c["indice"] is None for c in sin_ypf["celdas"])   # sin YPF no se calcula índice
     assert indice_celdas({**dv, "obs": []})["celdas"] == [] and indice_celdas(dv, 3, pais="BR")["celdas"] == []   # sin datos: ni barras ni ceros; país aparte
+    # envases de menos de 0,5 L: fuera de los tres índices, con su motivo; siguen en obs y en la vitrina
+    sachet = O("2026-11-05", "sepa", "ypf-a", "100", litros="0.1", url="sx")
+    dsx = {**dv, "obs": dv["obs"] + [sachet]}
+    assert indice_celdas(dsx, 3)["celdas"] == ic["celdas"] and indice_celdas(dsx, 3)["sin_dato"] == [] and indice(dsx) == indice(dv)   # un sachet más no mueve ninguna celda
+    solo = indice_celdas({**dv, "obs": [O("2026-11-05", "sepa", "shell-s", "500", litros="0.1", url="sy")]}, 3)
+    assert solo["celdas"] == [] and solo["sin_dato"] == [{"segmento": "", "sae": "", "marca": "Shell", "n_chicos": 1, "motivo": MOTIVO_CHICOS}], solo["sin_dato"]
+    assert indice({**dv, "obs": [O("2026-11-05", "sepa", "shell-s", "500", litros="0.1", url="sy")]}) == []
+    ip = indice_pares(dv)
+    assert {x["producto_id"]: x["indice"] for x in ip["productos"]} == {k: v["indice"] for k, v in indices_30d(dv).items()} and ip["dias"] == 30
+    assert all((x["motivo"] is None) == (x["indice"] is not None) for x in ip["productos"]) and indice_pares(dsx) == ip   # sin índice = con motivo; el sachet no lo cambia
+    ips = {x["producto_id"]: x for x in indice_pares({**dv, "obs": [sachet]})["productos"]}
+    assert ips["ypf-a"]["indice"] is None and ips["ypf-a"]["motivo"] == "YPF: " + MOTIVO_CHICOS and ips["ypf-b"]["motivo"] == "sin avisos de YPF en la ventana"
+    ipc = {x["producto_id"]: x for x in indice_pares({**dv, "obs": [o for o in dv["obs"] if o["producto_id"] == "ypf-a"] + [O("2026-11-05", "sepa", "shell-s", "500", litros="0.1", url="sy")]})["productos"]}
+    assert ipc["ypf-a"]["indice"] is None and ipc["ypf-a"]["motivo"] == "competencia: " + MOTIVO_CHICOS, ipc["ypf-a"]
+    assert any(r["litros"] == "0.1" for r in dsx["obs"]) and vitrina(dsx)["productos"][0]["ypf"]["n"] == vitrina(dv)["productos"][0]["ypf"]["n"] + 1   # la vitrina sí lo cuenta
     ux_ = celdas_usd(ic, {("ARS", "2026-11-05"): (1000.0, "x")})
     assert ux_["celdas"][-1]["mediana_litro_usd"] == 5 and ux_["celdas"][-1]["precios_litro_usd"] == [4, 5, 8] and ux_["celdas"][-1]["fx_fecha"] == "2026-11-05"
     assert celdas_usd(ic, {})["celdas"][0]["precios_litro_usd"] is None and celdas_usd(ic, {})["celdas"][0]["mediana_litro_usd"] is None   # sin cotización ese día: null, no se arrastra
@@ -3323,6 +3393,8 @@ def demo():
     assert get("/api/obs?mes=2026-11&formato=csv", {"X-API-Key": "s3cr3t"})[1].startswith(b"fecha,fuente,url")
     k = {"X-API-Key": "s3cr3t"}
     assert json.loads(get("/api/indice", k)[1]) == c["indice"] and json.loads(get("/api/indice?mayoristas=1", k)[1]) == c["indice_con_mayoristas"]
+    ipa = json.loads(get("/api/indice/pares")[1])
+    assert ipa["productos"] == c["indice/pares"]["productos"] and ipa["dias"] == 30 and get("/api/indice/pares?formato=csv")[1].startswith(b"producto_id,nombre,") and get("/api/indice/pares?pais=CL")[0] == 400
     ce = json.loads(get("/api/indice/celdas?dias=30", k)[1])
     assert ce["hasta"] == "2026-11-03" and {x["marca"] for x in ce["celdas"]} == {"YPF", "Shell", "Gulf"}
     assert get("/api/indice/celdas?formato=csv")[1].startswith(b"segmento,sae,marca,") and get("/api/indice/celdas?pais=BR")[0] == 200 and get("/api/indice/celdas?pais=CL")[0] == 400
