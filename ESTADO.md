@@ -1,5 +1,10 @@
 # ESTADO
 
+## Mapa de datos y camino a Cloudera (2026-11-27, rama docs/flujo-datos-cloudera)
+- `docs/flujo-datos-cloudera.html` (nuevo, solo doc): ruta fuentes -> recolectores -> repo -> celu/Render -> consumidores, horario del día, tabla de fuentes con estado al 27/11 y cómo llevarlo a Cloudera: camino A (Job de CML diario que baja `/api/bi/paquete.zip` del celu, o de Render si cae; script stdlib incluido) y camino B (visor entero en CML, después). Reemplaza al mapa del 19/11 de `LUBRICANTES-datos-SE`. Cotejado contra el repo por un inspector independiente (6 correcciones aplicadas).
+- Sin probar: el script dentro de CML (salida a internet, proxy, Spark leyendo `file://`); nada de Cloudera está implementado.
+- Hallazgo del 27/11: un merge a `main` tarda hasta una hora en llegar al celu (pull en el minuto 20). El celu sirvió el índice viejo (`e398c1f`) hasta que se forzó el pull con `recolector_casa.py --solo-pull`; después dio `773cd60` y los mismos valores que Render y el cálculo local.
+
 ## Histórico renormalizado (2026-11-27, rama data/renormalizar-2026-11-27)
 - `python recolectar.py --renormalizar` sobre `data/obs/2026-11.csv` (50.865 filas) y `data/grok/2026-11.csv` (724, sin cambios). Precios y fechas intactos (assert al comparar).
 - Cambios: `unidades` en 233 filas `ml` («8 L x 2 u» = pack entero), 131 `tn_spch` (precio unitario), 18 `tn_torooils` (código de línea leído como caja) y 12 `tn_lspalermo` («X 4 Bidones 16l»: 16 L en total, $/L 4.062 -> 16.250, cuadra con sus otras cajas); 12 `tn_lspalermo` «Extra Vida 15w40 20 L» dejan de matchear con Elaion MI 1540 (otra línea; el alias vigente la excluye). 6.905 filas `sepa` solo cambian el formato de `litros` (`1.0` -> `1`, mismo valor).
