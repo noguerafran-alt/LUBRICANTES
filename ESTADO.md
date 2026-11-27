@@ -1,5 +1,8 @@
 # ESTADO
 
+## Mapa de datos al día con el índice por pares (2026-11-27, rama docs/flujo-indice-pares)
+- `docs/flujo-datos-cloudera.html`: regla nueva «El índice principal es por pares» (competencia = 100, 30 días, sin sachets), `indice_competencia.csv` marcado como índice principal e `indice.csv` como vista secundaria. Solo doc.
+
 ## Cloudera: el dato entra como archivo (2026-11-27, rama feat/cml-paquete)
 - Pedido del usuario: CML no baja de internet; se descarga UN archivo (celu o Render, mismo repo), se pasa a la PC del trabajo, se sube al proyecto y un Job lo levanta. Decisión: el archivo es el `/api/bi/paquete.zip` que ya existía (CSV + `diccionario.csv` + `LEEME.txt`), no un JSON (Spark, pandas e Impala leen CSV y el diccionario describe las columnas). No se tocó `server.py`.
 - `tools/cml_paquete.py` (stdlib, sin red ni claves): `importar [zip] [--destino DIR] [--forzar]` (DIR = `LUB_DESTINO` o `/home/cdsw/lubricantes`; sin zip toma el más nuevo de `DIR/entrada/`) valida que estén todas las tablas del diccionario, que cada encabezado coincida exactamente con sus columnas y lee «Ultimo dato» y «Commit» del LEEME; rechaza (exit 1, `actual/` intacto) zip roto, incompleto, o con último dato anterior al de `actual/` salvo `--forzar`; escribe CSV sin BOM en `historico/<ultimo_dato>_<commit>/` y reemplaza `actual/` con carpeta temporal + rename (con `estado.json`); mueve el zip a `procesados/`. `resumen [--json]`: último dato, commit, filas por tabla, índice por marca (YPF = 100) y productos YPF contra su competencia del último día. `test` = OK (zip bueno, encabezado malo, tabla faltante, LEEME faltante, viejo rechazado y aceptado con `--forzar`, reimportar sin duplicar, `actual/` intacto tras fallo, sin BOM, `entrada/` -> `procesados/`).
