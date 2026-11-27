@@ -193,6 +193,11 @@ def normalizar(titulo, marca_vtex="", ean="", reglas=None, url="", pais="AR"):
     # ponytail: un pack real de 4 × 4 L queda contado como 4 L; el techo de sanidad de /api/vitrina lo saca.
     if unidades > 1 and litros == unidades:
         unidades = 1
+    # Un envase suelto de más de 5 y menos de 20 L no existe (los hay de 1, 4, 5, 20 y 205): "8 Litros x 2 unidades" ya es el pack entero.
+    # Medido 2026-11-27 contra el $/L del mismo producto en otras fuentes: contado dos veces daba la mitad.
+    # ponytail: un pack de 2 × 4 L o 2 × 5 L ("4 lts x 2 unidades") es ambiguo con el texto solo y se deja como viene.
+    if unidades > 1 and litros is not None and 5 < litros < 20:
+        unidades = 1
     if match != "none" and url_contradice(t, sae, litros, url):
         pid, match = "", "none"
     return dict(marca=marca, sae=sae, litros=litros, unidades=unidades, producto_id=pid, match=match)
@@ -277,6 +282,7 @@ def demo():
     r = n("Aceite Total Quartz 7000 10w40 Caja x6 Bidones 4L Semisintetico 10W-40")
     assert (r["litros"], r["unidades"]) == (4.0, 6), r
     assert n("Aceite Quartz 9000 5w40 x 12 unidades 1 l")["unidades"] == 12
+    assert (n("Aceite Total Quartz 5000 15w40 Mineral 8 Litros 15W-40 x 2 unidades")["litros"], n("Aceite Total Quartz 5000 15w40 Mineral 8 Litros 15W-40 x 2 unidades")["unidades"]) == (8.0, 1)
     # Acentos rotos de YPF GraphQL y marca VTEX compuesta.
     assert texto("Sint�tico Lubricación") == "sinttico lubricacion"
     assert marca_de("Elaion Ypf") == "YPF" and marca_de("Extra Vida") == "YPF" and marca_de("QUARTZ") == "TotalEnergies" and marca_de("Quim Bat") == ""

@@ -795,7 +795,7 @@ body:has(#dl[open]), body:has(#ix-dl[open]) { overflow: hidden; }
       <div id="ix-3d-lienzo"></div>
       <div id="ix-pan" aria-live="polite"></div>
     </div>
-    <p class="nota">Cada celda es la mediana de $/L de la marca dividida por la de YPF, en el mismo segmento, SAE y día, × 100. Sin YPF ese día no se calcula. Debajo de cada valor, los 90 días que terminan en el día elegido. Las fuentes mayoristas (precio por caja o tambor, IVA no verificado) no entran; en la API se suman con <code>?mayoristas=1</code>.</p>
+    <p class="nota">Cada celda es la mediana de $/L de la marca dividida por la de YPF, en el mismo segmento y SAE, × 100. La mediana de cada día usa los avisos de los 3 días que terminan en ese día (cada aviso una vez, con su precio más reciente de esos 3 días y sin envases mal leídos); debajo del $/L figura cuántos avisos entran (n). Sin YPF en esa ventana no se calcula. Debajo de cada valor, los 90 días que terminan en el día elegido. Las fuentes mayoristas (precio por caja o tambor, IVA no verificado) no entran; en la API se suman con <code>?mayoristas=1</code>.</p>
   </section>
 
   <section id="cargar" hidden>
@@ -1229,18 +1229,19 @@ function indiceTabla() {
     const r = celdaDe[marca + "|" + g];
     if (!r) {
       const motivo = delPais.some(p => p.marca === marca && p.segmento + "|" + p.sae === g)
-        ? `Sin dato: ninguna fuente publicó precio de ${marca} en este segmento y SAE el ${fechaAR(ultimo)}.`
+        ? `Sin dato: ${marca} no tiene avisos con precio por litro en este segmento y SAE en los 3 días que terminan el ${fechaAR(ultimo)}.`
         : `Sin dato: ${marca} no tiene un producto de este segmento y SAE en el catálogo.`;
       return `<td class="ix-sd" title="${esc(motivo)}"><span aria-hidden="true">–</span><span class="sr">${esc(motivo)}</span></td>`;
     }
     const sp = marca === "YPF" ? "" : `<span class="ix-sp">${sparkline(hist[marca + "|" + g] || [], desde)}</span>`;
-    const lit = `<span class="ix-l">${mon.format(r.mediana_litro)}/L</span>${usdDe(r, "mediana_litro", "")}`;
-    if (marca === "YPF") return `<td class="n"><b class="ix-v">100</b>${lit}</td>`;
-    if (r.indice === null) return `<td class="ix-c" style="cursor:default"><span class="vacio">sin YPF ese día</span>${lit}</td>`;
+    const nAv = `${r.n} ${r.n === 1 ? "aviso" : "avisos"}`;
+    const lit = `<span class="ix-l">${mon.format(r.mediana_litro)}/L · ${nAv}</span>${usdDe(r, "mediana_litro", "")}`;
+    if (marca === "YPF") return `<td class="n" title="${esc(`Referencia: mediana de ${nAv} en los 3 días que terminan el ${fechaAR(ultimo)}`)}"><b class="ix-v">100</b>${lit}</td>`;
+    if (r.indice === null) return `<td class="ix-c" style="cursor:default" title="${esc(`Sin YPF: YPF no tiene avisos con precio en este segmento y SAE en los 3 días que terminan el ${fechaAR(ultimo)}, no se calcula el índice.`)}"><span class="vacio">sin YPF en 3 días</span>${lit}</td>`;
     const d = r.indice - 100, t = Math.min(Math.abs(d) / 30, 1), tono = Math.abs(d) < .05 ? "" : d > 0 ? "ix-barato" : "ix-caro";   // color desde YPF: marca más cara = verde (YPF más barato)
     const txt = tono ? `${dec1.format(Math.abs(d))} % ${d > 0 ? "más caro" : "más barato"}` : "igual que YPF";
-    return `<td class="ix-c ${tono}" style="--h:${Math.round(t * 34)}%" tabindex="0" data-m="${esc(marca)}" data-g="${esc(g)}" title="Doble clic (o Enter) para ver el detalle de 90 días"
-      aria-label="${esc(`${marca}, ${subIx(g)}: índice ${dec1.format(r.indice)}, ${txt}. Doble clic o Enter para el detalle de 90 días`)}"><b class="ix-v">${dec1.format(r.indice)}</b><span class="ix-d">${esc(txt)}</span>${lit}${sp}</td>`;
+    return `<td class="ix-c ${tono}" style="--h:${Math.round(t * 34)}%" tabindex="0" data-m="${esc(marca)}" data-g="${esc(g)}" title="${esc(`Mediana de ${nAv} (3 días que terminan el ${fechaAR(ultimo)}). Doble clic (o Enter) para ver el detalle de 90 días`)}"
+      aria-label="${esc(`${marca}, ${subIx(g)}: índice ${dec1.format(r.indice)}, ${txt}, ${nAv}. Doble clic o Enter para el detalle de 90 días`)}"><b class="ix-v">${dec1.format(r.indice)}</b><span class="ix-d">${esc(txt)}</span>${lit}${sp}</td>`;
   };
   const grupos = IX_GRUPOS.map(([n]) => [n, cols.filter(g => grupoIx(g.split("|")[0]) === n)]).filter(([, c]) => c.length);
   const cab = `<thead><tr><th rowspan="2" scope="col">Marca</th>${grupos.map(([n, c]) => `<th class="ix-g" colspan="${c.length}" scope="colgroup">${esc(n)}</th>`).join("")}</tr>

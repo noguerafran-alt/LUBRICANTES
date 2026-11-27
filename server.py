@@ -382,26 +382,37 @@ def serie(obs, pid, pais="AR"):
 
 
 def indice(d, mayoristas=False, pais="AR"):
-    """Índice YPF = 100 DENTRO de un país y una moneda: la mediana de cada marca se compara solo con la de YPF del mismo país y moneda."""
+    """Índice YPF = 100 DENTRO de un país y una moneda. Para cada fecha F con datos: los avisos de la ventana de VENTANA_DIAS días que termina en F
+    (cada aviso una vez, con su observación más reciente de la ventana; la misma regla que la vitrina, /api/producto e /api/indice/celdas: `_clave_aviso(r, None)`,
+    `_validos`, `cuerdos`), mediana de $/L por (segmento, SAE, marca) y contra la de YPF del mismo grupo. `n` = avisos. Nunca más de VENTANA_DIAS días de arrastre.
+    Barrido incremental (como bi_indice_competencia): se mantiene el último aviso vivo de cada clave y salen los que pasan de la ventana."""
     prod = {p["producto_id"]: p for p in d["productos"]}
-    grupos = defaultdict(list)
-    for r in d["obs"]:
-        if pais_r(r) != pais:
-            continue
-        if r["fuente"] in MAYORISTAS and not mayoristas:
-            continue
-        if r.get("verificado") == "0":  # Grok sin verificar: se muestra, no pesa en el índice
-            continue
-        p, pl = prod.get(r["producto_id"]), precio_litro(r)
-        if p and pl is not None:
-            grupos[(r["fecha"], p["segmento"], p["sae"], p["marca"], moneda_r(r))].append(pl)
-    med = {k: median(v) for k, v in grupos.items()}
-    out = []
-    for (fecha, seg, sae, marca, mo), m in sorted(med.items()):
-        ypf = med.get((fecha, seg, sae, "YPF", mo))
-        out.append({"fecha": fecha, "segmento": seg, "sae": sae, "marca": marca,
-                    "mediana_litro": round(m, 2), "n": len(grupos[(fecha, seg, sae, marca, mo)]),
-                    "indice": round(m / ypf * 100, 1) if ypf else None, "pais": pais, "moneda": mo})
+    obs = [r for r in d["obs"] if pais_r(r) == pais and r["producto_id"] in prod]
+    por_dia = defaultdict(list)
+    for r in obs:
+        por_dia[r["fecha"]].append(r)
+    vivos, out = {}, []
+    for fecha in sorted(por_dia):
+        for r in por_dia[fecha]:
+            k = _clave_aviso(r, None)
+            if k not in vivos or r["fecha"] >= vivos[k]["fecha"]:
+                vivos[k] = {**r, "pl": precio_litro(r)}
+        ini = (date.fromisoformat(fecha) - timedelta(days=VENTANA_DIAS - 1)).isoformat()
+        vivos = {k: r for k, r in vivos.items() if r["fecha"] >= ini}
+        por = defaultdict(list)
+        for r in vivos.values():
+            por[r["producto_id"]].append(r)
+        grupos = defaultdict(list)
+        for pid, rs in por.items():
+            xs = _validos(rs, mayoristas)
+            for pl, r in cuerdos(xs) if xs else []:
+                p = prod[pid]
+                grupos[(p["segmento"], p["sae"], p["marca"], moneda_r(r))].append(pl)
+        med = {k: median(v) for k, v in grupos.items()}
+        for (seg, sae, marca, mo), m in sorted(med.items()):
+            ypf = med.get((seg, sae, "YPF", mo))
+            out.append({"fecha": fecha, "segmento": seg, "sae": sae, "marca": marca, "mediana_litro": round(m, 2),
+                        "n": len(grupos[(seg, sae, marca, mo)]), "indice": round(m / ypf * 100, 1) if ypf else None, "pais": pais, "moneda": mo})
     return out
 
 
@@ -845,7 +856,150 @@ def bi_tabla(d, nombre, q):
         return [{**p, "es_ypf": int(p["marca"] == "YPF")} for p in d["productos"]]
     if nombre == "equivalencias":
         return d["equivalencias"]
+    if nombre == "fx":
+        return bi_fx(d)
+    if nombre == "diccionario":
+        return bi_diccionario()
     return {"fuentes": lambda: bi_fuentes(d), "provincias": bi_provincias}.get(nombre, lambda: None)()
+
+
+# ---------- paquete para SharePoint / Power BI / Copilot ----------
+# Una fila por columna de cada tabla del paquete: "columna|tipo|unidad|descripción|ejemplo". La descripción la lee Copilot como descripción de columna
+# del modelo semántico: dice qué es, en qué unidad y cuándo viene vacío. El `demo()` verifica que cubra exactamente CAMPOS["bi_*"].
+DICCIONARIO = {
+    "precios": """
+fecha|fecha||Día de la observación del precio (AAAA-MM-DD, hora argentina).|2026-11-26
+capturado|fecha_hora|UTC|Hora en que se capturó la observación (ISO 8601, UTC). Vacía en las filas anteriores a esa columna: nunca se inventa una hora.|2026-11-26T14:05:00Z
+producto_id|texto||Identificador del producto del catálogo (marca-línea-nombre-SAE). Se relaciona con productos[producto_id].|ypf-elaion-ts1040-10w40
+fuente|texto||Sitio o relevamiento de donde sale el precio (sepa, ml, vtex_carrefour, tn_spch, grok_…). Se relaciona con fuentes[fuente].|vtex_carrefour
+canal|texto||Canal de la fuente: publico (tienda o supermercado), mayorista (precio por caja o tambor, fuera del índice por defecto) o grok (relevamiento cargado a mano).|publico
+vendedor|texto||Comercio o vendedor del aviso; vacío si la fuente no lo informa.|Carrefour
+sucursal|texto||Sucursal o resumen de sucursales (SEPA: n=cantidad;min=;max= dentro de la provincia); vacío si no aplica.|n=12;min=40900;max=45999
+provincia|texto||Código ISO 3166-2 de la provincia donde se vende (AR-X Córdoba), online (e-commerce de alcance nacional, no es una provincia) o vacío (sin dato). Se relaciona con provincias[codigo].|AR-X
+pais|texto||País del precio, ISO 3166-1 alfa-2 (AR, BR). Nunca se mezclan países al promediar.|AR
+moneda|texto||Moneda en que se publicó el precio, ISO 4217 (ARS, BRL, USD). Nunca se mezclan monedas al promediar.|ARS
+precio|decimal|moneda de la fila|Precio del aviso en su moneda, tal como lo publica la fuente (por envase, o por caja o tambor en los mayoristas).|156900
+litros|decimal|litros|Litros por unidad de venta (un bidón de 4 L = 4); vacío si no se pudo leer el envase.|4
+unidades|decimal|unidades|Unidades de la caja o pack (1 si es un envase suelto).|1
+precio_litro|decimal|moneda de la fila por litro|Precio por litro = precio / (litros × unidades). Vacío si falta el envase. Una mediana sobre esta columna repite el sesgo de SEPA (una fila por provincia): para el índice usar la tabla indice.|39225
+precio_usd_litro|decimal|USD por litro|Precio por litro convertido a dólares con la cotización oficial de ese mismo día (tabla fx). Vacío si ese día no hay cotización; no se arrastra otra.|0.027
+url|texto||Link al aviso; vacío en SEPA.|https://www.carrefour.com.ar/aceite-elaion/p
+match|texto||Cómo se asignó el producto: ean (código de barras exacto) o texto (título, con un único candidato).|ean
+verificado|texto||Solo en las filas de Grok: 1 = el precio apareció en la página, 0 = no se pudo verificar; vacío en el resto; respaldo = Grok de Mercado Libre sin verificar que cuenta en los días en que la API de ML no tiene datos. El índice excluye los 0.|1
+""",
+    "indice": """
+fecha|fecha||Día del índice. Cada día usa los avisos de los 3 días que terminan en esa fecha.|2026-11-26
+pais|texto||País del índice (AR, BR). YPF = 100 se calcula solo dentro de un país y una moneda.|AR
+moneda|texto||Moneda de la celda, ISO 4217.|ARS
+segmento|texto||Segmento del producto: pcmo (autos), hddo (pesados), moto4t, moto2t, transmision, grasa, industrial, marino, gas, otro.|pcmo
+sae|texto||Viscosidad SAE (5W-30, 15W-40, SAE 40); vacío si el segmento no tiene.|5W-30
+marca|texto||Marca del aviso. YPF es la referencia (100).|Shell
+mediana_litro|decimal|moneda por litro|Mediana del precio por litro de los avisos de esa marca, segmento y SAE en la ventana de 3 días (cada aviso cuenta una vez, con precios cuerdos).|41250
+mediana_ypf_litro|decimal|moneda por litro|Mediana del precio por litro de YPF en el mismo segmento, SAE y fecha; vacía si YPF no tiene avisos en la ventana.|38500
+indice|decimal|puntos (YPF = 100)|Mediana de la marca / mediana de YPF × 100. 110 = la marca es 10 % más cara que YPF; 90 = 10 % más barata. Vacío si no hay YPF en el grupo (nunca 0).|107.1
+n|entero|avisos|Cantidad de avisos (uno por publicación o comercio) que entran en la mediana de la marca. Con n chico (1 o 2) la mediana es poco confiable.|18
+""",
+    "indice_competencia": """
+fecha|fecha||Día del índice; cada fecha usa una ventana móvil de 30 días que termina en ella.|2026-11-26
+producto_id|texto||Producto YPF evaluado. Se relaciona con productos[producto_id].|ypf-elaion-ts1040-10w40
+pais|texto||País (AR, BR).|AR
+moneda|texto||Moneda de las medianas, ISO 4217.|ARS
+indice|decimal|puntos (competencia = 100)|Mediana YPF / mediana de la competencia equivalente × 100. Menos de 100 = YPF más barato que la competencia; más de 100 = más caro. Vacío si falta YPF o competencia. Atención: la base es la competencia, al revés que en la tabla indice.|92.4
+mediana_ypf_litro|decimal|moneda por litro|Mediana del precio por litro del producto YPF en la ventana.|36368
+mediana_comp_litro|decimal|moneda por litro|Mediana del precio por litro de todos los avisos de los equivalentes (sin los no equivalentes) en la ventana.|39350
+n_ypf|entero|avisos|Cantidad de avisos del producto YPF en la ventana.|14
+n_comp|entero|avisos|Cantidad de avisos de los equivalentes en la ventana.|40
+""",
+    "productos": """
+producto_id|texto||Identificador único del producto (marca-línea-nombre-SAE; el sufijo -br es un producto de Brasil). Clave de la tabla.|ypf-elaion-ts1040-10w40
+marca|texto||Marca canónica (YPF, Shell, Castrol, Mobil, TotalEnergies, Gulf, …).|YPF
+linea|texto||Línea comercial del producto (Elaion, Helix, Magnatec, …).|Elaion
+nombre|texto||Nombre del producto dentro de la línea.|TS 1040
+segmento|texto||Segmento: pcmo (autos), hddo (pesados), moto4t, moto2t, transmision, grasa, industrial, marino, gas, otro.|pcmo
+sae|texto||Viscosidad SAE; vacío si no aplica.|10W-40
+base|texto||Base del aceite: mineral, semisintetico o sintetico; vacío si no se sabe.|semisintetico
+api|texto||Especificación API (calidad del aceite); vacío si no se verificó.|SN
+acea|texto||Especificación ACEA; vacío si no se verificó.|A3/B4
+ilsac|texto||Especificación ILSAC; vacío si no se verificó.|GF-6A
+jaso|texto||Especificación JASO (motos); vacío si no aplica.|MA2
+oem|texto||Homologaciones de fabricantes de autos separadas por punto y coma.|VW 502.00;MB 229.5
+fuente_specs|texto||De dónde salen las especificaciones (ficha técnica o inferencia).|ficha YPF
+verificado|texto||confirmado (sale de una ficha) o inferido (deducido).|confirmado
+es_ypf|entero|0 o 1|1 si el producto es de marca YPF, 0 si es de la competencia.|1
+""",
+    "equivalencias": """
+ypf_id|texto||Producto YPF. Se relaciona con productos[producto_id].|ypf-elaion-ts1040-10w40
+comp_id|texto||Producto de la competencia equivalente. Se relaciona con productos[producto_id].|shell-helix-hx7-10w40
+tipo|texto||Qué tan comparables son: match_total, match_total_probable, match_parcial, sustituto_comercial o no_equivalente (este último no se promedia).|match_total_probable
+criterio|texto||Criterio con el que se declaró la equivalencia (SAE, base, especificaciones).|mismo SAE, base y API
+evidencia|texto||confirmada (sale de una ficha) o inferida.|inferida
+fuente|texto||Fuente en que se apoya la equivalencia.|fichas técnicas
+""",
+    "fuentes": """
+fuente|texto||Identificador de la fuente. Clave de la tabla.|vtex_carrefour
+canal|texto||publico, mayorista o grok.|publico
+pais|texto||País de la fuente (AR, BR).|AR
+tipo|texto||tienda, mayorista, grok, sepa (Precios Claros y notas fiscales de Brasil) o ml (Mercado Libre).|tienda
+ultima_fecha|fecha||Último día con observaciones de la fuente: sirve para ver qué fuentes están atrasadas.|2026-11-26
+""",
+    "provincias": """
+codigo|texto||Código ISO 3166-2 de la provincia o estado (AR-X) o online (e-commerce nacional). Clave de la tabla.|AR-X
+nombre|texto||Nombre de la provincia.|Córdoba
+region|texto||Región según INDEC (NOA, NEA, Cuyo, Pampeana, Patagonia); vacía fuera de Argentina y en online.|Pampeana
+pais|texto||País de la provincia (AR, BR); vacío en la fila online.|AR
+online|entero|0 o 1|1 solo en la fila online (no es una provincia).|0
+""",
+    "fx": """
+fecha|fecha||Día de la cotización.|2026-11-26
+moneda|texto||Moneda cotizada contra el dólar: ARS o BRL.|ARS
+por_usd|decimal|unidades de la moneda por 1 USD|Cuántos pesos (o reales) vale un dólar ese día.|1450.5
+fuente|texto||Fuente de la cotización (bcra_cambiarias = BCRA Estadísticas Cambiarias; bcb_ptax = PTAX venta del BCB de Brasil; BCRA (datos.gob.ar) = tipo de cambio de valuación, solo fechas anteriores).|bcra_cambiarias
+""",
+}
+CAMPOS["bi_fx"] = ["fecha", "moneda", "por_usd", "fuente"]
+CAMPOS["bi_diccionario"] = ["tabla", "columna", "tipo", "unidad", "descripcion", "ejemplo"]
+TABLAS_BI = ["precios", "indice", "indice_competencia", "productos", "equivalencias", "fuentes", "provincias", "fx"]  # el orden del paquete
+PUBLICA_URL = os.environ.get("LUB_URL_PUBLICA", "https://lubricantes.fln-data-analysis.com")  # solo para el LEEME del paquete
+
+
+def bi_diccionario():
+    """/api/bi/diccionario: tabla,columna,tipo,unidad,descripcion,ejemplo, una fila por columna de cada tabla del paquete."""
+    out = []
+    for t in TABLAS_BI:
+        for linea in DICCIONARIO[t].strip().splitlines():
+            col, tipo, unidad, desc, ej = linea.split("|")
+            out.append({"tabla": t, "columna": col, "tipo": tipo, "unidad": unidad, "descripcion": desc, "ejemplo": ej})
+    return out
+
+
+def bi_fx(d):
+    """/api/bi/fx: cotizaciones por fecha y moneda (BCRA/BCB; las ARS anteriores a esa fuente salen de datos.gob.ar, con su fuente)."""
+    return [{"fecha": f, "moneda": m, "por_usd": v, "fuente": fu} for (m, f), (v, fu) in sorted(d.get("fx_tabla", {}).items(), key=lambda kv: (kv[0][1], kv[0][0]))]
+
+
+def bi_paquete(d, calc):
+    """/api/bi/paquete.zip: un CSV por tabla del modelo (UTF-8 con BOM) + diccionario.csv + LEEME.txt, con nombres fijos (sin fecha) para que el reemplazo
+    manual en SharePoint no rompa las consultas de Power BI. Sin secretos ni rutas locales."""
+    import zipfile
+    filas = {"precios": bi_precios(d), "indice": bi_indice(calc), "indice_competencia": bi_indice_competencia(d), "fx": bi_fx(d),
+             **{t: bi_tabla(d, t, {}) for t in ("productos", "equivalencias", "fuentes", "provincias")}}
+    s = salud()
+    leeme = ("LUBRICANTES - paquete de datos para Power BI\n\n"
+             f"Generado: {datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}\n"
+             f"Ultimo dato (ultima observacion de precio): {s['ultimo_dato']}\n"
+             f"Commit de datos servido: {s['commit'] or 'sin dato'}\n"
+             f"Origen: {PUBLICA_URL}/api/bi/paquete.zip (lectura abierta, sin clave)\n\n"
+             "Contenido: un CSV por tabla (UTF-8 con BOM, coma, punto decimal): " + ", ".join(t + ".csv" for t in TABLAS_BI) + ", diccionario.csv.\n"
+             "Los nombres son fijos: reemplace los archivos de la carpeta de SharePoint sin cambiarles el nombre.\n"
+             "Los datos son diarios; no es tiempo real. indice.csv tiene YPF = 100; indice_competencia.csv tiene la competencia = 100.\n"
+             "Guia de conexion y medidas: docs/powerbi.md del repositorio.\n")
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for t in TABLAS_BI:
+            z.writestr(t + ".csv", chr(0xFEFF).encode() + a_csv("bi_" + t, filas[t]))
+        z.writestr("diccionario.csv", chr(0xFEFF).encode() + a_csv("bi_diccionario", bi_diccionario()))
+        z.writestr("LEEME.txt", chr(0xFEFF).encode() + leeme.encode())
+    return buf.getvalue()
 
 
 def desde_hasta(d, dias, desde=None, hasta=None):
@@ -2175,7 +2329,7 @@ class Handler(BaseHTTPRequestHandler):
     pais, usd, fx_fecha = "AR", False, ""  # por pedido (do_GET los fija; los handlers son por conexión)
 
     def enviar(self, codigo, cuerpo, tipo, extra=()):
-        if "gzip" in self.headers.get("Accept-Encoding", "") and len(cuerpo) > 1024 and not tipo.startswith(("video/", "image/jpeg")):  # mp4 y jpg ya vienen comprimidos (y gzip rompería el Range)
+        if "gzip" in self.headers.get("Accept-Encoding", "") and len(cuerpo) > 1024 and not tipo.startswith(("video/", "image/jpeg", "application/zip")):  # mp4 y jpg ya vienen comprimidos (y gzip rompería el Range)
             cuerpo = gzip.compress(cuerpo)
             extra = [*extra, ("Content-Encoding", "gzip")]
         self.send_response(codigo)
@@ -2256,6 +2410,8 @@ class Handler(BaseHTTPRequestHandler):
             desde = q.get("desde", "")
             if desde and not RX_FECHA.fullmatch(desde):
                 return self.json(400, {"error": "desde tiene que ser AAAA-MM-DD"})
+            if nombre[3:] == "paquete.zip":
+                return self.enviar(200, bi_paquete(self.datos, self.calc), "application/zip", [("Content-Disposition", 'attachment; filename="paquete.zip"')])
             if nombre[3:] == "indice":
                 filas = bi_indice(self.calc, desde, q.get("mayoristas") == "1", pais if "pais" in q else "")
             elif nombre[3:] == "indice_competencia":
@@ -2263,7 +2419,7 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 filas = bi_tabla(self.datos, nombre[3:], q)
             if filas is None:
-                return self.json(404, {"error": "no existe", "tablas": ["precios", "productos", "equivalencias", "fuentes", "provincias", "indice", "indice_competencia"]})
+                return self.json(404, {"error": "no existe", "tablas": TABLAS_BI + ["diccionario", "paquete.zip"]})
             return self.enviar(200, chr(0xFEFF).encode() + a_csv("bi_" + nombre[3:], filas), "text/csv; charset=utf-8")
         cp = self.calc["_paises"][pais]  # lo calculado por país; el resto (productos, fuentes, …) no depende del país
         if nombre == "vitrina":
@@ -2568,8 +2724,8 @@ def demo():
     with open(raiz / "data" / "obs" / "2026-11.csv", "w", encoding="utf-8", newline="") as f:
         w = csv.DictWriter(f, OBS_F, restval="")
         w.writeheader()
-        for fe, fu, pr, li, un, pid in obs:
-            w.writerow({"fecha": fe, "fuente": fu, "precio": pr, "litros": li, "unidades": un, "producto_id": pid,
+        for k_, (fe, fu, pr, li, un, pid) in enumerate(obs):
+            w.writerow({"fecha": fe, "fuente": fu, "precio": pr, "litros": li, "unidades": un, "producto_id": pid, "vendedor": f"c{k_}",  # un aviso por fila
                         "titulo": "aceite raro", "match": "ean" if pid else "none"})
     (raiz / "data" / "fuentes.csv").write_text(
         ",".join(FUENTES_F) + "\n"
@@ -2665,10 +2821,16 @@ def demo():
     assert i[("2026-11-01", "10W-40", "Shell")]["indice"] == round(5000 / 4200 * 100, 1)
     assert i[("2026-11-02", "10W-40", "YPF")]["mediana_litro"] == 4200  # mediana de 4400 y 4000; el mayorista no entra
     im = {(r["fecha"], r["sae"], r["marca"]): r for r in c["indice_con_mayoristas"]}
-    assert im[("2026-11-02", "10W-40", "YPF")]["mediana_litro"] == 4000  # con mayorista: mediana de 4400, 4000 y 166,67
-    assert i[("2026-11-02", "10W-40", "Shell")]["indice"] == round(6000 / 4200 * 100, 1)
+    assert (im[("2026-11-02", "10W-40", "YPF")]["mediana_litro"], im[("2026-11-02", "10W-40", "YPF")]["n"]) == (4200, 4)  # el 166,67 del mayorista entra al flag pero la sanidad (cuerdos) lo saca
+    assert i[("2026-11-02", "10W-40", "YPF")]["n"] == 4 and i[("2026-11-01", "10W-40", "YPF")]["n"] == 2  # n = avisos (ventana de 3 días: el 02 trae también los del 01)
+    assert i[("2026-11-02", "10W-40", "Shell")]["indice"] == round(5500 / 4200 * 100, 1)  # Shell: 5000 del 01 (dentro de la ventana) y 6000 del 02
+    assert ("2026-11-04", "10W-40", "YPF") not in i and ("2026-11-03", "10W-40", "YPF") not in i  # sin filas ese día no se inventa; la ventana solo arrastra desde días con datos
     assert i[("2026-11-02", "15W-40", "Gulf")]["indice"] is None  # sin YPF → vacío
 
+    # el índice de una fecha == /api/indice/celdas?dias=3&hasta=<fecha>: misma definición de aviso, ventana y sanidad
+    for may_, filas_ in ((False, c["indice"]), (True, c["indice_con_mayoristas"])):
+        cel_ = {(x["segmento"], x["sae"], x["marca"]): (x["mediana_litro"], x["n"], x["indice"]) for x in indice_celdas(d, VENTANA_DIAS, "2026-11-02", may_)["celdas"]}
+        assert cel_ and cel_ == {(x["segmento"], x["sae"], x["marca"]): (x["mediana_litro"], x["n"], x["indice"]) for x in filas_ if x["fecha"] == "2026-11-02"}
     s = serie(d["obs"], "ypf-a-10w40")
     assert [(r["fecha"], r["precio_litro"]) for r in s if r["fuente"] == "sepa"] == [("2026-11-01", 4200), ("2026-11-02", 4200)]
 
@@ -3064,7 +3226,7 @@ def demo():
     assert {(r["pais"], r["moneda"]) for r in ia} == {("AR", "ARS")} and {(r["pais"], r["moneda"]) for r in ib} == {("BR", "BRL")}
     assert [(r["marca"], r["indice"]) for r in ia if r["fecha"] == "2026-11-17"] == [("Shell", 120.0), ("YPF", 100.0)]      # el índice AR no ve los R$
     assert [(r["fecha"], r["marca"], r["mediana_litro"], r["indice"]) for r in ib] == [("2026-11-16", "Lubrax", 44.0, 110.0), ("2026-11-16", "YPF", 40.0, 100.0),
-                                                                                       ("2026-11-17", "Lubrax", 60.0, 120.0), ("2026-11-17", "YPF", 50.0, 100.0)]
+                                                                                       ("2026-11-17", "Lubrax", 52.0, 115.6), ("2026-11-17", "YPF", 45.0, 100.0)]  # el 17 suma los avisos del 16 (ventana de 3 días)
     assert indice({**db, "obs": [o for o in db["obs"] if o["producto_id"] != "ypf-x-br"]}, pais="BR")[-1]["indice"] is None  # sin YPF del país ese día: sin índice (no usa el de otro país)
     ub = ultimo(db["obs"], "BR")
     assert {(u["pais"], u["moneda"]) for u in ub} == {("BR", "BRL")} and {u["producto_id"] for u in ub} == {"ypf-x-br", "lubrax-x-br"} and ultimo(db["obs"])[0]["moneda"] == "ARS"
@@ -3195,6 +3357,20 @@ def demo():
     assert {r["fuente"]: (r["tipo"], r["ultima_fecha"]) for r in bi("fuentes")}["shopify_datri"] == ("mayorista", "2026-11-02")
     bpv = {r["codigo"]: r for r in bi("provincias")}
     assert bpv["AR-X"]["nombre"] == "Córdoba" and bpv["AR-X"]["region"] == "Pampeana" and bpv["online"]["online"] == "1" and bpv["BR-PR"]["pais"] == "BR"
+    # diccionario: toda columna de cada tabla del paquete tiene su fila y viceversa; el paquete trae un CSV por tabla con BOM y nombres fijos
+    dic = bi("diccionario")
+    assert list(dic[0]) == CAMPOS["bi_diccionario"] and all(r["descripcion"] and r["tipo"] in ("texto", "entero", "decimal", "fecha", "fecha_hora", "booleano") for r in dic)
+    assert {(r["tabla"], r["columna"]) for r in dic} == {(t, c_) for t in TABLAS_BI for c_ in CAMPOS["bi_" + t]} and len(dic) == len({(r["tabla"], r["columna"]) for r in dic})
+    assert canal("grok_enausa") == "mayorista" and canal("grok_helix") == "grok" and bi("fx") == [] or list(bi("fx")[0]) == CAMPOS["bi_fx"]
+    import zipfile
+    zc, zb = get("/api/bi/paquete.zip", k)
+    zf = zipfile.ZipFile(io.BytesIO(zb))
+    assert zc == 200 and sorted(zf.namelist()) == sorted([t + ".csv" for t in TABLAS_BI] + ["diccionario.csv", "LEEME.txt"])
+    for nm in zf.namelist():
+        assert zf.read(nm).startswith(chr(0xFEFF).encode()), nm
+    zr = list(csv.DictReader(io.StringIO(zf.read("indice.csv").decode("utf-8-sig"))))
+    assert len(zr) == len(c["indice"]) and len(list(csv.DictReader(io.StringIO(zf.read("precios.csv").decode("utf-8-sig"))))) == len(bp)
+    assert "Ultimo dato" in zf.read("LEEME.txt").decode("utf-8-sig") and b"\\" not in zf.read("LEEME.txt") and get("/api/bi/paquete.zip")[0] == 200
     dg = {"obs_base": [], "grok_meses": {"m": [{**dict.fromkeys(GROK_ALM_F, ""), "tipo": "producto", "cargado": "2026-11-18T14:05:00Z"}]}}
     integrar_grok(dg)
     assert dg["obs"][0]["capturado"] == "2026-11-18T14:05:00Z"

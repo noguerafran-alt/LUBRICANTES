@@ -30,7 +30,7 @@ PRESTASHOP = {"presta_motoracing": "https://motoracing.com.ar"}
 TERMINOS_ODOO = ("elaion", "extravida", "helix", "rimula", "quartz", "castrol", "mobil")
 PRESTA_CATEGORIA = "/20-lubricantes"
 TERMINOS_WOO = ("aceite", "lubricante")
-MAYORISTAS = {"shopify_datri", "tn_olafil", "woo_ceridono", "tn_comprarmarket"}  # precio por caja/tambor, IVA no verificado: /api/indice los excluye
+MAYORISTAS = {"shopify_datri", "tn_olafil", "woo_ceridono", "tn_comprarmarket", "grok_enausa"}  # precio por caja/tambor, IVA no verificado: /api/indice los excluye (grok_enausa: distribuidor, relevamiento 2026-11-04 `mayorista_distribuidor`)
 
 # product_type de D'Atri que son lubricantes de motor, transmisión o industriales (el resto es repuesto).
 TIPOS_DATRI = {"LUBRICANTES", "LUBRICANTE", "SINTÉTICO", "SEMISINTÉTICO", "MINERAL", "MULTIGRADO", "MONOGRADO"}
@@ -63,7 +63,8 @@ def envase(titulo, variante=""):
     ambiguo = bool(QUART.search(texto(variante)))
     for txt in (titulo, variante):
         _, t = sae_de(texto(txt))  # el SAE (5W-40) no se lee como "40 x ..."
-        m = CAJA.search(t)
+        # sin el SAE queda pegado el código de línea ("Quartz 7000 x 1 lts" → 7000 cajas): una caja real trae a lo sumo 48 envases
+        m = next((m for m in CAJA.finditer(t) if int(m[1]) <= 48), None)
         if m:
             return (None if ambiguo else nums(m[2])), int(m[1])
         m = GRANEL.search(t)
@@ -196,7 +197,12 @@ def elegir(urls, fecha, tope=TOPE_PAGINAS):
     return hoy, len(urls) - len(hoy)
 
 
-def parsear_tn(pagina, url):
+# Minoristas cuyo precio de página es el de UNA unidad aunque el título diga la caja ("12x1L" es la línea del distribuidor, no lo que se compra).
+# tn_spch verificado 2026-11-27: la página de «Helix HX5 15W-40 12x1L» muestra $22.860 (un litro; una caja de 12 L a ese precio sería $1.900/L).
+PRECIO_UNITARIO = {"tn_spch"}
+
+
+def parsear_tn(pagina, url, unitario=False):
     """HTML de un producto Tiendanube → aviso o None. El precio sale de LS.variants del producto principal
     (el JSON-LD Product de estas páginas es de los productos relacionados: no se usa).
     Con más de una variante (talles/presentaciones) no se adivina cuál es: None."""
@@ -217,7 +223,7 @@ def parsear_tn(pagina, url):
              imagen=ml.https((re.search(r'og:image"\s+content="([^"]+)', pagina) or [0, ""])[1], url))
     e = envase(a["titulo"])
     if e:
-        a["litros"], a["unidades"] = e
+        a["litros"], a["unidades"] = e[0], 1 if unitario else e[1]
     return a
 
 
@@ -235,7 +241,7 @@ def tiendanube(fuente, fecha):
             fallas += 1
             continue
         h, pag = ml.pedir(u, texto=True)
-        a = parsear_tn(pag, u) if pag else None
+        a = parsear_tn(pag, u, fuente in PRECIO_UNITARIO) if pag else None
         if a:
             avisos.append(a)
         elif pag:
@@ -431,6 +437,9 @@ def demo():
     a = parsear_tn(pag, "https://t.com/productos/p/")
     assert (a["titulo"], a["precio"], a["stock"]) == ("SHELL Helix Ultra X 5W-30 4L", 123888, 2), a
     assert parsear_tn(pag.replace('"stock":2,"available":true', '"stock":null,"available":false'), "u")["stock"] == 0
+    p12 = pag.replace("Ultra X 5W-30 4L", "Helix HX5 15W-40 12x1L")  # tn_spch: el precio de la página es el de UNA unidad, no el de la caja
+    assert [(x["litros"], x["unidades"]) for x in (parsear_tn(p12, "u"), parsear_tn(p12, "u", True))] == [(1.0, 12), (1.0, 1)]
+    assert envase("Aceite TOTAL QUARTZ 7000 10w40 x 1 lts.") is None and "tn_spch" in PRECIO_UNITARIO  # 7000 no es una caja de 7000
     assert a["imagen"] is None
     assert parsear_tn('<meta property="og:image" content="//cdn.t.com/p.jpg">' + pag, "https://t.com/productos/p/")["imagen"] == "https://cdn.t.com/p.jpg"
     assert parsear_tn(pag.replace("}];", "},{}];"), "u") is None  # dos variantes: no se adivina
@@ -489,7 +498,7 @@ def demo():
     pr = avisos_presta(pp, "https://m.com")
     assert [i for i, _ in pr] == ["1", "2"] and pr[0][1]["precio"] == 90301.68 and pr[0][1]["stock"] is None and pr[0][1]["url"] == "https://m.com/inicio/1-x.html"
     assert pr[1][1]["stock"] == 0 and pr[1][1]["precio"] == 1234.5 and "litros" not in pr[1][1] and pr[0][1]["titulo"].startswith("ACEITE MAGNATEC")
-    assert "tn_comprarmarket" in MAYORISTAS and "woo_fiatturin" in WOOCOMMERCE
+    assert {"tn_comprarmarket", "grok_enausa"} <= MAYORISTAS and "woo_fiatturin" in WOOCOMMERCE
     print("OK")
 
 
