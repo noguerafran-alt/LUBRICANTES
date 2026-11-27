@@ -128,13 +128,13 @@ mobil-super-3000-x1-5w40,Mobil,Mobil Super,Super 3000 X1 5W-40,pcmo,5W-40,,,A3/B
 mobil-1-esp-5w30,Mobil,Mobil 1,Mobil 1 ESP 5W-30,pcmo,5W-30,sintetico,SP,C3,,,,https://www.mobil.com/es-ar/passenger-vehicle-lube/pds/as-xx-mobil-1-esp-5w-30,inferido
 motul-8100-x-cess-gen2-5w40,Motul,8100,8100 X-cess gen2 5W-40,pcmo,5W-40,,,,,,,https://www.motul.com/es-AR/products,inferido
 motul-8100-eco-nergy-5w30,Motul,8100,8100 Eco-nergy 5W-30,pcmo,5W-30,,,,,,,https://www.motul.com/es-AR/products,inferido
-shell-helix-hx8-professional-av-5w40,Shell,Helix,HX8 Professional AV 5W-40,pcmo,5W-40,,,,,,,,inferido
-shell-helix-ultra-professional-am-l-5w30,Shell,Helix,Helix Ultra Professional AM-L 5W-30,pcmo,5W-30,,,,,,,,inferido
-shell-helix-ultra-professional-ag-5w30,Shell,Helix,Helix Ultra Professional AG 5W-30,pcmo,5W-30,,,,,,,,inferido
-shell-helix-ultra-professional-af-5w30,Shell,Helix,Helix Ultra Professional AF 5W-30,pcmo,5W-30,,,A5/B5,,,Ford WSS-M2C913-D,https://www.shell.com.au/motorists/oils-lubricants/helix-for-cars/helix-fully-synthetic/shell-helix-ultra-professional-af-5w-30.html,confirmado
+shell-helix-hx8-professional-av-5w40,Shell,Helix,HX8 Professional AV 5W-40,pcmo,5W-40,sintetico,,,,,,https://www.shell.com.ar/conductores/aceites-para-motor/motores-de-autos/sinteticos/shell-helix-hx8-professional-av-5w-40.html,inferido
+shell-helix-ultra-professional-am-l-5w30,Shell,Helix,Helix Ultra Professional AM-L 5W-30,pcmo,5W-30,sintetico,,,,,,https://www.shell.com.ar/conductores/aceites-para-motor/motores-de-autos/sinteticos/shell-helix-ultra-professional-am-l-5w-30.html,inferido
+shell-helix-ultra-professional-ag-5w30,Shell,Helix,Helix Ultra Professional AG 5W-30,pcmo,5W-30,sintetico,,,,,,https://www.shell.com.ar/conductores/aceites-para-motor/motores-de-autos/sinteticos/shell-helix-ultra-professional-ag-5w-30.html,inferido
+shell-helix-ultra-professional-af-5w30,Shell,Helix,Helix Ultra Professional AF 5W-30,pcmo,5W-30,sintetico,,A5/B5,,,Ford WSS-M2C913-D,https://www.shell.com.au/motorists/oils-lubricants/helix-for-cars/helix-fully-synthetic/shell-helix-ultra-professional-af-5w-30.html,confirmado
 shell-helix-hx7-10w40,Shell,Helix,Helix HX7 10W-40,pcmo,10W-40,,SN/CF,A3/B4,,,,https://www.jumbo.com.ar/lubricante-helix-hx7-x1l-sn-cf-a3-b4-mf-s-e-un-1/p,inferido
 shell-helix-hx5-15w40,Shell,Helix,Helix HX5 15W-40,pcmo,15W-40,,SL/CF,A2/B2,,,,https://www.jumbo.com.ar/lubricante-helix-hx5-15w-40-sl-cf-a2-b2-mf-s-e-un-1-2/p,inferido
-shell-helix-hx3-20w50,Shell,Helix,Helix HX3 20W-50,pcmo,20W-50,,SG/CD,,,,,https://www.jumbo.com.ar/lubricante-helix-hx3-20w-50-sg-cd-mf-s-e-un-1/p,inferido
+shell-helix-hx3-20w50,Shell,Helix,Helix HX3 20W-50,pcmo,20W-50,mineral,SG/CD,,,,,https://www.shell.com.ar/conductores/aceites-para-motor/motores-de-autos/minerales/shell-helix-hx3-20w-50.html,inferido
 shell-rimula-r4-l-15w40,Shell,Rimula,Rimula R4 L 15W-40,hddo,15W-40,,CK-4,E7/E9/E11,,,,https://elsalvador.pochteca.net/wp-content/uploads/2023/05/ft-rimula-r4l-15w-40-ck-4.pdf,confirmado
 shell-rimula-r4-x-15w40,Shell,Rimula,Rimula R4 X 15W-40,hddo,15W-40,mineral,CI-4,E7,,,CAT ECF-2,https://elsalvador.pochteca.net/wp-content/uploads/2023/05/ft-rimula-r4x-15w-40.pdf,confirmado
 totalenergies-quartz-9000-5w40,TotalEnergies,Quartz,Quartz 9000 5W-40,pcmo,5W-40,sintetico,SN/CF,A3/B4,,,,https://www.easy.com.ar/lubricante-total-quartz-9000-5w40-x1lts-1359050/p,inferido
@@ -183,7 +183,7 @@ goodyear-mineral-15w40,Goodyear,Goodyear,Mineral 15W-40,pcmo,15W-40,mineral,,,,,
 goodyear-mineral-20w50,Goodyear,Goodyear,Mineral 20W-50,pcmo,20W-50,mineral,,,,,,,inferido
 shell-helix-hx3-sae40,Shell,Helix,Helix HX3 40,pcmo,SAE 40,,SF/CD,,,,,https://www.jumbo.com.ar/lubricante-helix-hx3-40-sf-cd-mf-s-e-un-1-2/p,inferido
 shell-helix-hx3-k-25w60,Shell,Helix,Helix HX3 K 25W-60,pcmo,25W-60,,SG/CD,,,,,https://www.jumbo.com.ar/lubricante-helix-hx3-k-25w-60-sg-cd-mf-s-e-un-1/p,inferido
-shell-helix-ultra-5w40,Shell,Helix,Helix Ultra 5W-40,pcmo,5W-40,,SN/CF,A3/B4,,,,https://www.jumbo.com.ar/lubricante-helix-ultra-5w-40-sn-cf-a3-b4-s-e-un-1/p,inferido
+shell-helix-ultra-5w40,Shell,Helix,Helix Ultra 5W-40,pcmo,5W-40,sintetico,SN/CF,A3/B4,,,,https://www.shell.com.ar/conductores/aceites-para-motor/motores-de-autos/sinteticos/shell-helix-ultra-5w-40.html,inferido
 shell-helix-ultra-e-5w30,Shell,Helix,Helix Ultra E 5W-30,pcmo,5W-30,,SL/CF,A3/B4,,,,https://www.jumbo.com.ar/lubricante-helix-ultra-e-5w-30-sl-cf-a3-b4-oems-s-e-un-1-2/p,inferido
 shell-helix-plus-10w40,Shell,Helix,Helix Plus 10W-40,pcmo,10W-40,,,,,,,,inferido
 shell-helix-super-15w40,Shell,Helix,Helix Super 15W-40,pcmo,15W-40,,,,,,,,inferido

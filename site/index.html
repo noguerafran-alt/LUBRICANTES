@@ -785,17 +785,18 @@ body:has(#dl[open]), body:has(#ix-dl[open]) { overflow: hidden; }
 
   <section id="indice" hidden>
     <div class="filtros">
-      <label>Día <input type="date" id="ix-dia"></label>
-      <button type="button" class="link" id="ix-hoy">Último día</button>
-      <div class="dl-rangos" role="group" aria-label="Vista del índice"><button type="button" data-ix-vista="tabla" aria-pressed="true">Tabla</button><button type="button" data-ix-vista="3d" aria-pressed="false">3D</button></div>
+      <span id="ix-dia-ctl"><label>Día <input type="date" id="ix-dia"></label>
+      <button type="button" class="link" id="ix-hoy">Último día</button></span>
+      <div class="dl-rangos" role="group" aria-label="Vista del índice"><button type="button" data-ix-vista="pares" aria-pressed="true">Por producto (vs competencia)</button><button type="button" data-ix-vista="tabla" aria-pressed="false">Por segmento y marca</button><button type="button" data-ix-vista="3d" aria-pressed="false">3D</button></div>
     </div>
-    <div id="ind-out"></div>
+    <div id="ix-pares"></div>
+    <div id="ind-out" hidden></div>
     <div id="ix-3d" hidden>
       <div id="ix-3d-aviso" role="status"></div>
       <div id="ix-3d-lienzo"></div>
       <div id="ix-pan" aria-live="polite"></div>
     </div>
-    <p class="nota">Cada celda es la mediana de $/L de la marca dividida por la de YPF, en el mismo segmento y SAE, × 100. La mediana de cada día usa los avisos de los 3 días que terminan en ese día (cada aviso una vez, con su precio más reciente de esos 3 días y sin envases mal leídos); debajo del $/L figura cuántos avisos entran (n). Sin YPF en esa ventana no se calcula. Debajo de cada valor, los 90 días que terminan en el día elegido. Las fuentes mayoristas (precio por caja o tambor, IVA no verificado) no entran; en la API se suman con <code>?mayoristas=1</code>.</p>
+    <p class="nota" id="ix-nota" hidden>Cada celda es la mediana de $/L de la marca dividida por la de YPF, en el mismo segmento y SAE, × 100. La mediana de cada día usa los avisos de los 3 días que terminan en ese día (cada aviso una vez, con su precio más reciente de esos 3 días y sin envases mal leídos); debajo del $/L figura cuántos avisos entran (n). Sin YPF en esa ventana no se calcula. Los envases de menos de 0,5 L por unidad (sachets, p. ej. los de 100 mL de 2T) no entran: una celda que solo tiene esos avisos lo dice en su motivo. Debajo de cada valor, los 90 días que terminan en el día elegido. Las fuentes mayoristas (precio por caja o tambor, IVA no verificado) no entran; en la API se suman con <code>?mayoristas=1</code>.</p>
   </section>
 
   <section id="cargar" hidden>
@@ -1231,7 +1232,7 @@ function indiceTabla() {
       const motivo = delPais.some(p => p.marca === marca && p.segmento + "|" + p.sae === g)
         ? `Sin dato: ${marca} no tiene avisos con precio por litro en este segmento y SAE en los 3 días que terminan el ${fechaAR(ultimo)}.`
         : `Sin dato: ${marca} no tiene un producto de este segmento y SAE en el catálogo.`;
-      return `<td class="ix-sd" title="${esc(motivo)}"><span aria-hidden="true">–</span><span class="sr">${esc(motivo)}</span></td>`;
+      return `<td class="ix-sd" data-sd="${esc(marca + "|" + g)}" title="${esc(motivo)}"><span aria-hidden="true">–</span><span class="sr">${esc(motivo)}</span></td>`;
     }
     const sp = marca === "YPF" ? "" : `<span class="ix-sp">${sparkline(hist[marca + "|" + g] || [], desde)}</span>`;
     const nAv = `${r.n} ${r.n === 1 ? "aviso" : "avisos"}`;
@@ -1252,6 +1253,19 @@ function indiceTabla() {
       <span><span class="ix-sdsw" aria-hidden="true">–</span>sin dato (pasá el mouse o tocá para ver por qué)</span></div>
     <p class="nota ix-pista">Doble clic (o doble toque, o Enter con la celda enfocada) sobre un valor para ver su evolución en 90 días. Día mostrado: <strong>${fechaAR(ultimo)}</strong>${ultimo === maxF ? " (el último con datos)" : ` (no es el último: ${fechaAR(maxF)})`}.</p>
     ${aviso}<div class="tabla"><table class="ix-t">${cab}<tbody>${marcas.map(fila).join("")}</tbody></table></div>`;
+  ixChicos(ultimo);
+}
+// una celda vacía porque solo tiene envases de menos de 0,5 L (sachets) lo dice: el motivo viene de /api/indice/celdas (`sin_dato`), misma ventana de 3 días
+async function ixChicos(ultimo) {
+  let v;
+  try { v = await apiP("indice/celdas?dias=3&hasta=" + ultimo); } catch (e) { return; }
+  if (IX.ultimo !== ultimo) return;
+  for (const x of v.sin_dato || []) {
+    const td = document.querySelector(`#ind-out td[data-sd="${CSS.escape(x.marca + "|" + x.segmento + "|" + x.sae)}"]`);
+    if (!td) continue;
+    const m = `Sin dato: ${x.marca} solo tiene ${x.n_chicos === 1 ? "1 aviso" : x.n_chicos + " avisos"} de envases de menos de 0,5 L en los 3 días que terminan el ${fechaAR(ultimo)} (no entran al índice).`;
+    td.title = m; td.querySelector(".sr").textContent = m; td.querySelector("span[aria-hidden]").textContent = "<0,5 L";
+  }
 }
 
 // detalle de una celda: evolución de la marca contra YPF en los 90 días, $/L de ambos y links a las páginas de producto
@@ -1295,17 +1309,46 @@ $("#ix-dl").addEventListener("click", e => { if (e.target === $("#ix-dl") || e.t
 $("#ix-dl").addEventListener("close", () => { const td = IX.foco && document.querySelector(`#ind-out td[data-m="${CSS.escape(IX.foco.dataset.m)}"][data-g="${CSS.escape(IX.foco.dataset.g)}"]`); IX.foco = null; if (td && !$("#indice").hidden) td.focus(); });
 
 // ---------- Índice en 3D ----------
-// Vista alternativa a la tabla (la tabla sigue por defecto). Datos: /api/indice/celdas, mediana de los últimos 30 días que terminan en el día elegido.
-IX.modo = "tabla"; IX.tok = 0; IX.v3 = null;
-try { if (localStorage.getItem("lub_ix_vista") === "3d") IX.modo = "3d"; } catch (e) {}
+// Vista secundaria junto a la tabla (el default es «Por producto», pares). Datos: /api/indice/celdas, mediana de los últimos 30 días que terminan en el día elegido.
+IX.modo = "pares"; IX.tok = 0; IX.v3 = null;   // el índice principal es el de pares (competencia = 100); la tabla por segmento y el 3D son vistas secundarias
+try { const m = localStorage.getItem("lub_ix_vista"); if (["pares", "tabla", "3d"].includes(m)) IX.modo = m; } catch (e) {}
 function indice() { indiceTabla(); ixModo(); }
 function ix3dCerrar() { IX.tok++; IX.v3?.cerrar(); IX.v3 = null; }
 function ixBotones() { document.querySelectorAll("[data-ix-vista]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.ixVista === IX.modo))); }
 function ixModo() {
-  const tres = IX.modo === "3d";
-  $("#ind-out").hidden = tres; $("#ix-3d").hidden = !tres;
+  const tres = IX.modo === "3d", pares = IX.modo === "pares";
+  $("#ind-out").hidden = pares || tres; $("#ix-nota").hidden = pares || tres; $("#ix-3d").hidden = !tres; $("#ix-pares").hidden = !pares; $("#ix-dia-ctl").hidden = pares;
   ixBotones(); ix3dCerrar();
-  if (tres && !$("#indice").hidden) ix3d();
+  if ($("#indice").hidden) return;
+  if (tres) ix3d(); else if (pares) ixPares();
+}
+// índice principal: por producto YPF, competencia = 100, 30 días que terminan en el último día con datos (/api/indice/pares; mismos números que indice_30d de la vitrina)
+async function ixPares() {
+  const tok = ++IX.tok, out = $("#ix-pares");
+  out.innerHTML = `<p class="mut">Cargando el índice por producto…</p>`;
+  let v;
+  try { v = await apiP("indice/pares"); } catch (e) { if (tok === IX.tok) out.innerHTML = `<div class="explica">No se pudo cargar el índice por producto (${esc(e.message)}).</div>`; return; }
+  if (tok !== IX.tok) return;
+  const con = v.productos.filter(p => p.indice !== null), sin = v.productos.filter(p => p.indice === null);
+  if (!v.hasta) return out.innerHTML = `<div class="explica">Todavía no hay precios con producto asignado para calcular el índice.</div>`;
+  const gi = p => IX_GRUPOS.findIndex(([n]) => n === grupoIx(p.segmento));
+  const orden = (a, b) => gi(a) - gi(b) || (SEGMENTO[a.segmento] || a.segmento).localeCompare(SEGMENTO[b.segmento] || b.segmento) || a.sae.localeCompare(b.sae, "es", { numeric: true }) || a.nombre.localeCompare(b.nombre, "es", { numeric: true });
+  const lado = (p, k) => p["mediana_" + k + "_litro"] === null ? `<span class="vacio">–</span>` : `${mon.format(p["mediana_" + k + "_litro"])}${usdDe(p, "mediana_" + k + "_litro")}<span class="ix-d">${p["n_" + k]} ${p["n_" + k] === 1 ? "aviso" : "avisos"}</span>`;
+  const fila = p => {
+    const link = `<a href="#producto/${encodeURIComponent(p.producto_id)}">${esc(p.nombre)}</a><span class="ix-sub mut">${esc(SEGMENTO[p.segmento] || p.segmento)}${p.sae ? " · " + esc(p.sae) : ""}</span>`;
+    if (p.indice === null) return `<tr><th scope="row">${link}</th><td class="ix-sd" colspan="3" title="${esc(p.motivo)}"><span aria-hidden="true">–</span> Sin índice: ${esc(p.motivo)}.</td><td class="n">${lado(p, "ypf")}</td><td class="n">${lado(p, "comp")}</td></tr>`;
+    const d = p.indice - 100, t = Math.min(Math.abs(d) / 30, 1), tono = Math.abs(d) < .05 ? "" : d > 0 ? "ix-caro" : "ix-barato";   // más de 100 = YPF más caro (rojo)
+    const txt = tono ? `YPF ${dec1.format(Math.abs(d))} % ${d > 0 ? "más caro" : "más barato"}` : "igual que la competencia";
+    return `<tr><th scope="row">${link}</th><td class="ix-c ${tono}" style="--h:${Math.round(t * 34)}%;cursor:default" colspan="3"><b class="ix-v">${dec1.format(p.indice)}</b><span class="ix-d">${esc(txt)}</span></td><td class="n">${lado(p, "ypf")}</td><td class="n">${lado(p, "comp")}</td></tr>`;
+  };
+  const mostrar = SD.on ? con.sort(orden) : [...con.sort(orden), ...sin.sort(orden)];
+  out.innerHTML = `<div class="ix-ley"><b>Competencia = 100. Más de 100 = YPF más caro que su competencia equivalente; menos de 100 = YPF más barato.</b>
+      <span class="ix-escala" aria-hidden="true"><span>YPF más barato (70)</span><i></i><span>YPF más caro (130)</span></span>
+      <span><span class="ix-sdsw" aria-hidden="true">–</span>sin índice, con su motivo</span></div>
+    <p class="nota ix-pista">Una fila por producto YPF: mediana de $/L de YPF dividida por la de sus equivalentes de la competencia, × 100, sobre los avisos de los 30 días del ${fechaAR(v.desde)} al ${fechaAR(v.hasta)}. Para ver cada marca contra YPF = 100, usá «Por segmento y marca».</p>
+    ${avisoSD([[sin.length, "producto", "productos", "m"]])}<div class="tabla"><table class="ix-t"><thead><tr><th scope="col">Producto YPF</th><th scope="col" colspan="3">Índice vs competencia</th><th scope="col">YPF $/L (mediana)</th><th scope="col">Competencia $/L (mediana)</th></tr></thead>
+    <tbody>${mostrar.map(fila).join("")}</tbody></table></div>
+    <p class="nota">Datos al ${fechaAR(v.hasta)} (ventana de ${v.dias} días; no es tiempo real). Sin mayoristas, sin Grok sin verificar y sin envases de menos de 0,5 L por unidad (sachets), que no son comparables por litro con un bidón.</p>`;
 }
 function ix3dMsg(t) { $("#ix-3d-lienzo").innerHTML = `<div class="explica">${esc(t)}</div>`; $("#ix-pan").innerHTML = ""; }
 function ix3dVolver(t) { IX.modo = "tabla"; ixModo(); $("#ind-out").insertAdjacentHTML("afterbegin", `<div class="explica" role="status">${esc(t)} Se muestra la tabla.</div>`); }   // la preferencia guardada no cambia: el fallo es de este navegador
@@ -1326,6 +1369,8 @@ async function ix3d() {
   const fm = P.usd ? dolares.format : mon.format, campo = P.usd ? "mediana_litro_usd" : "mediana_litro";
   const item = (mk, g) => {
     const c = mapa[mk + "|" + g], [seg, sae] = g.split("|"), tit = `${mk} · ${SEGMENTO[seg] || seg}${sae ? " · " + sae : ""}`;
+    const chico = (v.sin_dato || []).find(x => x.marca + "|" + x.segmento + "|" + x.sae === mk + "|" + g);
+    if (!c && chico) return { altura: null, indice: null, tip: [tit], sd: `Sin dato: ${mk} solo tiene ${chico.n_chicos === 1 ? "1 aviso" : chico.n_chicos + " avisos"} de envases de menos de 0,5 L entre el ${fechaAR(v.desde)} y el ${fechaAR(v.hasta)} (no entran al índice).` };
     if (!c) return { altura: null, indice: null, tip: [tit], sd: delPais.some(p => p.marca === mk && p.segmento + "|" + p.sae === g)
       ? `Sin dato: ninguna fuente publicó precio de ${mk} en este segmento y SAE entre el ${fechaAR(v.desde)} y el ${fechaAR(v.hasta)}.` : `Sin dato: ${mk} no tiene un producto de este segmento y SAE en el catálogo.` };
     const alt = c[campo], ok = typeof alt === "number";
@@ -1576,9 +1621,9 @@ function bloqueComp(p) {
   </div>`;
 }
 
-// Índice según la competencia (30 días, competencia = 100): no es el de la pestaña Índice, donde YPF = 100
+// Índice según la competencia (30 días, competencia = 100): es el mismo número de la pestaña Índice, vista «Por producto»
 function bloqueIndice(p) {
-  const x = p.indice_30d, tit = `title="Mediana $/L de YPF sobre la mediana $/L de la competencia equivalente, últimos 30 días, competencia = 100. En la pestaña Índice la base es YPF = 100."`;
+  const x = p.indice_30d, tit = `title="Mediana $/L de YPF sobre la mediana $/L de la competencia equivalente, últimos 30 días, competencia = 100. Es el mismo número de la pestaña Índice, vista «Por producto»."`;
   const cab = `<h4 ${tit}>Índice vs competencia (30 días) <span class="mut">· competencia = 100</span></h4>`;
   if (!x || typeof x.indice !== "number")
     return `<div class="vt-indice">${cab}<p class="vt-vacio">${!x?.n_ypf ? "Sin precio YPF en los últimos 30 días." : "Sin competencia equivalente con precio en los últimos 30 días."}</p></div>`;
