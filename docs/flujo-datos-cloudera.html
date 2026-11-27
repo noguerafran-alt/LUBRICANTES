@@ -107,12 +107,12 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
 <header>
   <span class="eyebrow">LUBRICANTES · YPF vs competencia · estado al 27/11/2026</span>
   <h1>De dónde sale cada dato y cómo llega a Cloudera</h1>
-  <p class="lead">Los precios salen de tiendas online, de Precios Claros (SEPA) y de Mercado Libre. Se guardan como CSV en el repo de GitHub, que es la única base de datos, y los sirve un celular en casa. Render queda de respaldo. Cloudera todavía no está conectado: abajo están los dos caminos para hacerlo.</p>
+  <p class="lead">Los precios salen de tiendas online, de Precios Claros (SEPA) y de Mercado Libre. Se guardan como CSV en el repo de GitHub, que es la única base de datos, y los sirve un celular en casa. Render queda de respaldo. A Cloudera entra como un archivo que se sube a mano: abajo está el camino.</p>
   <div class="estado">
     <span class="chip ok">Servidor principal: celu (Termux + túnel)</span>
     <span class="chip ok">Respaldo: Render</span>
     <span class="chip warn">Mercado Libre sin publicaciones desde el 23/11, cubre Grok</span>
-    <span class="chip warn">Cloudera: sin conectar</span>
+    <span class="chip warn">Cloudera: importador listo, sin probar en CML</span>
   </div>
 </header>
 
@@ -150,7 +150,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
       <div class="nodo"><b>Visor web</b><small>Visualizador, Mapa, Comparador, Evolución, Índice, Fuentes, Mercado.</small></div>
       <div class="nodo"><b>API abierta</b><small>Todo <code>GET /api/*</code> sin clave.</small></div>
       <div class="nodo"><b>Power BI · Copilot</b><small><code>/api/bi/paquete.zip</code> se baja y se sube a mano a SharePoint.</small></div>
-      <div class="nodo nuevo"><b>Cloudera (CML)</b><small>Pendiente. Ver «Cómo meterlo en Cloudera».</small></div>
+      <div class="nodo nuevo"><b>Cloudera (CML)</b><small>Se baja <code>paquete.zip</code> a mano, se sube al proyecto y un Job lo importa. Ver «Cómo meterlo en Cloudera».</small></div>
     </div>
   </div>
 </section>
@@ -197,19 +197,20 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
 <section id="cloudera">
   <span class="eyebrow">Cloudera</span>
   <h2>Cómo meterlo en Cloudera</h2>
-  <p>Hoy el paquete de Power BI se baja y se sube a mano a SharePoint, por ciberseguridad, y Cloudera quedó para después. El servidor ya tiene lo que Cloudera necesita: lectura abierta sin clave, ningún secreto en los GET y un zip con nombres fijos. Falta el lado de Cloudera.</p>
+  <p>CML no baja nada de internet: el dato entra como <b>un archivo</b>. Se baja <code>paquete.zip</code> a mano, se pasa a la PC del trabajo, se sube al proyecto de CML y un Job lo levanta. Es el mismo archivo que hoy va a SharePoint.</p>
 
   <div class="caminos">
     <div class="camino recomendado">
       <span class="tag rec">Recomendado · camino A</span>
-      <h3>Un Job de CML que baja el paquete todos los días</h3>
-      <p>Cloudera solo lee. La recolección queda afuera, igual que hoy.</p>
+      <h3>Un archivo que se sube y un Job que lo importa</h3>
       <ol>
-        <li>En el proyecto de CML, crear <code>bajar_lubricantes.py</code> con el script de abajo. Usa solo la stdlib y no lleva claves.</li>
-        <li>Crear un <b>Job</b> que lo corra a las <b>11:30 ART</b>, cuando ya pasaron el celu (06:00) y la Action (10:00).</li>
-        <li>El script revisa <code>/salud</code>, baja <code>/api/bi/paquete.zip</code> del celu (o de Render si el celu no responde) y deja los CSV en <code>lubricantes/actual/</code> y en una carpeta por fecha.</li>
-        <li>Opcional: con Spark, pasar los CSV a tablas de Impala o Hive (<code>lub_precios</code>, <code>lub_indice</code>…) para que Power BI lea de Cloudera en lugar de SharePoint.</li>
+        <li>Bajar el paquete: <code>https://lubricantes.fln-data-analysis.com/api/bi/paquete.zip</code> (celu). Si el celu no responde, <code>https://lubricantes-ypf.onrender.com/api/bi/paquete.zip</code> (Render, tarda en despertar): sirven el mismo repo.</li>
+        <li>Pasarlo a la PC del trabajo.</li>
+        <li>Subirlo a <code>lubricantes/entrada/</code> del proyecto de CML (el nombre da igual).</li>
+        <li>Un <b>Job</b> de CML corre <code>python tools/cml_paquete.py importar</code>. El usuario copia ese único archivo al proyecto: solo stdlib, sin red ni claves. Toma el <code>.zip</code> más nuevo de <code>entrada/</code>, valida que estén todas las tablas y que cada encabezado coincida con <code>diccionario.csv</code>, y deja los CSV sin BOM en <code>lubricantes/actual/</code> (más <code>estado.json</code>), una copia en <code>historico/&lt;último dato&gt;_&lt;commit&gt;/</code> y el zip en <code>procesados/</code>. Un zip roto, incompleto o más viejo que el de <code>actual/</code> se rechaza y <code>actual/</code> no se toca (<code>--forzar</code> para aceptar uno viejo).</li>
+        <li>Consumir: <code>python tools/cml_paquete.py resumen</code> (último dato, filas por tabla, índice por marca con YPF = 100 y productos YPF contra su competencia) o Spark / pandas sobre <code>actual/*.csv</code>.</li>
       </ol>
+      <p>Por qué zip de CSV y no JSON: Spark, pandas e Impala leen CSV directo y <code>diccionario.csv</code> ya describe cada columna.</p>
     </div>
     <div class="camino">
       <span class="tag desp">Después · camino B</span>
@@ -225,61 +226,25 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
 
   <div class="codigo">
     <button class="copiar" id="copiar-script" type="button">Copiar</button>
-<pre id="script"><code># bajar_lubricantes.py - Job diario de CML. Solo stdlib, sin claves (lectura abierta).
-import io, json, os, sys, urllib.request, zipfile
-from datetime import datetime, timezone
-
-SERVIDORES = ["https://lubricantes.fln-data-analysis.com",   # celu, principal
-              "https://lubricantes-ypf.onrender.com"]         # respaldo (tarda en despertar)
-DESTINO = os.environ.get("LUB_DESTINO", "/home/cdsw/lubricantes")
-
-def bajar(base, ruta, timeout):
-    req = urllib.request.Request(base + ruta, headers={"User-Agent": "cml-lubricantes/1"})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return r.read()
-
-def un_servidor():
-    """Salud y paquete del MISMO servidor, para no mezclar versiones."""
-    errores = []
-    for base in SERVIDORES:
-        try:
-            salud = json.loads(bajar(base, "/salud", 90))
-            if salud.get("ok"):
-                return base, salud, bajar(base, "/api/bi/paquete.zip", 300)
-            errores.append(f"{base}: /salud sin ok")
-        except Exception as e:
-            errores.append(f"{base}: {e!r}")
-    sys.exit("ningun servidor respondio:\n" + "\n".join(errores))
-
-base, salud, crudo = un_servidor()
-hoy = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-for carpeta in (os.path.join(DESTINO, hoy), os.path.join(DESTINO, "actual")):
-    os.makedirs(carpeta, exist_ok=True)
-    with zipfile.ZipFile(io.BytesIO(crudo)) as z:
-        for nombre in z.namelist():
-            datos = z.read(nombre)
-            if nombre.endswith(".csv"):  # sin BOM: Spark lo pegaria al nombre de la primera columna
-                datos = datos.decode("utf-8-sig").encode("utf-8")
-            with open(os.path.join(carpeta, nombre), "wb") as fh:
-                fh.write(datos)
-print(f"ok: {base} commit {salud['commit']} ultimo_dato {salud['ultimo_dato']} -> {DESTINO}")
-
-# Opcional, con Spark en el proyecto: una tabla por CSV. SIN PROBAR en CML: si los
-# ejecutores de Spark no ven /home/cdsw, subir antes los CSV a HDFS/S3 y leer de ahi.
-# from pyspark.sql import SparkSession
-# spark = SparkSession.builder.appName("lubricantes").getOrCreate()
-# for t in ["precios", "indice", "indice_competencia", "productos", "equivalencias", "fuentes", "provincias", "fx"]:
-#     (spark.read.option("header", True).option("inferSchema", True)
-#           .csv(f"file://{DESTINO}/actual/{t}.csv")
-#           .write.mode("overwrite").saveAsTable(f"lub_{t}"))</code></pre>
+<pre id="script"><code># Job de CML (script): python tools/cml_paquete.py importar
+# Variable opcional del proyecto: LUB_DESTINO (default /home/cdsw/lubricantes)
+# Spark (sin probar en CML; si los ejecutores no ven /home/cdsw, subir antes los CSV a HDFS/S3):
+from pyspark.sql import SparkSession
+spark = SparkSession.builder.appName("lubricantes").getOrCreate()
+for t in ["precios", "indice", "indice_competencia", "productos", "equivalencias", "fuentes", "provincias", "fx"]:
+    (spark.read.option("header", True).option("inferSchema", True)
+          .csv(f"file:///home/cdsw/lubricantes/actual/{t}.csv")
+          .write.mode("overwrite").saveAsTable(f"lub_{t}"))
+# pandas: pd.read_csv("/home/cdsw/lubricantes/actual/precios.csv")</code></pre>
   </div>
+  <p>Alternativa si algún día CML tiene salida a internet: un Job que baje el mismo <code>paquete.zip</code> a <code>entrada/</code> antes de importar (hay que verificar proxy y que el dominio fln abra desde la red de YPF; hoy no se probó).</p>
 
-  <h3>Antes de armarlo, verificar desde la red de YPF</h3>
+  <h3>Antes de armarlo, verificar</h3>
   <ul class="checklist">
-    <li>Que CML tenga salida a internet y llegue a <code>lubricantes.fln-data-analysis.com</code>: con <code>curl -s https://lubricantes.fln-data-analysis.com/salud</code> en una sesión de CML tiene que devolver <code>{"ok": true, …}</code>. Que el dominio fln abra desde YPF ya se vio con A4D en Oracle. Este host pasa por Cloudflare y no se probó.</li>
-    <li>Si el proxy de YPF exige configuración, definir <code>HTTPS_PROXY</code> en el proyecto. <code>urllib</code> lo toma solo.</li>
-    <li>Que ciberseguridad apruebe bajar datos de un dominio externo. Es lectura pública y sin credenciales; los datos no salen de YPF.</li>
+    <li>Que el proyecto de CML tenga Python 3 (alcanza el que trae) y que el Job pueda escribir en <code>/home/cdsw/lubricantes</code>.</li>
+    <li>Que ciberseguridad apruebe pasar el archivo: son datos públicos de precios, sin credenciales, y salen de un dominio propio.</li>
     <li>El paquete pesa ~1 MB comprimido (<code>precios.csv</code> ~8 MB, ~51 mil filas) y tarda ~1 s en armarse.</li>
+    <li>Nada de esto se probó dentro de CML real: el importador se probó en una PC con el paquete verdadero del celu y de Render.</li>
   </ul>
 
   <h3>Qué trae el paquete</h3>

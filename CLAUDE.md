@@ -55,6 +55,7 @@ seed/productos.csv     # catálogo normalizado YPF + competencia (a mano)
 seed/alias.csv         # EAN / regex de título → producto_id
 seed/equivalencias.csv # pares YPF ↔ competidor (a mano)
 tools/recolector_casa.py # recolector de casa (celular con Termux o PC con Windows): recolectar sin ml, sepa, series, fx y (si la SE publicó algo nuevo) energia en un clon dedicado; fila fuente=casa; pushea data/ a main
+tools/cml_paquete.py # Cloudera CML, sin red ni claves: `importar` valida y deja `/api/bi/paquete.zip` (subido a mano a `entrada/`) en `actual/` + `historico/`; `resumen` muestra último dato, filas e índice; `test`
 tools/sepa_pc.py   # envoltorio de una línea: la tarea LUBRICANTES-SEPA de Windows lo sigue llamando
 # (infra del celu: termux_setup.sh, docs del celu y el estado del equipo viven en el repo privado CELU-SERVIDOR desde 2026-11-22)
 tools/geo_provincias.py # regenera site/vendor/ar-provincias.js desde Natural Earth (solo a mano; ver Geometría)
