@@ -420,7 +420,7 @@ arrastre) / mediana YPF del mismo grupo × 100. Sin YPF en la ventana en ese gru
 obs del día exacto: SEPA (una fila por comercio × provincia) la dominaba y el índice saltaba cuando una fuente no corría un día.
 **Envases:** `tn_spch` (`tiendas.PRECIO_UNITARIO`) publica el precio de UNA unidad aunque el título diga «12x1L»/«4x4L»: `unidades=1`. `tiendas.envase` ignora «cajas» de más de 48
 envases (el código de línea «Quartz 7000 x 1 lts» no son 7000 cajas). `normalizar`: «8 Litros x 2 unidades» (un envase suelto de 5 a 20 L no existe) ya es el pack entero: `unidades=1`.
-El histórico mal leído se corrige con `python recolectar.py --renormalizar` (no se hizo; ver ESTADO.md).
+El histórico mal leído se corrige con `python recolectar.py --renormalizar` (corrido el 2026-11-27 sobre todo noviembre).
 
 ## Mercado — `macro.py`, `/api/mercado`, `/api/macro`
 
